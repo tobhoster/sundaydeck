@@ -1,0 +1,23 @@
+[package]
+name = "sundaydeck-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "sundaydeck"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+async-channel.workspace = true
+chrono.workspace = true
+gpui.workspace = true
+gpui_platform.workspace = true
+image.workspace = true
+sundaydeck-core.workspace = true
+sundaydeck-db.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+gpui_screenshot.workspace = true
