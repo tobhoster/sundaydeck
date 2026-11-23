@@ -8,9 +8,10 @@ use sundaydeck_db::{Database, DbWorker};
 use sundaydeck_planner::PlannerEngineKind;
 use sundaydeck_ui::design::{DeckAssetSource, register_fonts};
 use sundaydeck_ui::store::PresentationStore;
-use sundaydeck_ui::views::operator_workspace::{ActiveModal, LibraryTab};
+use sundaydeck_ui::views::operator_workspace::{ActiveModal, HeaderPopover, LibraryTab};
 use sundaydeck_ui::views::{AudienceOutputView, OperatorWorkspace};
 use sundaydeck_ui::windows::WindowManager;
+use sundaydeck_voice::VoiceSyncMode;
 
 fn load_seeded_bootstrap() -> sundaydeck_db::BootstrapData {
     let mut db = Database::open_in_memory().expect("in-memory sqlite");
@@ -201,12 +202,98 @@ fn render_unsplash_photo_motion_video_and_local_llm_presets() {
         .save(out_dir.join("21-pastor-plan-local-llm-presets.png"))
         .expect("save 21");
 
+    // 22. Phase 3 Voice Auto-Follow: live transcript, 82% voice-progress hairline, amber Verse 2 cue
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.close_modal(cx);
+                this.active_library_tab = LibraryTab::Themes;
+                this.toggle_popover(HeaderPopover::AutoFollow, cx);
+            });
+        }
+    })
+    .expect("open auto-follow popover");
+
+    app.update(|cx| {
+        let (grace_id, mountains_theme) = {
+            let s = store.read(cx);
+            let theme = s
+                .themes
+                .iter()
+                .find(|t| t.name == "Sanctuary Mountains")
+                .cloned()
+                .expect("Sanctuary Mountains");
+            (s.service.items[1].id, theme)
+        };
+        store.update(cx, |s, cx| {
+            s.activate_service_item(grace_id, cx);
+            s.dispatch(PresentationCommand::GoLive, cx)
+                .expect("go live grace");
+            s.dispatch(
+                PresentationCommand::ApplyLiveTheme(Arc::clone(&mountains_theme)),
+                cx,
+            )
+            .expect("apply mountains");
+            s.set_voice_preview_state(
+                VoiceSyncMode::Suggest,
+                0.82,
+                Some(1),
+                "I once was lost, but now am found; was blind, but now I see",
+                0.89,
+                cx,
+            );
+        });
+    });
+
+    app.capture(op_win)
+        .expect("capture 22 voice auto-follow live tracking")
+        .image
+        .save(out_dir.join("22-voice-auto-follow-live-tracking.png"))
+        .expect("save 22");
+
+    // 23. Unsplash Photo & Local Video Background Studio modal
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.close_popover(cx);
+                this.open_background_picker(cx);
+            });
+        }
+    })
+    .expect("open background picker modal");
+
+    app.capture(op_win)
+        .expect("capture 23 unsplash & video background studio")
+        .image
+        .save(out_dir.join("23-unsplash-and-video-background-studio.png"))
+        .expect("save 23");
+
+    // 24. Multi-Display Projector & Stage Screen Target Picker popover
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.close_modal(cx);
+                this.toggle_popover(HeaderPopover::Projector, cx);
+            });
+        }
+    })
+    .expect("open multi-display projector popover");
+
+    app.capture(op_win)
+        .expect("capture 24 multi-display projector popover")
+        .image
+        .save(out_dir.join("24-multi-display-projector-popover.png"))
+        .expect("save 24");
+
     for entry in [
         "17-audience-unsplash-mountains.png",
         "18-audience-motion-video-golden.png",
         "19-audience-still-waters-scripture.png",
         "20-operator-themes-photo-video.png",
         "21-pastor-plan-local-llm-presets.png",
+        "22-voice-auto-follow-live-tracking.png",
+        "23-unsplash-and-video-background-studio.png",
+        "24-multi-display-projector-popover.png",
     ] {
         let path = out_dir.join(entry);
         let meta = std::fs::metadata(&path).expect("screenshot exists");

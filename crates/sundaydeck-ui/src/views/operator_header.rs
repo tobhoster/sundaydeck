@@ -27,6 +27,15 @@ pub fn render_operator_header(
     let status_banner = store_ref.status_banner.clone();
     let motion_mode = store_ref.motion_mode;
     let voice_mode = store_ref.voice_sync_mode;
+    let voice_bars = if store_ref.voice_telemetry.meter_bars > 0 {
+        store_ref.voice_telemetry.meter_bars
+    } else {
+        match voice_mode {
+            VoiceSyncMode::Auto => 3,
+            VoiceSyncMode::Suggest => 2,
+            VoiceSyncMode::Off => 0,
+        }
+    };
     let clock_text = store_ref
         .fixed_clock_label
         .clone()
@@ -124,11 +133,7 @@ pub fn render_operator_header(
                 .child(render_auto_follow_pill(
                     "hdr-auto-follow",
                     voice_mode,
-                    match voice_mode {
-                        VoiceSyncMode::Auto => 3,
-                        VoiceSyncMode::Suggest => 2,
-                        VoiceSyncMode::Off => 0,
-                    },
+                    voice_bars,
                     motion_mode,
                 )),
         )

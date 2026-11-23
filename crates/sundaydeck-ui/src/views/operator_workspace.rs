@@ -20,6 +20,7 @@ use crate::design::motion::modal_enter;
 use crate::design::tokens::{FONT_BODY, TOKENS};
 use crate::store::PresentationStore;
 use crate::views::alerts_timers_modal::AlertsTimersModal;
+use crate::views::background_picker_modal::BackgroundPickerModal;
 use crate::views::bible_browser::BibleBrowserView;
 use crate::views::header_popovers::render_header_popover;
 use crate::views::library_preview_pane::render_library_preview_pane;
@@ -49,6 +50,7 @@ pub enum ActiveModal {
     QuickEdit(Entity<QuickEditModal>),
     AlertsTimers(Entity<AlertsTimersModal>),
     PlanImporter(Entity<PlanImportModal>),
+    BackgroundPicker(Entity<BackgroundPickerModal>),
 }
 
 /// Primary 3-Pane Operator Workspace composing Service Schedule (Left),
@@ -94,13 +96,14 @@ impl OperatorWorkspace {
         let bible_db = db.clone();
         let bible_browser = cx.new(|cx| BibleBrowserView::new(bible_store, bible_db, cx));
 
-        // Background heartbeat for live timers, expiring alerts, and looping motion-video frames.
+        // Background heartbeat for live timers, voice telemetry, expiring alerts, and motion video.
         let tick_store = store.downgrade();
         cx.spawn(async move |_, cx| {
             loop {
-                cx.background_executor().timer(Duration::from_millis(250)).await;
+                cx.background_executor().timer(Duration::from_millis(160)).await;
                 let keep_going = tick_store
                     .update(cx, |s, cx| {
+                        let _ = s.poll_voice_events(cx);
                         let snap = s.snapshot();
                         let now = s.now_epoch_ms();
                         let video_active = s.motion_mode != crate::design::motion::MotionMode::Instant
@@ -109,22 +112,11 @@ impl OperatorWorkspace {
                                 sundaydeck_core::AudienceRenderState::Slide { theme, .. }
                                     if matches!(theme.background, sundaydeck_core::BackgroundSpec::VideoLoop { .. })
                             );
-                        if snap
-                            .active_alert
-                            .as_ref()
-                            .is_some_and(|a| a.is_expired(now))
-                        {
-                            let _ = s.dispatch(
-                                PresentationCommand::ExpireAlertIfDue { now_ms: now },
-                                cx,
-                            );
+                        if snap.active_alert.as_ref().is_some_and(|a| a.is_expired(now)) {
+                            let _ = s.dispatch(PresentationCommand::ExpireAlertIfDue { now_ms: now }, cx);
                         } else if video_active
                             || snap.active_timer.as_ref().is_some_and(|t| t.running)
-                            || snap
-                                .active_alert
-                                .as_ref()
-                                .and_then(|a| a.expires_at_ms)
-                                .is_some()
+                            || snap.active_alert.as_ref().and_then(|a| a.expires_at_ms).is_some()
                         {
                             cx.notify();
                         }
@@ -229,6 +221,17 @@ impl OperatorWorkspace {
             this.close_modal(cx);
         }));
         self.active_modal = Some(ActiveModal::PlanImporter(modal));
+        cx.notify();
+    }
+
+    pub fn open_background_picker(&mut self, cx: &mut Context<Self>) {
+        let store = self.store.clone();
+        let db = self.db.clone();
+        let modal = cx.new(|cx| BackgroundPickerModal::new(store, db, cx));
+        self.modal_sub = Some(cx.subscribe(&modal, |this, _, _: &ModalClosed, cx| {
+            this.close_modal(cx);
+        }));
+        self.active_modal = Some(ActiveModal::BackgroundPicker(modal));
         cx.notify();
     }
 
@@ -377,75 +380,72 @@ impl Render for OperatorWorkspace {
             .font_family(FONT_BODY)
             .flex()
             .flex_col()
-            .on_action(cx.listener(|this, _: &GoLive, _, cx| {
-                this.dispatch_cmd(PresentationCommand::GoLive, cx);
+            .on_action(
+                cx.listener(|t, _: &GoLive, _, cx| t.dispatch_cmd(PresentationCommand::GoLive, cx)),
+            )
+            .on_action(cx.listener(|t, _: &NextLiveSlide, _, cx| {
+                t.dispatch_cmd(PresentationCommand::NextLiveSlide, cx)
             }))
-            .on_action(cx.listener(|this, _: &NextLiveSlide, _, cx| {
-                this.dispatch_cmd(PresentationCommand::NextLiveSlide, cx);
+            .on_action(cx.listener(|t, _: &PrevLiveSlide, _, cx| {
+                t.dispatch_cmd(PresentationCommand::PrevLiveSlide, cx)
             }))
-            .on_action(cx.listener(|this, _: &PrevLiveSlide, _, cx| {
-                this.dispatch_cmd(PresentationCommand::PrevLiveSlide, cx);
-            }))
-            .on_action(cx.listener(|this, _: &ToggleClearText, _, cx| {
-                this.dispatch_cmd(
+            .on_action(cx.listener(|t, _: &ToggleClearText, _, cx| {
+                t.dispatch_cmd(
                     PresentationCommand::ToggleOverride(OutputOverride::ClearText),
                     cx,
-                );
+                )
             }))
-            .on_action(cx.listener(|this, _: &ToggleBlack, _, cx| {
-                this.dispatch_cmd(
+            .on_action(cx.listener(|t, _: &ToggleBlack, _, cx| {
+                t.dispatch_cmd(
                     PresentationCommand::ToggleOverride(OutputOverride::Black),
                     cx,
-                );
+                )
             }))
-            .on_action(cx.listener(|this, _: &ToggleLogo, _, cx| {
-                this.dispatch_cmd(
+            .on_action(cx.listener(|t, _: &ToggleLogo, _, cx| {
+                t.dispatch_cmd(
                     PresentationCommand::ToggleOverride(OutputOverride::Logo),
                     cx,
-                );
+                )
             }))
-            .on_action(cx.listener(|this, _: &HardCutClearText, _, cx| {
-                this.dispatch_cmd_cut(
+            .on_action(cx.listener(|t, _: &HardCutClearText, _, cx| {
+                t.dispatch_cmd_cut(
                     PresentationCommand::ToggleOverride(OutputOverride::ClearText),
                     true,
                     cx,
-                );
+                )
             }))
-            .on_action(cx.listener(|this, _: &HardCutBlack, _, cx| {
-                this.dispatch_cmd_cut(
+            .on_action(cx.listener(|t, _: &HardCutBlack, _, cx| {
+                t.dispatch_cmd_cut(
                     PresentationCommand::ToggleOverride(OutputOverride::Black),
                     true,
                     cx,
-                );
+                )
             }))
-            .on_action(cx.listener(|this, _: &HardCutLogo, _, cx| {
-                this.dispatch_cmd_cut(
+            .on_action(cx.listener(|t, _: &HardCutLogo, _, cx| {
+                t.dispatch_cmd_cut(
                     PresentationCommand::ToggleOverride(OutputOverride::Logo),
                     true,
                     cx,
-                );
+                )
             }))
-            .on_action(cx.listener(|this, _: &ToggleQuickEdit, _, cx| {
-                this.open_quick_edit(cx);
+            .on_action(cx.listener(|t, _: &ToggleQuickEdit, _, cx| t.open_quick_edit(cx)))
+            .on_action(cx.listener(|t, _: &ToggleAudienceWindow, _, cx| {
+                let s = t.store.clone();
+                t.windows.update(cx, |wm, cx| wm.toggle_audience(s, cx));
             }))
-            .on_action(cx.listener(|this, _: &ToggleAudienceWindow, _, cx| {
-                let store = this.store.clone();
-                this.windows
-                    .update(cx, |wm, cx| wm.toggle_audience(store, cx));
+            .on_action(cx.listener(|t, _: &ToggleStageWindow, _, cx| {
+                let s = t.store.clone();
+                t.windows.update(cx, |wm, cx| wm.toggle_stage(s, cx));
             }))
-            .on_action(cx.listener(|this, _: &ToggleStageWindow, _, cx| {
-                let store = this.store.clone();
-                this.windows.update(cx, |wm, cx| wm.toggle_stage(store, cx));
+            .on_action(cx.listener(|t, _: &ToggleDirectClickLive, _, cx| {
+                let next = !t.store.read(cx).snapshot().direct_click_live;
+                t.dispatch_cmd(PresentationCommand::SetDirectClickLive(next), cx);
             }))
-            .on_action(cx.listener(|this, _: &ToggleDirectClickLive, _, cx| {
-                let next = !this.store.read(cx).snapshot().direct_click_live;
-                this.dispatch_cmd(PresentationCommand::SetDirectClickLive(next), cx);
+            .on_action(cx.listener(|t, _: &ClearStageMessage, _, cx| {
+                t.dispatch_cmd(PresentationCommand::SetStageMessage(None), cx)
             }))
-            .on_action(cx.listener(|this, _: &ClearStageMessage, _, cx| {
-                this.dispatch_cmd(PresentationCommand::SetStageMessage(None), cx);
-            }))
-            .on_action(cx.listener(|this, _: &QuitApp, _, cx| {
-                this.windows.update(cx, |wm, cx| wm.close_all_outputs(cx));
+            .on_action(cx.listener(|t, _: &QuitApp, _, cx| {
+                t.windows.update(cx, |wm, cx| wm.close_all_outputs(cx));
                 cx.quit();
             }))
             .child(header)
@@ -471,15 +471,12 @@ impl Render for OperatorWorkspace {
         }
 
         if let Some(modal) = &self.active_modal {
-            let (modal_id, content): (&'static str, AnyElement) = match modal {
+            let (id, el): (&'static str, AnyElement) = match modal {
                 ActiveModal::SongEditor(m) => ("modal-song-editor", m.clone().into_any_element()),
                 ActiveModal::QuickEdit(m) => ("modal-quick-edit", m.clone().into_any_element()),
-                ActiveModal::AlertsTimers(m) => {
-                    ("modal-alerts-timers", m.clone().into_any_element())
-                }
-                ActiveModal::PlanImporter(m) => {
-                    ("modal-plan-importer", m.clone().into_any_element())
-                }
+                ActiveModal::AlertsTimers(m) => ("modal-alerts", m.clone().into_any_element()),
+                ActiveModal::PlanImporter(m) => ("modal-plan", m.clone().into_any_element()),
+                ActiveModal::BackgroundPicker(m) => ("modal-bg", m.clone().into_any_element()),
             };
             root = root.child(
                 div()
@@ -489,7 +486,7 @@ impl Render for OperatorWorkspace {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(modal_enter(modal_id, content, motion_mode)),
+                    .child(modal_enter(id, el, motion_mode)),
             );
         }
 

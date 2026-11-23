@@ -126,6 +126,14 @@ pub fn render_library_section(
                     |t, cx| t.open_song_editor(None, EditorTab::Import, cx),
                 ))
                 .child(drawer_btn(
+                    "btn-add-background",
+                    DeckIcon::Image,
+                    "Add Media",
+                    rgb(0x6B9BF2),
+                    cx,
+                    |t, cx| t.open_background_picker(cx),
+                ))
+                .child(drawer_btn(
                     "btn-import-plan-drawer",
                     DeckIcon::Stack,
                     "Import Plan",

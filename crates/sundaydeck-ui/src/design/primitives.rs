@@ -11,34 +11,7 @@ use crate::design::tokens::{
     section_friendly_label,
 };
 
-/// Plain-English Auto-Follow operating mode surfaced in the Top Bar popover and Design Gallery.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum VoiceSyncMode {
-    #[default]
-    Off,
-    Suggest,
-    Auto,
-}
-
-impl VoiceSyncMode {
-    pub const ALL: [Self; 3] = [Self::Off, Self::Suggest, Self::Auto];
-
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::Off => "Off",
-            Self::Suggest => "Suggest next slide",
-            Self::Auto => "Advance automatically",
-        }
-    }
-
-    pub const fn pill_label(self) -> &'static str {
-        match self {
-            Self::Off => "Auto-Follow",
-            Self::Suggest => "Auto-Follow: Suggest",
-            Self::Auto => "Auto-Follow: On",
-        }
-    }
-}
+pub use sundaydeck_voice::VoiceSyncMode;
 
 fn dot_6px(color: Rgba) -> Div {
     div()

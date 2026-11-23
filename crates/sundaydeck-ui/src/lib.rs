@@ -7,5 +7,6 @@ pub mod palette;
 pub mod renderer;
 pub mod store;
 pub mod store_plan;
+pub mod store_voice;
 pub mod views;
 pub mod windows;

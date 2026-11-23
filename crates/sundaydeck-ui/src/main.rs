@@ -8,6 +8,7 @@ use sundaydeck_ui::design::{DeckAssetSource, DesignGalleryView, register_fonts};
 use sundaydeck_ui::store::{AppServices, PresentationStore};
 use sundaydeck_ui::views::OperatorWorkspace;
 use sundaydeck_ui::windows::WindowManager;
+use sundaydeck_voice::{VoiceCommand, VoiceConfig, VoiceEngineHandle};
 
 fn main() -> anyhow::Result<()> {
     let ui_gallery = std::env::args().any(|arg| arg == "--ui-gallery");
@@ -27,7 +28,13 @@ fn main() -> anyhow::Result<()> {
             }
             register_keybindings(cx);
 
-            let store = cx.new(|_| PresentationStore::from_bootstrap(bootstrap));
+            let voice_handle = VoiceEngineHandle::spawn(VoiceConfig::default());
+            let voice_for_close = voice_handle.clone();
+            let store = cx.new(|_| {
+                let mut s = PresentationStore::from_bootstrap(bootstrap);
+                s.attach_voice_engine(voice_handle);
+                s
+            });
             let windows = cx.new(|_| WindowManager::new());
 
             cx.set_global(AppServices {
@@ -49,6 +56,7 @@ fn main() -> anyhow::Result<()> {
             let windows_on_close = windows.clone();
             if let Err(err) = cx.open_window(options, |window, cx| {
                 window.on_window_should_close(cx, move |_, cx| {
+                    voice_for_close.send(VoiceCommand::Shutdown);
                     windows_on_close.update(cx, |wm, cx| wm.close_all_outputs(cx));
                     cx.quit();
                     true

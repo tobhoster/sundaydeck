@@ -6,10 +6,32 @@ use gpui::{
 use crate::store::PresentationStore;
 use crate::views::{AudienceOutputView, StageMonitorView};
 
-/// Tracks live Audience and Stage output windows and manages multi-display targeting.
+/// Explicit display targeting preference for Audience Projector or Stage Confidence Monitor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DisplayTarget {
+    /// Automatically pick external display #2 (Audience) / #3 (Stage), falling back to a 16:9 rehearsal window.
+    #[default]
+    Auto,
+    /// Target a specific connected OS display index in borderless fullscreen.
+    Display(usize),
+    /// Always open as a resizable 16:9 rehearsal window (ideal for single-screen testing).
+    Windowed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConnectedDisplayInfo {
+    pub index: usize,
+    pub label: String,
+    pub resolution: String,
+}
+
+/// Tracks live Audience and Stage output windows and manages multi-display targeting across
+/// macOS, Linux, and Windows external monitors, projectors, and AirPlay displays.
 pub struct WindowManager {
     audience: Option<OutputSlot<AudienceOutputView>>,
     stage: Option<OutputSlot<StageMonitorView>>,
+    pub audience_target: DisplayTarget,
+    pub stage_target: DisplayTarget,
     pub last_notice: Option<String>,
 }
 
@@ -29,6 +51,8 @@ impl WindowManager {
         Self {
             audience: None,
             stage: None,
+            audience_target: DisplayTarget::Auto,
+            stage_target: DisplayTarget::Auto,
             last_notice: None,
         }
     }
@@ -55,8 +79,56 @@ impl WindowManager {
         cx.displays().len()
     }
 
-    /// Toggles the Audience Projector window. Targets external display #2 in borderless
-    /// fullscreen when connected, or opens a 16:9 rehearsal window on single-display laptops.
+    /// Enumerates every connected physical display with index and pixel resolution.
+    pub fn connected_displays(cx: &App) -> Vec<ConnectedDisplayInfo> {
+        cx.displays()
+            .iter()
+            .enumerate()
+            .map(|(index, d)| {
+                let bounds = d.bounds();
+                let w = f32::from(bounds.size.width).round() as i32;
+                let h = f32::from(bounds.size.height).round() as i32;
+                let role = if index == 0 { "Primary" } else { "External" };
+                ConnectedDisplayInfo {
+                    index,
+                    label: format!("Display {} ({role})", index + 1),
+                    resolution: format!("{w} × {h}"),
+                }
+            })
+            .collect()
+    }
+
+    pub fn set_audience_target(
+        &mut self,
+        target: DisplayTarget,
+        store: Entity<PresentationStore>,
+        cx: &mut Context<Self>,
+    ) {
+        self.audience_target = target;
+        if self.is_audience_open() {
+            self.toggle_audience(store.clone(), cx);
+            self.toggle_audience(store, cx);
+        } else {
+            cx.notify();
+        }
+    }
+
+    pub fn set_stage_target(
+        &mut self,
+        target: DisplayTarget,
+        store: Entity<PresentationStore>,
+        cx: &mut Context<Self>,
+    ) {
+        self.stage_target = target;
+        if self.is_stage_open() {
+            self.toggle_stage(store.clone(), cx);
+            self.toggle_stage(store, cx);
+        } else {
+            cx.notify();
+        }
+    }
+
+    /// Toggles the Audience Projector window on the selected display target.
     pub fn toggle_audience(&mut self, store: Entity<PresentationStore>, cx: &mut Context<Self>) {
         if let Some(slot) = self.audience.take() {
             let _ = slot
@@ -69,6 +141,7 @@ impl WindowManager {
 
         let (options, label, fullscreen) = build_output_window_options(
             "SundayDeck — Audience Output",
+            self.audience_target,
             1,
             point(px(120.0), px(90.0)),
             cx,
@@ -106,7 +179,7 @@ impl WindowManager {
         cx.notify();
     }
 
-    /// Toggles the Stage / Confidence Monitor window (external display #3 when available).
+    /// Toggles the Stage / Confidence Monitor window on the selected display target.
     pub fn toggle_stage(&mut self, store: Entity<PresentationStore>, cx: &mut Context<Self>) {
         if let Some(slot) = self.stage.take() {
             let _ = slot
@@ -119,6 +192,7 @@ impl WindowManager {
 
         let (options, label, fullscreen) = build_output_window_options(
             "SundayDeck — Stage Monitor",
+            self.stage_target,
             2,
             point(px(180.0), px(140.0)),
             cx,
@@ -175,15 +249,24 @@ impl WindowManager {
 
 fn build_output_window_options(
     title: &str,
-    preferred_display_index: usize,
+    target: DisplayTarget,
+    auto_display_index: usize,
     fallback_origin: gpui::Point<gpui::Pixels>,
     cx: &App,
 ) -> (WindowOptions, String, bool) {
     let displays = cx.displays();
-    if let Some(target) = displays.get(preferred_display_index) {
-        let display_id: DisplayId = target.id();
-        let bounds = target.bounds();
-        let label = format!("Display {}", preferred_display_index + 1);
+    let chosen_index = match target {
+        DisplayTarget::Windowed => None,
+        DisplayTarget::Display(idx) => displays.get(idx).map(|_| idx),
+        DisplayTarget::Auto => displays.get(auto_display_index).map(|_| auto_display_index),
+    };
+
+    if let Some(idx) = chosen_index
+        && let Some(disp) = displays.get(idx)
+    {
+        let display_id: DisplayId = disp.id();
+        let bounds = disp.bounds();
+        let label = format!("Display {}", idx + 1);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Fullscreen(bounds)),
             titlebar: None,

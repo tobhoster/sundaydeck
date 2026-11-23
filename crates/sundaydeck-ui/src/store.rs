@@ -3,12 +3,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use gpui::{Context, Entity, EventEmitter, Global};
 use sundaydeck_core::{
-    BibleTranslation, BibleVerse, DeckCursor, PaginationBudget, PresentationCommand,
-    PresentationEngine, PresentationError, PresentationSnapshot, ReflowMode, ServiceId,
-    ServiceItem, ServiceItemId, ServiceItemPayload, ServiceSchedule, SlideId, Song, SongId, Theme,
-    ThemeId, ThemeTarget, paginate_scripture, reflow_song,
+    BibleTranslation, BibleVerse, DeckCursor, PresentationCommand, PresentationEngine,
+    PresentationError, PresentationSnapshot, ReflowMode, ServiceId, ServiceItem, ServiceItemId,
+    ServiceItemPayload, ServiceSchedule, SlideId, Song, SongId, Theme, ThemeId, ThemeTarget,
+    reflow_song,
 };
 use sundaydeck_db::{AppSettings, BootstrapData, DbWorker};
+use sundaydeck_voice::{AudioInputDevice, VoiceEngineHandle, VoiceTelemetry};
 
 use crate::deck_builder::build_deck_for_service_item;
 use crate::design::motion::MotionMode;
@@ -58,6 +59,9 @@ pub struct PresentationStore {
     pub fixed_clock_label: Option<String>,
     pub motion_mode: MotionMode,
     pub voice_sync_mode: VoiceSyncMode,
+    pub voice_telemetry: VoiceTelemetry,
+    pub voice_devices: Vec<AudioInputDevice>,
+    pub(crate) voice_engine: Option<VoiceEngineHandle>,
 }
 
 impl EventEmitter<StoreEvent> for PresentationStore {}
@@ -109,6 +113,9 @@ impl PresentationStore {
             fixed_clock_label: None,
             motion_mode: MotionMode::Full,
             voice_sync_mode: VoiceSyncMode::Off,
+            voice_telemetry: VoiceTelemetry::default(),
+            voice_devices: Vec::new(),
+            voice_engine: None,
         };
 
         if let Some(first_item) = store.service.items.first().cloned() {
@@ -169,6 +176,15 @@ impl PresentationStore {
     ) -> Result<(), PresentationError> {
         let transition = self.engine.dispatch(command)?;
         self.status_banner = None;
+        if matches!(
+            transition.kind,
+            sundaydeck_core::TransitionKind::LiveCrossfade
+                | sundaydeck_core::TransitionKind::OverrideChanged
+        ) {
+            self.voice_telemetry.suggested_slide_index = None;
+            self.voice_telemetry.active_slide_progress = 0.0;
+            self.sync_voice_engine_state();
+        }
         cx.emit(StoreEvent {
             kind: transition.kind,
             version: transition.snapshot.version,
@@ -349,66 +365,6 @@ impl PresentationStore {
             }
             Err(err) => self.set_status(err.to_string(), cx),
         }
-    }
-
-    /// Paginates selected Bible verses into Preview (and optionally appends to Service Schedule).
-    pub fn stage_scripture_verses(
-        &mut self,
-        verses: &[BibleVerse],
-        add_to_schedule: bool,
-        cx: &mut Context<Self>,
-    ) -> Option<ServiceSchedule> {
-        let first = verses.first()?;
-        let last = verses.last()?;
-        let ref_label = if first.book_number == last.book_number && first.chapter == last.chapter {
-            if first.verse == last.verse {
-                format!("{} {}:{}", first.book_name, first.chapter, first.verse)
-            } else {
-                format!(
-                    "{} {}:{}-{}",
-                    first.book_name, first.chapter, first.verse, last.verse
-                )
-            }
-        } else {
-            format!("{} {}:{}", first.book_name, first.chapter, first.verse)
-        };
-        let title = format!("{ref_label} ({})", first.translation_code);
-        let slides = paginate_scripture(verses, PaginationBudget::default());
-        let theme = self
-            .default_theme_for(ThemeTarget::Scripture)
-            .unwrap_or_else(|| self.active_theme());
-
-        let mut updated_schedule = None;
-        let item_id = if add_to_schedule {
-            let new_id = ServiceItemId::new_v7();
-            self.service.items.push(ServiceItem {
-                id: new_id,
-                title: title.clone(),
-                theme_override_id: Some(theme.id),
-                payload: ServiceItemPayload::Scripture {
-                    translation_code: first.translation_code.clone(),
-                    reference: ref_label,
-                    cached_verses: verses
-                        .iter()
-                        .map(|v| (v.verse.to_string(), v.text.clone()))
-                        .collect(),
-                },
-            });
-            updated_schedule = Some(self.service.clone());
-            Some(new_id)
-        } else {
-            None
-        };
-
-        if let Ok(deck) = DeckCursor::try_new(item_id, title, slides, theme) {
-            let cmd = if self.snapshot().direct_click_live {
-                PresentationCommand::GoLiveDirect(deck)
-            } else {
-                PresentationCommand::StagePreview(deck)
-            };
-            let _ = self.dispatch(cmd, cx);
-        }
-        updated_schedule
     }
 
     pub fn set_preview_reflow_mode(&mut self, mode: ReflowMode, cx: &mut Context<Self>) {

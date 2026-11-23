@@ -6,7 +6,9 @@ use sundaydeck_core::{OutputOverride, PresentationCommand, SlideContent};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::motion::tally_pulse_dot;
-use crate::design::primitives::{live_meta_indicator, section_meta_label};
+use crate::design::primitives::{
+    VoiceSyncMode, live_meta_indicator, next_up_caption, section_meta_label,
+};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, LIVE_DECK_WIDTH, MONITOR_HEIGHT_PX, MONITOR_WIDTH_PX,
     PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
@@ -24,6 +26,8 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
     let snapshot = store_ref.snapshot();
     let now_ms = store_ref.now_epoch_ms();
     let motion_mode = store_ref.motion_mode;
+    let voice_mode = store_ref.voice_sync_mode;
+    let voice_telemetry = store_ref.voice_telemetry.clone();
     let live = snapshot.live.clone();
     let active_override = snapshot.output_override;
     let stage_note = snapshot.stage.stage_message.clone();
@@ -114,6 +118,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
 
     for (idx, slide) in live_slides.iter().enumerate() {
         let is_current = idx == active_idx;
+        let is_suggested = !is_current && voice_telemetry.suggested_slide_index == Some(idx);
         let sec_kind = match &slide.content {
             SlideContent::Text { section_kind, .. } => *section_kind,
             _ => None,
@@ -132,15 +137,17 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             .rounded(px(RADIUS_TILE))
             .overflow_hidden()
             .cursor_pointer()
-            .bg(if is_current {
+            .bg(if is_current || is_suggested {
                 TOKENS.elevated
             } else {
                 TOKENS.slide_card
             })
             .hover(|s| s.bg(TOKENS.elevated_hover))
-            .border(px(if is_current { 1.5 } else { 1.0 }))
+            .border(px(if is_current || is_suggested { 1.5 } else { 1.0 }))
             .border_color(if is_current {
                 TOKENS.signal_live
+            } else if is_suggested {
+                TOKENS.signal_preview
             } else {
                 TOKENS.gridline
             })
@@ -170,6 +177,8 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                             .child(section_meta_label(&slide.label, sec_kind))
                             .child(if is_current {
                                 live_meta_indicator()
+                            } else if is_suggested {
+                                next_up_caption()
                             } else {
                                 div()
                                     .font_family(FONT_BODY)
@@ -183,7 +192,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                             .w_full()
                             .min_w_0()
                             .font_family(FONT_BODY)
-                            .text_color(if is_current {
+                            .text_color(if is_current || is_suggested {
                                 TOKENS.ink_primary
                             } else {
                                 TOKENS.ink_secondary
@@ -195,7 +204,23 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             );
 
         if is_current {
-            card = card.child(div().w_full().h(px(2.0)).bg(rgba(0xF5F3_EF8C)));
+            let progress_pct = if voice_mode != VoiceSyncMode::Off
+                && voice_telemetry.active_slide_progress > 0.02
+            {
+                voice_telemetry.active_slide_progress.clamp(0.05, 1.0)
+            } else {
+                1.0
+            };
+            let fill_px = (336.0 * progress_pct).round();
+            card = card.child(
+                div()
+                    .w_full()
+                    .h(px(2.0))
+                    .bg(rgba(0x0000_0040))
+                    .child(div().w(px(fill_px)).h_full().bg(rgba(0xF5F3_EF8C))),
+            );
+        } else if is_suggested {
+            card = card.child(div().w_full().h(px(2.0)).bg(TOKENS.signal_preview));
         }
 
         live_list = live_list.child(card);
@@ -345,17 +370,74 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                         ),
                 ),
         )
-        .child(
-            div()
+        .child({
+            let mut deck_top = div()
                 .p(px(14.0))
                 .border_b_1()
                 .border_color(TOKENS.hairline)
                 .flex()
                 .flex_col()
-                .gap(px(12.0))
+                .gap(px(10.0))
                 .child(monitor)
-                .child(render_override_buttons(active_override, has_live, cx)),
-        )
+                .child(render_override_buttons(active_override, has_live, cx));
+
+            if voice_mode != VoiceSyncMode::Off && !voice_telemetry.last_transcript.is_empty() {
+                let dot_col = if voice_mode == VoiceSyncMode::Auto {
+                    TOKENS.signal_voice
+                } else {
+                    TOKENS.signal_preview
+                };
+                deck_top = deck_top.child(
+                    div()
+                        .w_full()
+                        .px(px(10.0))
+                        .py(px(6.5))
+                        .rounded(px(RADIUS_CONTROL))
+                        .bg(TOKENS.recessed)
+                        .border_1()
+                        .border_color(TOKENS.hairline)
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .overflow_hidden()
+                                .whitespace_nowrap()
+                                .flex()
+                                .items_center()
+                                .gap(px(6.0))
+                                .child(
+                                    div()
+                                        .w(px(6.0))
+                                        .h(px(6.0))
+                                        .flex_shrink_0()
+                                        .rounded(px(RADIUS_PILL))
+                                        .bg(dot_col),
+                                )
+                                .child(
+                                    div()
+                                        .font_family(FONT_BODY)
+                                        .text_color(TOKENS.ink_secondary)
+                                        .text_size(px(11.0))
+                                        .child(format!("\"{}\"", voice_telemetry.last_transcript)),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .flex_shrink_0()
+                                .font_family(FONT_BODY)
+                                .text_color(TOKENS.ink_muted)
+                                .text_size(px(10.5))
+                                .font_weight(FontWeight::MEDIUM)
+                                .child(format!("{:.0}%", voice_telemetry.confidence * 100.0)),
+                        ),
+                );
+            }
+            deck_top
+        })
         .child(live_list)
         .child(render_stage_cue_strip(stage_note.as_deref(), cx))
 }

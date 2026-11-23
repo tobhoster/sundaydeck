@@ -1,8 +1,11 @@
 pub mod alerts_timers_modal;
 pub mod alerts_timers_ui;
 pub mod audience_window;
+pub mod background_picker_modal;
+pub mod background_picker_ui;
 pub mod bible_browser;
 pub mod bible_browser_ui;
+pub mod display_popover;
 pub mod header_popovers;
 pub mod library_browser;
 pub mod library_preview_pane;

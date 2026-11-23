@@ -23,7 +23,9 @@ rust-embed.workspace = true
 sundaydeck-core.workspace = true
 sundaydeck-db.workspace = true
 sundaydeck-planner.workspace = true
+sundaydeck-voice.workspace = true
 tracing.workspace = true
+ureq.workspace = true
 
 [dev-dependencies]
 gpui_screenshot.workspace = true

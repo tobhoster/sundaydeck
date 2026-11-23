@@ -1,13 +1,75 @@
 use gpui::Context;
 use sundaydeck_core::bible_defaults::starter_bibles;
 use sundaydeck_core::{
-    BibleVerse, GeneratedServicePlan, PlanApplyMode, ScriptureRef, ServiceSchedule, book_by_number,
-    build_service_plan, extract_plain_outline,
+    BibleVerse, DeckCursor, GeneratedServicePlan, PaginationBudget, PlanApplyMode,
+    PresentationCommand, ScriptureRef, ServiceItem, ServiceItemId, ServiceItemPayload,
+    ServiceSchedule, ThemeTarget, book_by_number, build_service_plan, extract_plain_outline,
+    paginate_scripture,
 };
 
 use crate::store::PresentationStore;
 
 impl PresentationStore {
+    /// Paginates selected Bible verses into Preview (and optionally appends to Service Schedule).
+    pub fn stage_scripture_verses(
+        &mut self,
+        verses: &[BibleVerse],
+        add_to_schedule: bool,
+        cx: &mut Context<Self>,
+    ) -> Option<ServiceSchedule> {
+        let first = verses.first()?;
+        let last = verses.last()?;
+        let ref_label = if first.book_number == last.book_number && first.chapter == last.chapter {
+            if first.verse == last.verse {
+                format!("{} {}:{}", first.book_name, first.chapter, first.verse)
+            } else {
+                format!(
+                    "{} {}:{}-{}",
+                    first.book_name, first.chapter, first.verse, last.verse
+                )
+            }
+        } else {
+            format!("{} {}:{}", first.book_name, first.chapter, first.verse)
+        };
+        let title = format!("{ref_label} ({})", first.translation_code);
+        let slides = paginate_scripture(verses, PaginationBudget::default());
+        let theme = self
+            .default_theme_for(ThemeTarget::Scripture)
+            .unwrap_or_else(|| self.active_theme());
+
+        let mut updated_schedule = None;
+        let item_id = if add_to_schedule {
+            let new_id = ServiceItemId::new_v7();
+            self.service.items.push(ServiceItem {
+                id: new_id,
+                title: title.clone(),
+                theme_override_id: Some(theme.id),
+                payload: ServiceItemPayload::Scripture {
+                    translation_code: first.translation_code.clone(),
+                    reference: ref_label,
+                    cached_verses: verses
+                        .iter()
+                        .map(|v| (v.verse.to_string(), v.text.clone()))
+                        .collect(),
+                },
+            });
+            updated_schedule = Some(self.service.clone());
+            Some(new_id)
+        } else {
+            None
+        };
+
+        if let Ok(deck) = DeckCursor::try_new(item_id, title, slides, theme) {
+            let cmd = if self.snapshot().direct_click_live {
+                PresentationCommand::GoLiveDirect(deck)
+            } else {
+                PresentationCommand::StagePreview(deck)
+            };
+            let _ = self.dispatch(cmd, cx);
+        }
+        updated_schedule
+    }
+
     /// Applies a reviewable [`GeneratedServicePlan`] (either replacing or appending to the active
     /// service schedule), automatically stages the first planned item into Preview, and returns
     /// the updated schedule for off-thread SQLite persistence.
