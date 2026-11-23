@@ -48,7 +48,6 @@ impl AudienceOutputView {
                 }
             }
             TransitionKind::LiveInPlacePatch => {
-                // On-the-fly typo correction or theme swap: replace without crossfade flash.
                 self.previous_frame = None;
                 self.current_frame = next;
                 cx.notify();
@@ -60,7 +59,7 @@ impl AudienceOutputView {
 
 impl Render for AudienceOutputView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let _ = &self.store;
+        let now_ms = self.store.read(cx).now_epoch_ms();
         let width_px = f32::from(window.viewport_size().width).max(320.0);
         let transition_ms = audience_transition_ms(&self.current_frame);
 
@@ -73,13 +72,14 @@ impl Render for AudienceOutputView {
                 div()
                     .absolute()
                     .inset_0()
-                    .child(render_audience_canvas(prev, width_px, cx)),
+                    .child(render_audience_canvas(prev, width_px, now_ms, cx)),
             );
         }
 
         let current_layer = div().absolute().inset_0().child(render_audience_canvas(
             &self.current_frame,
             width_px,
+            now_ms,
             cx,
         ));
 

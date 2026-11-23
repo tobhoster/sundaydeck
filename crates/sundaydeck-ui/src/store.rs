@@ -1,25 +1,24 @@
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use gpui::{Context, Entity, EventEmitter, Global};
 use sundaydeck_core::{
-    DeckCursor, PresentationCommand, PresentationEngine, PresentationError, PresentationSnapshot,
-    ReflowMode, ServiceId, ServiceItem, ServiceItemId, ServiceItemPayload, ServiceSchedule, Song,
-    SongId, Theme, ThemeId, ThemeTarget, reflow_song,
+    BibleTranslation, BibleVerse, DeckCursor, PaginationBudget, PresentationCommand,
+    PresentationEngine, PresentationError, PresentationSnapshot, ReflowMode, ServiceId,
+    ServiceItem, ServiceItemId, ServiceItemPayload, ServiceSchedule, SlideId, Song, SongId, Theme,
+    ThemeId, ThemeTarget, paginate_scripture, reflow_song,
 };
 use sundaydeck_db::{AppSettings, BootstrapData, DbWorker};
 
 use crate::deck_builder::build_deck_for_service_item;
 use crate::windows::WindowManager;
 
-/// Event emitted whenever [`PresentationStore`] updates state, telling subscribing
-/// windows whether to crossfade or update in place.
 #[derive(Debug, Clone, Copy)]
 pub struct StoreEvent {
     pub kind: sundaydeck_core::TransitionKind,
     pub version: u64,
 }
 
-/// Application-wide service handles stored as a GPUI [`Global`].
 pub struct AppServices {
     pub store: Entity<PresentationStore>,
     pub windows: Entity<WindowManager>,
@@ -28,17 +27,31 @@ pub struct AppServices {
 
 impl Global for AppServices {}
 
-/// Single source of truth for live presentation state, library cache, active service,
-/// and non-blocking operator status messages.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BibleBrowseMode {
+    Chapter { book_number: u8, chapter: u16 },
+    Search { query: String },
+}
+
+/// Single source of truth for live presentation state, library cache, offline Bible browser,
+/// active service schedule, alerts/timers, and non-blocking operator status messages.
 pub struct PresentationStore {
     engine: PresentationEngine,
     pub settings: AppSettings,
     pub themes: Vec<Arc<Theme>>,
     pub songs: Vec<Song>,
+    pub filtered_song_ids: Option<Vec<SongId>>,
+    pub song_search_query: String,
     pub service: ServiceSchedule,
     pub selected_service_item_id: Option<ServiceItemId>,
     pub preview_reflow_mode: ReflowMode,
+    pub bible_translations: Vec<BibleTranslation>,
+    pub active_translation_code: String,
+    pub bible_browse_mode: BibleBrowseMode,
+    pub bible_verses: Vec<BibleVerse>,
+    pub selected_verse_range: Option<(usize, usize)>,
     pub status_banner: Option<String>,
+    pub clock_override_ms: Option<i64>,
 }
 
 impl EventEmitter<StoreEvent> for PresentationStore {}
@@ -59,16 +72,34 @@ impl PresentationStore {
             .into_iter()
             .next()
             .unwrap_or_else(sundaydeck_core::defaults::default_sample_service);
+        let active_translation_code = data
+            .bible_translations
+            .iter()
+            .find(|t| t.code.eq_ignore_ascii_case("WEB"))
+            .or_else(|| data.bible_translations.first())
+            .map(|t| t.code.clone())
+            .unwrap_or_else(|| "WEB".to_owned());
 
         let mut store = Self {
             engine,
             settings: data.settings,
             themes,
             songs: data.loaded_songs,
+            filtered_song_ids: None,
+            song_search_query: String::new(),
             service,
             selected_service_item_id: None,
             preview_reflow_mode: ReflowMode::ByStanza,
+            bible_translations: data.bible_translations,
+            active_translation_code,
+            bible_browse_mode: BibleBrowseMode::Chapter {
+                book_number: 19,
+                chapter: 23,
+            },
+            bible_verses: data.initial_chapter_verses,
+            selected_verse_range: Some((0, 0)),
             status_banner: None,
+            clock_override_ms: None,
         };
 
         if let Some(first_item) = store.service.items.first().cloned() {
@@ -80,6 +111,17 @@ impl PresentationStore {
             }
         }
         store
+    }
+
+    pub fn now_epoch_ms(&self) -> i64 {
+        if let Some(fixed) = self.clock_override_ms {
+            return fixed;
+        }
+        let millis = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        i64::try_from(millis).unwrap_or(i64::MAX)
     }
 
     pub fn snapshot(&self) -> Arc<PresentationSnapshot> {
@@ -138,7 +180,69 @@ impl PresentationStore {
         self.songs.iter().find(|s| s.id == id)
     }
 
-    /// Stages a service item into Preview (or straight to Live if Direct-Click is enabled).
+    pub fn visible_songs(&self) -> Vec<Song> {
+        match &self.filtered_song_ids {
+            None => self.songs.clone(),
+            Some(ids) => ids
+                .iter()
+                .filter_map(|id| self.song_by_id(*id).cloned())
+                .collect(),
+        }
+    }
+
+    pub fn upsert_song_local(&mut self, song: Song, cx: &mut Context<Self>) {
+        let song_id = song.id;
+        if let Some(existing) = self.songs.iter_mut().find(|s| s.id == song_id) {
+            *existing = song;
+        } else {
+            self.songs.push(song);
+            self.songs.sort_by_key(|a| a.title.to_lowercase());
+        }
+        self.filtered_song_ids = None;
+        self.song_search_query.clear();
+        self.stage_library_song(song_id, cx);
+    }
+
+    pub fn patch_live_slide_and_song(
+        &mut self,
+        slide_id: SlideId,
+        new_body: String,
+        persist_to_song: bool,
+        cx: &mut Context<Self>,
+    ) -> Option<Song> {
+        let source_section_id = self
+            .snapshot()
+            .live
+            .as_ref()
+            .and_then(|cursor| cursor.slides.iter().find(|s| s.id == slide_id))
+            .and_then(|s| s.source_section_id);
+
+        if let Err(err) = self.dispatch(
+            PresentationCommand::PatchLiveSlideText {
+                slide_id,
+                new_body: new_body.clone(),
+            },
+            cx,
+        ) {
+            self.set_status(err.to_string(), cx);
+            return None;
+        }
+
+        if persist_to_song
+            && let Some(sec_id) = source_section_id
+            && let Some(song) = self
+                .songs
+                .iter_mut()
+                .find(|s| s.sections.iter().any(|sec| sec.id == sec_id))
+        {
+            if let Some(sec) = song.sections.iter_mut().find(|sec| sec.id == sec_id) {
+                sec.body = new_body;
+            }
+            return Some(song.clone());
+        }
+        None
+    }
+
     pub fn activate_service_item(&mut self, item_id: ServiceItemId, cx: &mut Context<Self>) {
         let Some(item_idx) = self.service.items.iter().position(|i| i.id == item_id) else {
             return;
@@ -180,7 +284,6 @@ impl PresentationStore {
         );
     }
 
-    /// Stages a library song into Preview without adding it to the service schedule.
     pub fn stage_library_song(&mut self, song_id: SongId, cx: &mut Context<Self>) {
         let Some(song) = self.song_by_id(song_id).cloned() else {
             self.set_status("Song no longer exists in library", cx);
@@ -213,7 +316,66 @@ impl PresentationStore {
         }
     }
 
-    /// Re-paginates the currently staged Preview song under a new [`ReflowMode`].
+    /// Paginates selected Bible verses into Preview (and optionally appends to Service Schedule).
+    pub fn stage_scripture_verses(
+        &mut self,
+        verses: &[BibleVerse],
+        add_to_schedule: bool,
+        cx: &mut Context<Self>,
+    ) -> Option<ServiceSchedule> {
+        let first = verses.first()?;
+        let last = verses.last()?;
+        let ref_label = if first.book_number == last.book_number && first.chapter == last.chapter {
+            if first.verse == last.verse {
+                format!("{} {}:{}", first.book_name, first.chapter, first.verse)
+            } else {
+                format!(
+                    "{} {}:{}-{}",
+                    first.book_name, first.chapter, first.verse, last.verse
+                )
+            }
+        } else {
+            format!("{} {}:{}", first.book_name, first.chapter, first.verse)
+        };
+        let title = format!("{ref_label} ({})", first.translation_code);
+        let slides = paginate_scripture(verses, PaginationBudget::default());
+        let theme = self
+            .default_theme_for(ThemeTarget::Scripture)
+            .unwrap_or_else(|| self.active_theme());
+
+        let mut updated_schedule = None;
+        let item_id = if add_to_schedule {
+            let new_id = ServiceItemId::new_v7();
+            self.service.items.push(ServiceItem {
+                id: new_id,
+                title: title.clone(),
+                theme_override_id: Some(theme.id),
+                payload: ServiceItemPayload::Scripture {
+                    translation_code: first.translation_code.clone(),
+                    reference: ref_label,
+                    cached_verses: verses
+                        .iter()
+                        .map(|v| (v.verse.to_string(), v.text.clone()))
+                        .collect(),
+                },
+            });
+            updated_schedule = Some(self.service.clone());
+            Some(new_id)
+        } else {
+            None
+        };
+
+        if let Ok(deck) = DeckCursor::try_new(item_id, title, slides, theme) {
+            let cmd = if self.snapshot().direct_click_live {
+                PresentationCommand::GoLiveDirect(deck)
+            } else {
+                PresentationCommand::StagePreview(deck)
+            };
+            let _ = self.dispatch(cmd, cx);
+        }
+        updated_schedule
+    }
+
     pub fn set_preview_reflow_mode(&mut self, mode: ReflowMode, cx: &mut Context<Self>) {
         self.preview_reflow_mode = mode;
 

@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
+use crate::alerts::AudienceAlert;
 use crate::error::PresentationError;
 use crate::ids::{MediaAssetId, SlideId};
 use crate::slide::{Slide, SlideContent};
 use crate::snapshot::{
-    AudienceAlert, AudienceRenderState, DeckCursor, OutputOverride, PresentationSnapshot,
-    StageRenderState,
+    AudienceRenderState, DeckCursor, OutputOverride, PresentationSnapshot, StageRenderState,
 };
 use crate::theme::Theme;
+use crate::timer::ServiceTimer;
 
 /// Commands accepted by [`PresentationEngine::dispatch`].
 #[derive(Debug, Clone)]
@@ -27,6 +28,11 @@ pub enum PresentationCommand {
     SetChurchName(String),
     SetStageMessage(Option<String>),
     SetAudienceAlert(Option<AudienceAlert>),
+    ExpireAlertIfDue { now_ms: i64 },
+    SetTimer(Option<ServiceTimer>),
+    StartTimer { now_ms: i64 },
+    PauseTimer { now_ms: i64 },
+    ResetTimer,
     SetDirectClickLive(bool),
     SetNextItemFirstSlide(Option<Slide>),
 }
@@ -47,7 +53,7 @@ pub struct EngineTransition {
     pub snapshot: Arc<PresentationSnapshot>,
 }
 
-/// Single-authority presentation state machine for Preview, Live, and Overrides.
+/// Single-authority presentation state machine for Preview, Live, Overrides, Alerts, and Timers.
 pub struct PresentationEngine {
     version: u64,
     preview: Option<DeckCursor>,
@@ -58,6 +64,7 @@ pub struct PresentationEngine {
     church_name: String,
     stage_message: Option<String>,
     audience_alert: Option<AudienceAlert>,
+    active_timer: Option<ServiceTimer>,
     next_item_first_slide: Option<Slide>,
     cached_snapshot: Arc<PresentationSnapshot>,
 }
@@ -74,6 +81,7 @@ impl PresentationEngine {
             church_name: church_name.into(),
             stage_message: None,
             audience_alert: None,
+            active_timer: None,
             next_item_first_slide: None,
             cached_snapshot: Arc::new(PresentationSnapshot {
                 version: 0,
@@ -81,6 +89,8 @@ impl PresentationEngine {
                 live: None,
                 output_override: OutputOverride::None,
                 direct_click_live: false,
+                active_alert: None,
+                active_timer: None,
                 audience: AudienceRenderState::Black { transition_ms: 0 },
                 stage: StageRenderState {
                     live_title: None,
@@ -89,6 +99,7 @@ impl PresentationEngine {
                     next_slide: None,
                     active_override: OutputOverride::None,
                     stage_message: None,
+                    active_timer: None,
                 },
             }),
         };
@@ -163,6 +174,52 @@ impl PresentationEngine {
                 self.audience_alert = alert.filter(|a| !a.message.trim().is_empty());
                 TransitionKind::LiveInPlacePatch
             }
+            PresentationCommand::ExpireAlertIfDue { now_ms } => {
+                if self
+                    .audience_alert
+                    .as_ref()
+                    .is_some_and(|alert| alert.is_expired(now_ms))
+                {
+                    self.audience_alert = None;
+                    TransitionKind::LiveInPlacePatch
+                } else {
+                    return Ok(EngineTransition {
+                        kind: TransitionKind::StageOnly,
+                        snapshot: Arc::clone(&self.cached_snapshot),
+                    });
+                }
+            }
+            PresentationCommand::SetTimer(timer) => {
+                let affects_audience = timer.as_ref().is_some_and(|t| t.show_on_audience)
+                    || self
+                        .active_timer
+                        .as_ref()
+                        .is_some_and(|t| t.show_on_audience);
+                self.active_timer = timer;
+                if affects_audience {
+                    TransitionKind::LiveInPlacePatch
+                } else {
+                    TransitionKind::StageOnly
+                }
+            }
+            PresentationCommand::StartTimer { now_ms } => {
+                if let Some(timer) = self.active_timer.as_mut() {
+                    timer.start(now_ms);
+                }
+                self.timer_transition_kind()
+            }
+            PresentationCommand::PauseTimer { now_ms } => {
+                if let Some(timer) = self.active_timer.as_mut() {
+                    timer.pause(now_ms);
+                }
+                self.timer_transition_kind()
+            }
+            PresentationCommand::ResetTimer => {
+                if let Some(timer) = self.active_timer.as_mut() {
+                    timer.reset();
+                }
+                self.timer_transition_kind()
+            }
             PresentationCommand::SetDirectClickLive(enabled) => {
                 self.direct_click_live = enabled;
                 TransitionKind::PreviewOnly
@@ -181,6 +238,18 @@ impl PresentationEngine {
         })
     }
 
+    fn timer_transition_kind(&self) -> TransitionKind {
+        if self
+            .active_timer
+            .as_ref()
+            .is_some_and(|t| t.show_on_audience)
+        {
+            TransitionKind::LiveInPlacePatch
+        } else {
+            TransitionKind::StageOnly
+        }
+    }
+
     fn promote_preview_to_live(&mut self) -> Result<TransitionKind, PresentationError> {
         let preview = self
             .preview
@@ -191,9 +260,6 @@ impl PresentationEngine {
         Ok(TransitionKind::LiveCrossfade)
     }
 
-    /// Going live releases `ClearText` so newly promoted lyrics appear immediately,
-    /// while keeping `Black` and `Logo` sticky so operators can cue safely during
-    /// prayer or pre-service screens without flashing the sanctuary projector.
     fn release_clear_text_only(&mut self) {
         if matches!(self.output_override, OutputOverride::ClearText) {
             self.output_override = OutputOverride::None;
@@ -256,9 +322,18 @@ impl PresentationEngine {
             live: self.live.clone(),
             output_override: self.output_override,
             direct_click_live: self.direct_click_live,
+            active_alert: self.audience_alert.clone(),
+            active_timer: self.active_timer.clone(),
             audience,
             stage,
         });
+    }
+
+    fn audience_visible_timer(&self) -> Option<ServiceTimer> {
+        self.active_timer
+            .as_ref()
+            .filter(|t| t.show_on_audience)
+            .cloned()
     }
 
     fn compute_audience(&self) -> AudienceRenderState {
@@ -274,6 +349,7 @@ impl PresentationEngine {
             OutputOverride::Logo => AudienceRenderState::Logo {
                 asset_id: self.logo_asset_id,
                 fallback_title: self.church_name.clone(),
+                audience_timer: self.audience_visible_timer(),
                 transition_ms: default_ms,
             },
             OutputOverride::ClearText => self.render_live_slide(false, default_ms),
@@ -295,6 +371,11 @@ impl PresentationEngine {
                     show_text,
                     alert: if show_text {
                         self.audience_alert.clone()
+                    } else {
+                        None
+                    },
+                    audience_timer: if show_text {
+                        self.audience_visible_timer()
                     } else {
                         None
                     },
@@ -321,6 +402,7 @@ impl PresentationEngine {
                     next_slide,
                     active_override: self.output_override,
                     stage_message: self.stage_message.clone(),
+                    active_timer: self.active_timer.clone(),
                 }
             }
             None => StageRenderState {
@@ -330,6 +412,7 @@ impl PresentationEngine {
                 next_slide: self.next_item_first_slide.clone(),
                 active_override: self.output_override,
                 stage_message: self.stage_message.clone(),
+                active_timer: self.active_timer.clone(),
             },
         }
     }

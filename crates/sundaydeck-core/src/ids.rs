@@ -68,6 +68,8 @@ define_id!(ServiceId, "service");
 define_id!(ServiceItemId, "service_item");
 define_id!(SlideId, "slide");
 define_id!(AlertId, "alert");
+define_id!(TimerId, "timer");
+define_id!(BibleTranslationId, "bible_translation");
 
 /// Fixed UUIDv5 namespace for deterministic built-in seeds and reflowed slide IDs.
 pub const SUNDAYDECK_NAMESPACE: Uuid = Uuid::from_bytes([

@@ -2,10 +2,12 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::alerts::AudienceAlert;
 use crate::error::PresentationError;
-use crate::ids::{AlertId, MediaAssetId, ServiceItemId};
+use crate::ids::{MediaAssetId, ServiceItemId};
 use crate::slide::Slide;
 use crate::theme::Theme;
+use crate::timer::ServiceTimer;
 
 /// Instant recovery override applied to the audience projector output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -18,12 +20,6 @@ pub enum OutputOverride {
     Black,
     /// Displays the church's configured splash/logo slide.
     Logo,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AudienceAlert {
-    pub id: AlertId,
-    pub message: String,
 }
 
 /// Active deck loaded into either Preview or Live.
@@ -95,6 +91,7 @@ pub enum AudienceRenderState {
     Logo {
         asset_id: Option<MediaAssetId>,
         fallback_title: String,
+        audience_timer: Option<ServiceTimer>,
         transition_ms: u16,
     },
     Slide {
@@ -102,6 +99,7 @@ pub enum AudienceRenderState {
         theme: Arc<Theme>,
         show_text: bool,
         alert: Option<AudienceAlert>,
+        audience_timer: Option<ServiceTimer>,
         transition_ms: u16,
     },
 }
@@ -115,6 +113,7 @@ pub struct StageRenderState {
     pub next_slide: Option<Slide>,
     pub active_override: OutputOverride,
     pub stage_message: Option<String>,
+    pub active_timer: Option<ServiceTimer>,
 }
 
 /// Immutable state snapshot shared across Operator, Audience, and Stage windows.
@@ -125,6 +124,8 @@ pub struct PresentationSnapshot {
     pub live: Option<DeckCursor>,
     pub output_override: OutputOverride,
     pub direct_click_live: bool,
+    pub active_alert: Option<AudienceAlert>,
+    pub active_timer: Option<ServiceTimer>,
     pub audience: AudienceRenderState,
     pub stage: StageRenderState,
 }

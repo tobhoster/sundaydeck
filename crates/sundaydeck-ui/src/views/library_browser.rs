@@ -11,8 +11,9 @@ use crate::palette::{
     TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, color, rgba8_to_gpui,
 };
 use crate::views::operator_workspace::{LibraryTab, OperatorWorkspace};
+use crate::views::song_editor_modal::EditorTab;
 
-/// Bottom half of the Center Pane: Tabbed offline library browser (Songs, Bible, Themes).
+/// Bottom half of the Center Pane: Tabbed offline library browser (Songs with FTS5, Bible, Themes).
 pub fn render_library_section(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
@@ -21,13 +22,14 @@ pub fn render_library_section(
     let store = workspace.store.read(cx);
     let song_count = store.songs.len();
     let theme_count = store.themes.len();
+    let bible_count = store.bible_translations.len();
 
     let tab_button = |tab: LibraryTab, label: String, cx: &mut Context<OperatorWorkspace>| {
         let is_active = tab == active_tab;
         div()
             .id(format!("lib-tab-{tab:?}"))
             .px(px(12.0))
-            .py(px(6.0))
+            .py(px(5.0))
             .rounded(px(6.0))
             .cursor_pointer()
             .bg(if is_active {
@@ -57,7 +59,7 @@ pub fn render_library_section(
 
     let tabs = div()
         .px(px(14.0))
-        .py(px(8.0))
+        .py(px(7.0))
         .bg(color(BG_SURFACE))
         .border_b_1()
         .border_color(color(BORDER_SUBTLE))
@@ -74,7 +76,11 @@ pub fn render_library_section(
                     format!("Songs ({song_count})"),
                     cx,
                 ))
-                .child(tab_button(LibraryTab::Bible, "Bible".to_owned(), cx))
+                .child(tab_button(
+                    LibraryTab::Bible,
+                    format!("Bible ({bible_count})"),
+                    cx,
+                ))
                 .child(tab_button(
                     LibraryTab::Themes,
                     format!("Themes ({theme_count})"),
@@ -83,19 +89,54 @@ pub fn render_library_section(
         )
         .child(
             div()
-                .text_color(color(TEXT_MUTED))
-                .text_size(px(11.0))
-                .child("Offline SQLite FTS5 Library"),
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .child(
+                    div()
+                        .id("btn-new-song")
+                        .px(px(9.0))
+                        .py(px(4.0))
+                        .rounded(px(5.0))
+                        .cursor_pointer()
+                        .bg(rgba(0x10B9_8122))
+                        .hover(|s| s.bg(rgba(0x10B9_813A)))
+                        .text_color(rgb(0x6EE7B7))
+                        .text_size(px(11.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.open_song_editor(None, EditorTab::Edit, cx);
+                        }))
+                        .child("+ New Song"),
+                )
+                .child(
+                    div()
+                        .id("btn-import-song")
+                        .px(px(9.0))
+                        .py(px(4.0))
+                        .rounded(px(5.0))
+                        .cursor_pointer()
+                        .bg(color(BG_ELEVATED))
+                        .hover(|s| s.bg(color(BG_CARD_HOVER)))
+                        .border_1()
+                        .border_color(color(BORDER_STRONG))
+                        .text_color(color(TEXT_SECONDARY))
+                        .text_size(px(11.0))
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.open_song_editor(None, EditorTab::Import, cx);
+                        }))
+                        .child("Import"),
+                ),
         );
 
     let body: AnyElement = match active_tab {
         LibraryTab::Songs => render_songs_library(workspace, cx),
-        LibraryTab::Bible => render_bible_panel(),
+        LibraryTab::Bible => workspace.bible_browser.clone().into_any_element(),
         LibraryTab::Themes => render_themes_library(workspace, cx),
     };
 
     div()
-        .h(px(272.0))
+        .h(px(310.0))
         .w_full()
         .bg(color(BG_SURFACE))
         .flex()
@@ -109,25 +150,27 @@ fn render_songs_library(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
 ) -> AnyElement {
-    let songs = workspace.store.read(cx).songs.clone();
+    let songs = workspace.store.read(cx).visible_songs();
     let mut list = div()
         .id("songs-library-list")
         .flex_1()
         .overflow_y_scroll()
-        .p(px(10.0))
+        .px(px(10.0))
+        .py(px(8.0))
         .flex()
         .flex_col()
         .gap(px(6.0));
 
     for song in songs {
         let song_id = song.id;
+        let song_for_edit = song.clone();
         let meta = if song.ccli_number.is_empty() {
             song.author.clone()
         } else {
             format!("{}  •  CCLI #{}", song.author, song.ccli_number)
         };
         let section_summary = format!(
-            "{} sections  •  {} arr",
+            "{} sec  •  {} arr",
             song.sections.len(),
             song.arrangements.len()
         );
@@ -137,7 +180,7 @@ fn render_songs_library(
                 .id(format!("lib-song-{song_id}"))
                 .w_full()
                 .px(px(12.0))
-                .py(px(8.0))
+                .py(px(7.0))
                 .rounded(px(7.0))
                 .cursor_pointer()
                 .bg(color(BG_CARD))
@@ -174,12 +217,33 @@ fn render_songs_library(
                     div()
                         .flex()
                         .items_center()
-                        .gap(px(8.0))
+                        .gap(px(6.0))
                         .child(
                             div()
                                 .text_color(color(TEXT_SECONDARY))
-                                .text_size(px(11.0))
+                                .text_size(px(10.5))
                                 .child(section_summary),
+                        )
+                        .child(
+                            div()
+                                .id(format!("edit-song-{song_id}"))
+                                .px(px(8.0))
+                                .py(px(4.0))
+                                .rounded(px(5.0))
+                                .bg(color(BG_ELEVATED))
+                                .hover(|s| s.bg(color(BG_CARD_HOVER)))
+                                .border_1()
+                                .border_color(color(BORDER_STRONG))
+                                .text_color(color(TEXT_SECONDARY))
+                                .text_size(px(11.0))
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.open_song_editor(
+                                        Some(song_for_edit.clone()),
+                                        EditorTab::Edit,
+                                        cx,
+                                    );
+                                }))
+                                .child("Edit"),
                         )
                         .child(
                             div()
@@ -201,30 +265,19 @@ fn render_songs_library(
         );
     }
 
-    list.into_any_element()
-}
-
-fn render_bible_panel() -> AnyElement {
     div()
         .flex_1()
-        .p(px(16.0))
+        .w_full()
         .flex()
         .flex_col()
-        .justify_center()
-        .gap(px(6.0))
+        .overflow_hidden()
         .child(
             div()
-                .text_color(color(TEXT_PRIMARY))
-                .text_size(px(13.5))
-                .font_weight(FontWeight::SEMIBOLD)
-                .child("Offline Multi-Translation Scripture Engine (Phase 2)"),
+                .px(px(10.0))
+                .pt(px(8.0))
+                .child(workspace.song_search_input.clone()),
         )
-        .child(
-            div()
-                .text_color(color(TEXT_SECONDARY))
-                .text_size(px(12.0))
-                .child("Sample Psalm 23:1-3 (WEB) is ready in your Service Schedule. Phase 2 adds OSIS/USFX/Zefania XML import, FTS5 verse search, and smart shorthand reference parsing."),
-        )
+        .child(list)
         .into_any_element()
 }
 

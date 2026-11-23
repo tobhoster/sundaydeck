@@ -5,7 +5,10 @@ use rusqlite::Connection;
 
 use crate::error::DbError;
 
-const MIGRATIONS: &[(u32, &str)] = &[(1, include_str!("../migrations/0001_initial.sql"))];
+const MIGRATIONS: &[(u32, &str)] = &[
+    (1, include_str!("../migrations/0001_initial.sql")),
+    (2, include_str!("../migrations/0002_scripture.sql")),
+];
 
 /// Managed SQLite database handle configured in WAL mode with foreign keys enabled.
 pub struct Database {

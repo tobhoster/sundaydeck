@@ -70,24 +70,5 @@ fn load_initial_bootstrap(path: &Path) -> anyhow::Result<BootstrapData> {
     let mut db = Database::open(path).context("failed to open SundayDeck SQLite database")?;
     sundaydeck_db::seed::seed_defaults_if_empty(db.conn_mut())
         .context("failed to seed initial SundayDeck library")?;
-
-    let conn = db.conn();
-    let settings = sundaydeck_db::settings_repo::load_settings(conn)?;
-    let themes = sundaydeck_db::theme_repo::list_themes(conn)?;
-    let songs = sundaydeck_db::song_repo::list_songs(conn)?;
-    let mut loaded_songs = Vec::with_capacity(songs.len());
-    for summary in &songs {
-        if let Some(full) = sundaydeck_db::song_repo::get_song(conn, summary.id)? {
-            loaded_songs.push(full);
-        }
-    }
-    let services = sundaydeck_db::service_repo::list_services(conn)?;
-
-    Ok(BootstrapData {
-        settings,
-        themes,
-        songs,
-        loaded_songs,
-        services,
-    })
+    sundaydeck_db::worker::load_bootstrap_sync(&db).context("failed to load initial library")
 }

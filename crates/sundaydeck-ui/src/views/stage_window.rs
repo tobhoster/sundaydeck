@@ -3,7 +3,7 @@ use gpui::{
     Context, Div, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Subscription,
     Window, div, px, rgb, rgba,
 };
-use sundaydeck_core::{OutputOverride, StageRenderState};
+use sundaydeck_core::{OutputOverride, StageRenderState, TimerUrgency};
 
 use crate::palette::{
     BORDER_SUBTLE, LIVE_ACCENT, OVERRIDE_BLACK, OVERRIDE_CLEAR, OVERRIDE_LOGO, STAGE_BG,
@@ -12,8 +12,8 @@ use crate::palette::{
 use crate::store::PresentationStore;
 
 /// High-contrast dark confidence monitor for worship leaders and speakers.
-/// Displays current slide large, dimmed next-slide preview, clock, audience override
-/// state, and private stage-only operator messages.
+/// Displays current slide large, dimmed next-slide preview, clock, active countdown/elapsed timer,
+/// audience override state, and private stage-only operator messages.
 pub struct StageMonitorView {
     store: Entity<PresentationStore>,
     clock_override: Option<String>,
@@ -30,7 +30,6 @@ impl StageMonitorView {
         }
     }
 
-    /// Allows deterministic clock text during visual regression / review captures.
     pub fn with_fixed_clock(mut self, clock_text: impl Into<String>) -> Self {
         self.clock_override = Some(clock_text.into());
         self
@@ -45,7 +44,9 @@ impl StageMonitorView {
 
 impl Render for StageMonitorView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let snapshot = self.store.read(cx).snapshot();
+        let store_ref = self.store.read(cx);
+        let snapshot = store_ref.snapshot();
+        let now_ms = store_ref.now_epoch_ms();
         let stage = &snapshot.stage;
         let width_px = f32::from(window.viewport_size().width).max(640.0);
         let scale = (width_px / 1280.0).clamp(0.55, 2.0);
@@ -61,7 +62,12 @@ impl Render for StageMonitorView {
             .gap(px(12.0 * scale));
 
         let has_banner = stage.stage_message.is_some();
-        root = root.child(render_stage_top_bar(stage, &self.formatted_clock(), scale));
+        root = root.child(render_stage_top_bar(
+            stage,
+            &self.formatted_clock(),
+            now_ms,
+            scale,
+        ));
 
         if let Some(note) = &stage.stage_message {
             root = root.child(render_private_stage_banner(note, scale));
@@ -75,7 +81,7 @@ impl Render for StageMonitorView {
     }
 }
 
-fn render_stage_top_bar(stage: &StageRenderState, clock: &str, scale: f32) -> Div {
+fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scale: f32) -> Div {
     let title = stage
         .live_title
         .as_deref()
@@ -104,10 +110,52 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, scale: f32) -> Di
         ),
     };
 
+    let mut right_cluster = div().flex().items_center().gap(px(16.0 * scale));
+    if let Some(timer) = &stage.active_timer {
+        let disp = timer.display(now_ms);
+        let (t_bg, t_fg) = match disp.urgency {
+            TimerUrgency::Normal => (rgb(0x064E3B), rgb(0x6EE7B7)),
+            TimerUrgency::Warning => (rgb(0x78350F), rgb(0xFDE68A)),
+            TimerUrgency::Overtime => (rgb(0xDC2626), rgb(0xFFFFFF)),
+        };
+        right_cluster = right_cluster.child(
+            div()
+                .px(px(14.0 * scale))
+                .py(px(6.0 * scale))
+                .rounded(px(8.0 * scale))
+                .bg(t_bg)
+                .flex()
+                .items_center()
+                .gap(px(10.0 * scale))
+                .child(
+                    div()
+                        .text_color(t_fg.alpha(0.85))
+                        .text_size(px(12.5 * scale))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(timer.label.to_ascii_uppercase()),
+                )
+                .child(
+                    div()
+                        .text_color(t_fg)
+                        .text_size(px(26.0 * scale))
+                        .font_weight(FontWeight::BOLD)
+                        .child(disp.formatted),
+                ),
+        );
+    }
+
+    right_cluster = right_cluster.child(
+        div()
+            .text_color(color(TEXT_PRIMARY))
+            .text_size(px(26.0 * scale))
+            .font_weight(FontWeight::BOLD)
+            .child(clock.to_owned()),
+    );
+
     div()
         .w_full()
         .px(px(20.0 * scale))
-        .py(px(14.0 * scale))
+        .py(px(12.0 * scale))
         .rounded(px(12.0 * scale))
         .bg(color(STAGE_PANEL))
         .border_1()
@@ -119,11 +167,11 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, scale: f32) -> Di
             div()
                 .flex()
                 .items_center()
-                .gap(px(14.0 * scale))
+                .gap(px(12.0 * scale))
                 .child(
                     div()
                         .text_color(color(TEXT_PRIMARY))
-                        .text_size(px(20.0 * scale))
+                        .text_size(px(19.0 * scale))
                         .font_weight(FontWeight::BOLD)
                         .child(title.to_owned()),
                 )
@@ -134,7 +182,7 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, scale: f32) -> Di
                         .rounded(px(6.0 * scale))
                         .bg(rgba(0xFFFFFF12))
                         .text_color(color(TEXT_SECONDARY))
-                        .text_size(px(14.0 * scale))
+                        .text_size(px(13.5 * scale))
                         .font_weight(FontWeight::MEDIUM)
                         .child(pos_text),
                 ),
@@ -146,24 +194,18 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, scale: f32) -> Di
                 .rounded(px(999.0))
                 .bg(status_bg)
                 .text_color(status_fg)
-                .text_size(px(14.0 * scale))
+                .text_size(px(13.5 * scale))
                 .font_weight(FontWeight::BOLD)
                 .child(status_label),
         )
-        .child(
-            div()
-                .text_color(color(TEXT_PRIMARY))
-                .text_size(px(28.0 * scale))
-                .font_weight(FontWeight::BOLD)
-                .child(clock.to_owned()),
-        )
+        .child(right_cluster)
 }
 
 fn render_private_stage_banner(note: &str, scale: f32) -> Div {
     div()
         .w_full()
         .px(px(20.0 * scale))
-        .py(px(12.0 * scale))
+        .py(px(11.0 * scale))
         .rounded(px(10.0 * scale))
         .bg(rgba(0xF59E_0B26))
         .border_2()
@@ -191,7 +233,7 @@ fn render_private_stage_banner(note: &str, scale: f32) -> Div {
                 .child(
                     div()
                         .text_color(rgb(0xFEF3C7))
-                        .text_size(px(22.0 * scale))
+                        .text_size(px(21.0 * scale))
                         .font_weight(FontWeight::BOLD)
                         .child(note.to_owned()),
                 ),

@@ -21,11 +21,19 @@ pub fn render_operator_header(
 ) -> Div {
     let store_ref = workspace.store.read(cx);
     let snapshot = store_ref.snapshot();
+    let now_ms = store_ref.now_epoch_ms();
     let service_title = store_ref.service.title.clone();
     let service_date = store_ref.service.service_date.clone();
     let themes = store_ref.themes.clone();
     let active_theme_id = store_ref.active_theme().id;
     let status_banner = store_ref.status_banner.clone();
+
+    let alerts_timer_active = snapshot.active_alert.is_some() || snapshot.active_timer.is_some();
+    let alerts_timer_label = match (&snapshot.active_timer, &snapshot.active_alert) {
+        (Some(timer), _) => format!("● {}", timer.display(now_ms).formatted),
+        (None, Some(_)) => "● Alert Live".to_owned(),
+        (None, None) => "Alerts & Timers".to_owned(),
+    };
 
     let wm = workspace.windows.read(cx);
     let audience_open = wm.is_audience_open();
@@ -158,6 +166,36 @@ pub fn render_operator_header(
                 .flex()
                 .items_center()
                 .gap(px(8.0))
+                .child(
+                    div()
+                        .id("open-alerts-timers")
+                        .px(px(10.0))
+                        .py(px(5.0))
+                        .rounded(px(6.0))
+                        .cursor_pointer()
+                        .border_1()
+                        .border_color(if alerts_timer_active {
+                            color(PREVIEW_ACCENT)
+                        } else {
+                            color(BORDER_STRONG)
+                        })
+                        .bg(if alerts_timer_active {
+                            rgba(0xF59E_0B28)
+                        } else {
+                            color(BG_ELEVATED)
+                        })
+                        .text_color(if alerts_timer_active {
+                            rgb(0xFDE68A)
+                        } else {
+                            color(TEXT_SECONDARY)
+                        })
+                        .text_size(px(12.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.open_alerts_timers(cx);
+                        }))
+                        .child(alerts_timer_label),
+                )
                 .child(
                     div()
                         .id("toggle-direct-click")

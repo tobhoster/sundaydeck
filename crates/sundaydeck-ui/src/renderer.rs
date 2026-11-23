@@ -3,8 +3,8 @@ use gpui::{
     Styled, div, linear_color_stop, linear_gradient, px, rgb, rgba,
 };
 use sundaydeck_core::{
-    AudienceAlert, AudienceRenderState, BackgroundSpec, HorizontalAlign, Slide, SlideContent,
-    Theme, VerticalAlign,
+    AlertPosition, AudienceAlert, AudienceRenderState, BackgroundSpec, HorizontalAlign,
+    ServiceTimer, Slide, SlideContent, Theme, TimerUrgency, VerticalAlign,
 };
 
 use crate::palette::{rgba8_to_gpui, weight_from_u16};
@@ -14,22 +14,36 @@ use crate::palette::{rgba8_to_gpui, weight_from_u16};
 pub fn render_audience_canvas(
     state: &AudienceRenderState,
     canvas_width_px: f32,
+    now_ms: i64,
     cx: &App,
 ) -> AnyElement {
     let scale = (canvas_width_px / Theme::REFERENCE_WIDTH_PX).clamp(0.12, 4.0);
     match state {
         AudienceRenderState::Black { .. } => div().size_full().bg(rgb(0x000000)).into_any_element(),
-        AudienceRenderState::Logo { fallback_title, .. } => {
-            render_logo_splash(fallback_title, scale).into_any_element()
-        }
+        AudienceRenderState::Logo {
+            fallback_title,
+            audience_timer,
+            ..
+        } => render_logo_splash(fallback_title, audience_timer.as_ref(), now_ms, scale)
+            .into_any_element(),
         AudienceRenderState::Slide {
             slide,
             theme,
             show_text,
             alert,
+            audience_timer,
             ..
-        } => render_slide_canvas(slide, theme, *show_text, alert.as_ref(), scale, cx)
-            .into_any_element(),
+        } => render_slide_canvas(
+            slide,
+            theme,
+            *show_text,
+            alert.as_ref(),
+            audience_timer.as_ref(),
+            now_ms,
+            scale,
+            cx,
+        )
+        .into_any_element(),
     }
 }
 
@@ -47,7 +61,12 @@ pub fn resolve_font_family(requested: &str, cx: &App) -> SharedString {
     }
 }
 
-fn render_logo_splash(church_name: &str, scale: f32) -> Div {
+fn render_logo_splash(
+    church_name: &str,
+    timer: Option<&ServiceTimer>,
+    now_ms: i64,
+    scale: f32,
+) -> Div {
     let title = if church_name.trim().is_empty() {
         "SundayDeck"
     } else {
@@ -64,9 +83,9 @@ fn render_logo_splash(church_name: &str, scale: f32) -> Div {
     let border_w = px((3.0 * scale).max(1.0));
     let title_px = px((64.0 * scale).max(11.0));
     let sub_px = px((22.0 * scale).max(7.0));
-    let gap = px((26.0 * scale).max(5.0));
+    let gap = px((24.0 * scale).max(5.0));
 
-    div()
+    let mut root = div()
         .size_full()
         .bg(bg)
         .flex()
@@ -104,14 +123,50 @@ fn render_logo_splash(church_name: &str, scale: f32) -> Div {
                 .text_size(sub_px)
                 .font_weight(FontWeight::MEDIUM)
                 .child("WELCOME  •  WORSHIP WITH US"),
-        )
+        );
+
+    if let Some(active_timer) = timer {
+        let disp = active_timer.display(now_ms);
+        root = root.child(
+            div()
+                .mt(px((18.0 * scale).max(4.0)))
+                .px(px((34.0 * scale).max(8.0)))
+                .py(px((14.0 * scale).max(4.0)))
+                .rounded(px((14.0 * scale).max(4.0)))
+                .bg(rgba(0x0F17_2AD8))
+                .border(px((2.0 * scale).max(1.0)))
+                .border_color(rgba(0xF59E_0B88))
+                .flex()
+                .items_center()
+                .gap(px((18.0 * scale).max(5.0)))
+                .child(
+                    div()
+                        .text_color(rgb(0x94A3B8))
+                        .text_size(px((22.0 * scale).max(6.0)))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(active_timer.label.to_ascii_uppercase()),
+                )
+                .child(
+                    div()
+                        .text_color(rgb(0xFCD34D))
+                        .text_size(px((48.0 * scale).max(10.0)))
+                        .font_weight(FontWeight::BOLD)
+                        .child(disp.formatted),
+                ),
+        );
+    }
+
+    root
 }
 
+#[allow(clippy::too_many_arguments)] // Canvas render parameters mirror AudienceRenderState::Slide fields directly.
 fn render_slide_canvas(
     slide: &Slide,
     theme: &Theme,
     show_text: bool,
     alert: Option<&AudienceAlert>,
+    timer: Option<&ServiceTimer>,
+    now_ms: i64,
     scale: f32,
     cx: &App,
 ) -> Div {
@@ -147,6 +202,9 @@ fn render_slide_canvas(
         root = root.child(render_slide_foreground(
             slide, theme, scale, pad_t, pad_r, pad_b, pad_l,
         ));
+        if let Some(active_timer) = timer {
+            root = root.child(render_audience_timer_badge(active_timer, now_ms, scale));
+        }
         if let Some(active_alert) = alert {
             root = root.child(render_audience_alert_banner(active_alert, scale));
         }
@@ -259,26 +317,91 @@ fn render_slide_foreground(
     container
 }
 
-fn render_audience_alert_banner(alert: &AudienceAlert, scale: f32) -> Div {
-    let pad_x = px((28.0 * scale).max(6.0));
-    let pad_y = px((12.0 * scale).max(3.0));
-    let font_px = px((30.0 * scale).max(7.5));
+fn render_audience_timer_badge(timer: &ServiceTimer, now_ms: i64, scale: f32) -> Div {
+    let disp = timer.display(now_ms);
+    let accent = match disp.urgency {
+        TimerUrgency::Normal => rgb(0x6EE7B7),
+        TimerUrgency::Warning => rgb(0xFCD34D),
+        TimerUrgency::Overtime => rgb(0xFCA5A5),
+    };
     let offset = px((24.0 * scale).max(4.0));
 
     div()
         .absolute()
         .top(offset)
-        .right(offset)
+        .left(offset)
+        .px(px((22.0 * scale).max(6.0)))
+        .py(px((10.0 * scale).max(3.0)))
+        .rounded(px((10.0 * scale).max(3.0)))
+        .bg(rgba(0x0B0F_17DD))
+        .border(px((2.0 * scale).max(1.0)))
+        .border_color(accent.alpha(0.75))
+        .flex()
+        .items_center()
+        .gap(px((12.0 * scale).max(3.0)))
+        .child(
+            div()
+                .text_color(rgb(0x94A3B8))
+                .text_size(px((20.0 * scale).max(5.5)))
+                .font_weight(FontWeight::SEMIBOLD)
+                .child(timer.label.to_ascii_uppercase()),
+        )
+        .child(
+            div()
+                .text_color(accent)
+                .text_size(px((32.0 * scale).max(8.0)))
+                .font_weight(FontWeight::BOLD)
+                .child(disp.formatted),
+        )
+}
+
+fn render_audience_alert_banner(alert: &AudienceAlert, scale: f32) -> Div {
+    let pad_x = px((28.0 * scale).max(6.0));
+    let pad_y = px((12.0 * scale).max(3.0));
+    let font_px = px((30.0 * scale).max(7.5));
+    let offset = px((24.0 * scale).max(4.0));
+    let border_w = px((2.0 * scale).max(1.0));
+
+    let base = div()
+        .absolute()
         .px(pad_x)
         .py(pad_y)
-        .rounded(px((10.0 * scale).max(3.0)))
-        .bg(rgba(0x0F17_2AE6))
-        .border(px((2.0 * scale).max(1.0)))
         .border_color(rgb(0xF59E0B))
         .text_color(rgb(0xFEF3C7))
         .text_size(font_px)
         .font_weight(FontWeight::SEMIBOLD)
-        .child(alert.message.clone())
+        .child(alert.message.clone());
+
+    match alert.position {
+        AlertPosition::TopRight => base
+            .bg(rgba(0x0B12_20F2))
+            .border(border_w)
+            .top(offset)
+            .right(offset)
+            .rounded(px((10.0 * scale).max(3.0))),
+        AlertPosition::TopLeft => base
+            .bg(rgba(0x0B12_20F2))
+            .border(border_w)
+            .top(offset)
+            .left(offset)
+            .rounded(px((10.0 * scale).max(3.0))),
+        AlertPosition::TopBar => base
+            .bg(rgb(0x0B1220))
+            .border_b(border_w)
+            .top(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
+            .flex()
+            .justify_center(),
+        AlertPosition::BottomBar => base
+            .bg(rgb(0x0B1220))
+            .border_t(border_w)
+            .bottom(px(0.0))
+            .left(px(0.0))
+            .right(px(0.0))
+            .flex()
+            .justify_center(),
+    }
 }
 
 fn theme_background(spec: &BackgroundSpec) -> Background {

@@ -3,14 +3,21 @@ use std::thread;
 
 use async_channel::{Receiver, Sender, bounded};
 use sundaydeck_core::song::SongSummary;
-use sundaydeck_core::{ServiceId, ServiceItemId, ServiceSchedule, Song, SongId, Theme};
+use sundaydeck_core::{
+    BibleTranslation, BibleVerse, ParsedBible, ScriptureRef, ServiceId, ServiceItemId,
+    ServiceSchedule, Song, SongId, Theme,
+};
 
+use crate::bible_repo::{
+    get_chapter_verses, get_passage, import_parsed_bible, import_sqlite_bible, list_translations,
+    search_bible_verses,
+};
 use crate::connection::Database;
 use crate::error::DbError;
 use crate::seed::seed_defaults_if_empty;
 use crate::service_repo::{list_services, reorder_service_items, upsert_service};
 use crate::settings_repo::{AppSettings, load_settings, save_settings};
-use crate::song_repo::{get_song, list_songs, search_songs, upsert_song};
+use crate::song_repo::{delete_song, get_song, list_songs, search_songs, upsert_song};
 use crate::theme_repo::{list_themes, upsert_theme};
 
 const WORKER_QUEUE_CAPACITY: usize = 128;
@@ -23,6 +30,8 @@ pub struct BootstrapData {
     pub songs: Vec<SongSummary>,
     pub loaded_songs: Vec<Song>,
     pub services: Vec<ServiceSchedule>,
+    pub bible_translations: Vec<BibleTranslation>,
+    pub initial_chapter_verses: Vec<BibleVerse>,
 }
 
 enum DbRequest {
@@ -41,6 +50,10 @@ enum DbRequest {
         song: Box<Song>,
         reply: Sender<Result<(), DbError>>,
     },
+    DeleteSong {
+        id: SongId,
+        reply: Sender<Result<(), DbError>>,
+    },
     UpsertTheme {
         theme: Box<Theme>,
         reply: Sender<Result<(), DbError>>,
@@ -57,6 +70,33 @@ enum DbRequest {
     SaveSettings {
         settings: AppSettings,
         reply: Sender<Result<(), DbError>>,
+    },
+    GetChapterVerses {
+        translation_code: String,
+        book_number: u8,
+        chapter: u16,
+        reply: Sender<Result<Vec<BibleVerse>, DbError>>,
+    },
+    GetPassage {
+        translation_code: String,
+        reference: ScriptureRef,
+        reply: Sender<Result<Vec<BibleVerse>, DbError>>,
+    },
+    SearchBibleVerses {
+        translation_code: String,
+        query: String,
+        limit: usize,
+        reply: Sender<Result<Vec<BibleVerse>, DbError>>,
+    },
+    ImportParsedBible {
+        bible: Box<ParsedBible>,
+        reply: Sender<Result<BibleTranslation, DbError>>,
+    },
+    ImportSqliteBible {
+        path: PathBuf,
+        code: String,
+        name: String,
+        reply: Sender<Result<BibleTranslation, DbError>>,
     },
 }
 
@@ -89,55 +129,45 @@ impl DbWorker {
     }
 
     pub async fn load_bootstrap(&self) -> Result<BootstrapData, DbError> {
-        let (reply, rx) = bounded(1);
-        self.send(DbRequest::LoadBootstrap { reply }).await?;
-        rx.recv().await.map_err(|_| DbError::WorkerClosed)?
+        self.call(|reply| DbRequest::LoadBootstrap { reply }).await
     }
 
     pub async fn search_songs(&self, query: &str) -> Result<Vec<SongSummary>, DbError> {
-        let (reply, rx) = bounded(1);
-        self.send(DbRequest::SearchSongs {
-            query: query.to_owned(),
-            reply,
-        })
-        .await?;
-        rx.recv().await.map_err(|_| DbError::WorkerClosed)?
+        let query = query.to_owned();
+        self.call(|reply| DbRequest::SearchSongs { query, reply })
+            .await
     }
 
     pub async fn get_song(&self, id: SongId) -> Result<Option<Song>, DbError> {
-        let (reply, rx) = bounded(1);
-        self.send(DbRequest::GetSong { id, reply }).await?;
-        rx.recv().await.map_err(|_| DbError::WorkerClosed)?
+        self.call(|reply| DbRequest::GetSong { id, reply }).await
     }
 
     pub async fn upsert_song(&self, song: Song) -> Result<(), DbError> {
-        let (reply, rx) = bounded(1);
-        self.send(DbRequest::UpsertSong {
+        self.call(|reply| DbRequest::UpsertSong {
             song: Box::new(song),
             reply,
         })
-        .await?;
-        rx.recv().await.map_err(|_| DbError::WorkerClosed)?
+        .await
+    }
+
+    pub async fn delete_song(&self, id: SongId) -> Result<(), DbError> {
+        self.call(|reply| DbRequest::DeleteSong { id, reply }).await
     }
 
     pub async fn upsert_theme(&self, theme: Theme) -> Result<(), DbError> {
-        let (reply, rx) = bounded(1);
-        self.send(DbRequest::UpsertTheme {
+        self.call(|reply| DbRequest::UpsertTheme {
             theme: Box::new(theme),
             reply,
         })
-        .await?;
-        rx.recv().await.map_err(|_| DbError::WorkerClosed)?
+        .await
     }
 
     pub async fn save_service(&self, schedule: ServiceSchedule) -> Result<(), DbError> {
-        let (reply, rx) = bounded(1);
-        self.send(DbRequest::SaveService {
+        self.call(|reply| DbRequest::SaveService {
             schedule: Box::new(schedule),
             reply,
         })
-        .await?;
-        rx.recv().await.map_err(|_| DbError::WorkerClosed)?
+        .await
     }
 
     pub async fn reorder_service_items(
@@ -145,26 +175,138 @@ impl DbWorker {
         service_id: ServiceId,
         ordered_ids: Vec<ServiceItemId>,
     ) -> Result<(), DbError> {
-        let (reply, rx) = bounded(1);
-        self.send(DbRequest::ReorderServiceItems {
+        self.call(|reply| DbRequest::ReorderServiceItems {
             service_id,
             ordered_ids,
             reply,
         })
-        .await?;
-        rx.recv().await.map_err(|_| DbError::WorkerClosed)?
+        .await
     }
 
     pub async fn save_settings(&self, settings: AppSettings) -> Result<(), DbError> {
-        let (reply, rx) = bounded(1);
-        self.send(DbRequest::SaveSettings { settings, reply })
-            .await?;
-        rx.recv().await.map_err(|_| DbError::WorkerClosed)?
+        self.call(|reply| DbRequest::SaveSettings { settings, reply })
+            .await
     }
 
-    async fn send(&self, req: DbRequest) -> Result<(), DbError> {
-        self.tx.send(req).await.map_err(|_| DbError::WorkerClosed)
+    pub async fn get_chapter_verses(
+        &self,
+        translation_code: &str,
+        book_number: u8,
+        chapter: u16,
+    ) -> Result<Vec<BibleVerse>, DbError> {
+        let translation_code = translation_code.to_owned();
+        self.call(|reply| DbRequest::GetChapterVerses {
+            translation_code,
+            book_number,
+            chapter,
+            reply,
+        })
+        .await
     }
+
+    pub async fn get_passage(
+        &self,
+        translation_code: &str,
+        reference: ScriptureRef,
+    ) -> Result<Vec<BibleVerse>, DbError> {
+        let translation_code = translation_code.to_owned();
+        self.call(|reply| DbRequest::GetPassage {
+            translation_code,
+            reference,
+            reply,
+        })
+        .await
+    }
+
+    pub async fn search_bible_verses(
+        &self,
+        translation_code: &str,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<BibleVerse>, DbError> {
+        let translation_code = translation_code.to_owned();
+        let query = query.to_owned();
+        self.call(|reply| DbRequest::SearchBibleVerses {
+            translation_code,
+            query,
+            limit,
+            reply,
+        })
+        .await
+    }
+
+    pub async fn import_parsed_bible(
+        &self,
+        bible: ParsedBible,
+    ) -> Result<BibleTranslation, DbError> {
+        self.call(|reply| DbRequest::ImportParsedBible {
+            bible: Box::new(bible),
+            reply,
+        })
+        .await
+    }
+
+    pub async fn import_sqlite_bible(
+        &self,
+        path: PathBuf,
+        code: &str,
+        name: &str,
+    ) -> Result<BibleTranslation, DbError> {
+        let code = code.to_owned();
+        let name = name.to_owned();
+        self.call(|reply| DbRequest::ImportSqliteBible {
+            path,
+            code,
+            name,
+            reply,
+        })
+        .await
+    }
+
+    async fn call<T>(
+        &self,
+        build: impl FnOnce(Sender<Result<T, DbError>>) -> DbRequest,
+    ) -> Result<T, DbError> {
+        let (reply, rx) = bounded(1);
+        self.tx
+            .send(build(reply))
+            .await
+            .map_err(|_| DbError::WorkerClosed)?;
+        rx.recv().await.map_err(|_| DbError::WorkerClosed)?
+    }
+}
+
+/// Synchronously loads bootstrap state from an open [`Database`].
+pub fn load_bootstrap_sync(db: &Database) -> Result<BootstrapData, DbError> {
+    let conn = db.conn();
+    let settings = load_settings(conn)?;
+    let themes = list_themes(conn)?;
+    let songs = list_songs(conn)?;
+    let mut loaded_songs = Vec::with_capacity(songs.len());
+    for summary in &songs {
+        if let Some(full) = get_song(conn, summary.id)? {
+            loaded_songs.push(full);
+        }
+    }
+    let services = list_services(conn)?;
+    let bible_translations = list_translations(conn)?;
+    let default_code = bible_translations
+        .iter()
+        .find(|t| t.code.eq_ignore_ascii_case("WEB"))
+        .or_else(|| bible_translations.first())
+        .map(|t| t.code.as_str())
+        .unwrap_or("WEB");
+    let initial_chapter_verses = get_chapter_verses(conn, default_code, 19, 23)?;
+
+    Ok(BootstrapData {
+        settings,
+        themes,
+        songs,
+        loaded_songs,
+        services,
+        bible_translations,
+        initial_chapter_verses,
+    })
 }
 
 fn worker_loop(mut db: Database, rx: Receiver<DbRequest>) {
@@ -181,6 +323,9 @@ fn worker_loop(mut db: Database, rx: Receiver<DbRequest>) {
             }
             DbRequest::UpsertSong { song, reply } => {
                 let _ = reply.send_blocking(upsert_song(db.conn_mut(), &song));
+            }
+            DbRequest::DeleteSong { id, reply } => {
+                let _ = reply.send_blocking(delete_song(db.conn(), id));
             }
             DbRequest::UpsertTheme { theme, reply } => {
                 let _ = reply.send_blocking(upsert_theme(db.conn_mut(), &theme));
@@ -202,27 +347,51 @@ fn worker_loop(mut db: Database, rx: Receiver<DbRequest>) {
             DbRequest::SaveSettings { settings, reply } => {
                 let _ = reply.send_blocking(save_settings(db.conn(), &settings));
             }
+            DbRequest::GetChapterVerses {
+                translation_code,
+                book_number,
+                chapter,
+                reply,
+            } => {
+                let _ = reply.send_blocking(get_chapter_verses(
+                    db.conn(),
+                    &translation_code,
+                    book_number,
+                    chapter,
+                ));
+            }
+            DbRequest::GetPassage {
+                translation_code,
+                reference,
+                reply,
+            } => {
+                let _ = reply.send_blocking(get_passage(db.conn(), &translation_code, &reference));
+            }
+            DbRequest::SearchBibleVerses {
+                translation_code,
+                query,
+                limit,
+                reply,
+            } => {
+                let _ = reply.send_blocking(search_bible_verses(
+                    db.conn(),
+                    &translation_code,
+                    &query,
+                    limit,
+                ));
+            }
+            DbRequest::ImportParsedBible { bible, reply } => {
+                let _ = reply.send_blocking(import_parsed_bible(db.conn_mut(), &bible));
+            }
+            DbRequest::ImportSqliteBible {
+                path,
+                code,
+                name,
+                reply,
+            } => {
+                let _ =
+                    reply.send_blocking(import_sqlite_bible(db.conn_mut(), &path, &code, &name));
+            }
         }
     }
-}
-
-fn load_bootstrap_sync(db: &Database) -> Result<BootstrapData, DbError> {
-    let conn = db.conn();
-    let settings = load_settings(conn)?;
-    let themes = list_themes(conn)?;
-    let songs = list_songs(conn)?;
-    let mut loaded_songs = Vec::with_capacity(songs.len());
-    for summary in &songs {
-        if let Some(full) = get_song(conn, summary.id)? {
-            loaded_songs.push(full);
-        }
-    }
-    let services = list_services(conn)?;
-    Ok(BootstrapData {
-        settings,
-        themes,
-        songs,
-        loaded_songs,
-        services,
-    })
 }

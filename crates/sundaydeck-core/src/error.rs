@@ -41,3 +41,31 @@ pub enum PresentationError {
     #[error("slide {slide_id} is not a text slide and cannot be text-patched")]
     SlideNotText { slide_id: SlideId },
 }
+
+/// Actionable errors emitted when parsing user-typed scripture references.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ScriptureParseError {
+    #[error("scripture reference is empty")]
+    Empty,
+    #[error("unknown Bible book '{book}'")]
+    UnknownBook { book: String },
+    #[error("missing chapter number in '{raw}'")]
+    MissingChapter { raw: String },
+    #[error("invalid chapter or verse number '{token}'")]
+    InvalidNumber { token: String },
+    #[error("verse range {start}-{end} is inverted")]
+    InvertedRange { start: u16, end: u16 },
+}
+
+/// Errors emitted while importing songs or Bibles from external formats.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ImportError {
+    #[error("input is empty")]
+    EmptyInput,
+    #[error("malformed XML: {detail}")]
+    MalformedXml { detail: String },
+    #[error("unsupported or unrecognized format: {detail}")]
+    UnsupportedFormat { detail: String },
+    #[error("imported content contained no usable {kind}")]
+    NoContent { kind: &'static str },
+}

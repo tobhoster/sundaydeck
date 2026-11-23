@@ -17,9 +17,11 @@ const MONITOR_WIDTH_PX: f32 = 348.0;
 const MONITOR_HEIGHT_PX: f32 = 196.0;
 
 /// Right Pane: WYSIWYG Live Output Monitor, pinned F1-F3 Recovery Overrides,
-/// active live slide navigation grid, and quick private Stage Monitor cues.
+/// active live slide navigation grid, Quick Edit trigger, and private Stage cues.
 pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<OperatorWorkspace>) -> Div {
-    let snapshot = workspace.store.read(cx).snapshot();
+    let store_ref = workspace.store.read(cx);
+    let snapshot = store_ref.snapshot();
+    let now_ms = store_ref.now_epoch_ms();
     let live = snapshot.live.clone();
     let active_override = snapshot.output_override;
     let stage_note = snapshot.stage.stage_message.clone();
@@ -60,6 +62,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
         .child(render_audience_canvas(
             &snapshot.audience,
             MONITOR_WIDTH_PX,
+            now_ms,
             cx,
         ));
 
@@ -200,22 +203,22 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                     div()
                         .flex()
                         .items_center()
-                        .gap(px(8.0))
+                        .gap(px(7.0))
                         .child(
                             div()
-                                .px(px(8.0))
+                                .px(px(7.0))
                                 .py(px(3.0))
                                 .rounded(px(5.0))
                                 .bg(color(LIVE_ACCENT))
                                 .text_color(rgb(0xFFFFFF))
-                                .text_size(px(10.5))
+                                .text_size(px(10.0))
                                 .font_weight(FontWeight::BOLD)
                                 .child("● LIVE"),
                         )
                         .child(
                             div()
                                 .text_color(color(TEXT_PRIMARY))
-                                .text_size(px(13.0))
+                                .text_size(px(12.5))
                                 .font_weight(FontWeight::BOLD)
                                 .child(live_title),
                         ),
@@ -224,17 +227,35 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                     div()
                         .flex()
                         .items_center()
-                        .gap(px(5.0))
+                        .gap(px(4.0))
+                        .child(
+                            div()
+                                .id("btn-quick-edit-live")
+                                .px(px(7.0))
+                                .py(px(4.0))
+                                .rounded(px(5.0))
+                                .cursor_pointer()
+                                .bg(color(BG_ELEVATED))
+                                .hover(|s| s.bg(color(BG_CARD_HOVER)))
+                                .border_1()
+                                .border_color(color(BORDER_STRONG))
+                                .text_color(color(TEXT_SECONDARY))
+                                .text_size(px(10.5))
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.open_quick_edit(cx);
+                                }))
+                                .child("Edit Live"),
+                        )
                         .child(
                             div()
                                 .text_color(color(TEXT_MUTED))
-                                .text_size(px(11.0))
+                                .text_size(px(10.5))
                                 .child(pos_badge),
                         )
                         .child(
                             div()
                                 .id("btn-prev-slide")
-                                .px(px(8.0))
+                                .px(px(7.0))
                                 .py(px(4.0))
                                 .rounded(px(5.0))
                                 .cursor_pointer()
@@ -243,7 +264,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                                 .border_1()
                                 .border_color(color(BORDER_STRONG))
                                 .text_color(color(TEXT_PRIMARY))
-                                .text_size(px(11.5))
+                                .text_size(px(11.0))
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.store.update(cx, |s, cx| {
                                         let _ = s.dispatch(PresentationCommand::PrevLiveSlide, cx);
@@ -254,7 +275,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                         .child(
                             div()
                                 .id("btn-next-slide")
-                                .px(px(8.0))
+                                .px(px(7.0))
                                 .py(px(4.0))
                                 .rounded(px(5.0))
                                 .cursor_pointer()
@@ -263,7 +284,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                                 .border_1()
                                 .border_color(color(BORDER_STRONG))
                                 .text_color(color(TEXT_PRIMARY))
-                                .text_size(px(11.5))
+                                .text_size(px(11.0))
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.store.update(cx, |s, cx| {
                                         let _ = s.dispatch(PresentationCommand::NextLiveSlide, cx);

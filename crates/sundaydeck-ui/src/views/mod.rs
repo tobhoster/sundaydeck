@@ -1,4 +1,8 @@
+pub mod alerts_timers_modal;
+pub mod alerts_timers_ui;
 pub mod audience_window;
+pub mod bible_browser;
+pub mod bible_browser_ui;
 pub mod library_browser;
 pub mod library_preview_pane;
 pub mod live_pane;
@@ -6,7 +10,10 @@ pub mod operator_header;
 pub mod operator_workspace;
 pub mod override_controls;
 pub mod preview_pane;
+pub mod quick_edit_modal;
 pub mod schedule_pane;
+pub mod song_editor_body;
+pub mod song_editor_modal;
 pub mod stage_window;
 
 pub use audience_window::AudienceOutputView;

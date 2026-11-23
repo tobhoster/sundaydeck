@@ -1,3 +1,4 @@
+pub mod bible_repo;
 pub mod connection;
 pub mod error;
 pub mod media_repo;

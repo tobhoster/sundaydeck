@@ -3,40 +3,25 @@ use std::sync::Arc;
 
 use gpui::{AppContext as _, px, size};
 use gpui_screenshot::ScreenshotApp;
-use sundaydeck_core::{AlertId, AudienceAlert, OutputOverride, PresentationCommand, ReflowMode};
-use sundaydeck_db::Database;
-use sundaydeck_ui::store::PresentationStore;
+use sundaydeck_core::{
+    AlertPosition, AlertTimeout, AudienceAlert, OutputOverride, PresentationCommand, ReflowMode,
+    ServiceTimer, parse_scripture_ref,
+};
+use sundaydeck_db::{Database, DbWorker};
+use sundaydeck_ui::store::{BibleBrowseMode, PresentationStore};
 use sundaydeck_ui::views::operator_workspace::LibraryTab;
+use sundaydeck_ui::views::song_editor_modal::EditorTab;
 use sundaydeck_ui::views::{AudienceOutputView, OperatorWorkspace, StageMonitorView};
 use sundaydeck_ui::windows::WindowManager;
 
 fn load_seeded_bootstrap() -> sundaydeck_db::BootstrapData {
     let mut db = Database::open_in_memory().expect("in-memory sqlite");
     sundaydeck_db::seed::seed_defaults_if_empty(db.conn_mut()).expect("seed defaults");
-    let conn = db.conn();
-    let settings = sundaydeck_db::settings_repo::load_settings(conn).expect("settings");
-    let themes = sundaydeck_db::theme_repo::list_themes(conn).expect("themes");
-    let songs = sundaydeck_db::song_repo::list_songs(conn).expect("songs");
-    let mut loaded_songs = Vec::with_capacity(songs.len());
-    for s in &songs {
-        loaded_songs.push(
-            sundaydeck_db::song_repo::get_song(conn, s.id)
-                .expect("get song")
-                .expect("song exists"),
-        );
-    }
-    let services = sundaydeck_db::service_repo::list_services(conn).expect("services");
-    sundaydeck_db::BootstrapData {
-        settings,
-        themes,
-        songs,
-        loaded_songs,
-        services,
-    }
+    sundaydeck_db::worker::load_bootstrap_sync(&db).expect("load bootstrap")
 }
 
 #[test]
-fn render_all_phase1_windows_and_states_via_headless_vulkan() {
+fn render_all_phase1_and_phase2_windows_via_headless_vulkan() {
     let out_dir = std::env::var("SUNDAYDECK_CAPTURE_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
@@ -46,18 +31,24 @@ fn render_all_phase1_windows_and_states_via_headless_vulkan() {
 
     let mut app = ScreenshotApp::new().expect("start headless lavapipe ScreenshotApp");
     let bootstrap = load_seeded_bootstrap();
+    let db_worker = DbWorker::spawn_in_memory().expect("spawn in-memory worker");
 
     let (store, windows) = app.update(|cx| {
-        let store = cx.new(|_| PresentationStore::from_bootstrap(bootstrap));
+        let store = cx.new(|_| {
+            let mut s = PresentationStore::from_bootstrap(bootstrap);
+            s.clock_override_ms = Some(1_000_000);
+            s
+        });
         let windows = cx.new(|_| WindowManager::new());
         (store, windows)
     });
 
     let op_store = store.clone();
     let op_windows = windows.clone();
+    let op_db = db_worker.clone();
     let op_win = app
         .open_window(size(px(1440.0), px(900.0)), 1.0, move |_, cx| {
-            cx.new(|cx| OperatorWorkspace::new(op_store, op_windows, None, cx))
+            cx.new(|cx| OperatorWorkspace::new(op_store, op_windows, Some(op_db), cx))
         })
         .expect("open operator window");
 
@@ -75,7 +66,7 @@ fn render_all_phase1_windows_and_states_via_headless_vulkan() {
         })
         .expect("open stage window");
 
-    // 1. Go Live with Amazing Grace (item index 1), then stage Come Thou Fount (item index 2) in Preview
+    // 1. Phase 1 baseline: Amazing Grace live, Come Thou Fount in preview
     app.update(|cx| {
         let (grace_item_id, fount_item_id) = {
             let s = store.read(cx);
@@ -92,107 +83,171 @@ fn render_all_phase1_windows_and_states_via_headless_vulkan() {
                 )),
                 cx,
             )
-            .expect("set stage message");
+            .expect("stage note");
         });
     });
 
     app.capture(op_win)
-        .expect("capture operator live")
+        .expect("capture 01")
         .image
         .save(out_dir.join("01-operator-workspace-live.png"))
         .expect("save 01");
-
     app.capture(aud_win)
-        .expect("capture audience song dark")
+        .expect("capture 02")
         .image
         .save(out_dir.join("02-audience-output-song-dark.png"))
         .expect("save 02");
-
     app.capture(stg_win)
-        .expect("capture stage live")
+        .expect("capture 03")
         .image
         .save(out_dir.join("03-stage-monitor-live.png"))
         .expect("save 03");
 
-    // 2. Dynamic 2-Line Reflow + Warm Sanctuary Amber Theme + Nursery Alert + Live Patch
+    // 2. Phase 2 Bible Browser: Smart Ref `1cor 13:4-7` + Continuous Scroll + Auto-Pagination
+    let mut mem_db = Database::open_in_memory().expect("db");
+    sundaydeck_db::seed::seed_defaults_if_empty(mem_db.conn_mut()).expect("seed");
+    let cor_ref = parse_scripture_ref("1cor 13:4-7").expect("parse 1cor");
+    let cor_verses =
+        sundaydeck_db::bible_repo::get_passage(mem_db.conn(), "WEB", &cor_ref).expect("1cor web");
+
     app.update(|cx| {
-        let (well_item_id, amber_theme) = {
+        store.update(cx, |s, cx| {
+            s.active_translation_code = "WEB".to_owned();
+            s.bible_browse_mode = BibleBrowseMode::Chapter {
+                book_number: 46,
+                chapter: 13,
+            };
+            s.bible_verses = cor_verses.clone();
+            s.selected_verse_range = Some((0, 3));
+            s.stage_scripture_verses(&cor_verses, false, cx);
+        });
+    });
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.active_library_tab = LibraryTab::Bible;
+                cx.notify();
+            });
+        }
+    })
+    .expect("switch to bible tab");
+
+    app.capture(op_win)
+        .expect("capture 04 bible browser")
+        .image
+        .save(out_dir.join("04-phase2-bible-browser-continuous-scroll.png"))
+        .expect("save 04");
+
+    // Go Live with auto-paginated 1 Corinthians 13:4-7
+    app.update(|cx| {
+        store.update(cx, |s, cx| {
+            s.dispatch(PresentationCommand::GoLive, cx)
+                .expect("go live scripture");
+        });
+    });
+    app.capture(aud_win)
+        .expect("capture 05 scripture paginated")
+        .image
+        .save(out_dir.join("05-phase2-audience-scripture-paginated.png"))
+        .expect("save 05");
+
+    // 3. Phase 2 Song Editor & Non-Destructive Arrangement Builder modal
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.active_library_tab = LibraryTab::Songs;
+                let well = this
+                    .store
+                    .read(cx)
+                    .songs
+                    .iter()
+                    .find(|s| s.title.contains("It Is Well"))
+                    .cloned();
+                this.open_song_editor(well, EditorTab::Edit, cx);
+            });
+        }
+    })
+    .expect("open song editor");
+    app.capture(op_win)
+        .expect("capture 06 song editor")
+        .image
+        .save(out_dir.join("06-phase2-song-editor-arrangements.png"))
+        .expect("save 06");
+
+    // 4. Phase 2 On-the-Fly Live Quick Edit modal (zero-flash patch)
+    app.update(|cx| {
+        let (well_id, amber) = {
             let s = store.read(cx);
             let amber = s
                 .themes
                 .iter()
                 .find(|t| t.name.contains("Amber"))
                 .cloned()
-                .expect("amber theme");
+                .expect("amber");
             (s.service.items[4].id, amber)
         };
         store.update(cx, |s, cx| {
-            s.activate_service_item(well_item_id, cx);
+            s.activate_service_item(well_id, cx);
             s.set_preview_reflow_mode(ReflowMode::Lines2, cx);
             s.dispatch(PresentationCommand::GoLive, cx)
-                .expect("go live well");
-            s.dispatch(
-                PresentationCommand::ApplyLiveTheme(Arc::clone(&amber_theme)),
-                cx,
-            )
-            .expect("apply amber theme");
-            s.dispatch(
-                PresentationCommand::SetAudienceAlert(Some(AudienceAlert {
-                    id: AlertId::new_v7(),
-                    message: "Nursery Alert: Parent #142 please check West Hall".to_owned(),
-                })),
-                cx,
-            )
-            .expect("set nursery alert");
+                .expect("live well");
+            s.dispatch(PresentationCommand::ApplyLiveTheme(Arc::clone(&amber)), cx)
+                .expect("amber");
         });
     });
-
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.open_quick_edit(cx);
+            });
+        }
+    })
+    .expect("open quick edit");
     app.capture(op_win)
-        .expect("capture operator reflow + amber")
+        .expect("capture 07 quick edit")
         .image
-        .save(out_dir.join("04-operator-reflow-2lines-amber.png"))
-        .expect("save 04");
-
-    app.capture(aud_win)
-        .expect("capture audience amber + alert")
-        .image
-        .save(out_dir.join("05-audience-amber-reflow-alert.png"))
-        .expect("save 05");
-
-    // 3. Scripture Clean Theme (Psalm 23:1-3)
-    app.update(|cx| {
-        let scripture_item_id = store.read(cx).service.items[3].id;
-        store.update(cx, |s, cx| {
-            s.dispatch(PresentationCommand::SetAudienceAlert(None), cx)
-                .expect("clear alert");
-            s.activate_service_item(scripture_item_id, cx);
-            s.dispatch(PresentationCommand::GoLive, cx)
-                .expect("go live scripture");
-        });
-    });
-
-    app.capture(aud_win)
-        .expect("capture audience scripture")
-        .image
-        .save(out_dir.join("06-audience-scripture-clean.png"))
-        .expect("save 06");
-
-    // 4. Instant Recovery Overrides: Clear Text [F1], Logo [F3], Black [F2]
-    app.update(|cx| {
-        store.update(cx, |s, cx| {
-            s.dispatch(
-                PresentationCommand::SetOverride(OutputOverride::ClearText),
-                cx,
-            )
-            .expect("clear text");
-        });
-    });
-    app.capture(aud_win)
-        .expect("capture clear text")
-        .image
-        .save(out_dir.join("07-audience-override-clear-text.png"))
+        .save(out_dir.join("07-phase2-live-quick-edit.png"))
         .expect("save 07");
 
+    // 5. Phase 2 Alerts & Timers Modal + Bottom Ticker Alert + Pre-Service Countdown
+    app.update(|cx| {
+        store.update(cx, |s, cx| {
+            let now = s.now_epoch_ms();
+            let alert = AudienceAlert::new(
+                "Nursery Alert: Parent #142 please check West Hall",
+                AlertPosition::BottomBar,
+                AlertTimeout::Seconds { duration_secs: 30 },
+                now - 6_000,
+            );
+            let mut timer = ServiceTimer::countdown("Pre-Service", 300, true);
+            timer.start(now - 28_000); // 04:32 remaining
+            s.dispatch(PresentationCommand::SetAudienceAlert(Some(alert)), cx)
+                .expect("set alert");
+            s.dispatch(PresentationCommand::SetTimer(Some(timer)), cx)
+                .expect("set timer");
+        });
+    });
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.open_alerts_timers(cx);
+            });
+        }
+    })
+    .expect("open alerts & timers");
+    app.capture(op_win)
+        .expect("capture 08 alerts timers modal")
+        .image
+        .save(out_dir.join("08-phase2-alerts-timers-modal.png"))
+        .expect("save 08");
+
+    app.capture(aud_win)
+        .expect("capture 09 audience bottom ticker + countdown")
+        .image
+        .save(out_dir.join("09-phase2-audience-ticker-and-timer.png"))
+        .expect("save 09");
+
+    // 6. Audience Logo Splash with Pre-Service Countdown
     app.update(|cx| {
         store.update(cx, |s, cx| {
             s.dispatch(PresentationCommand::SetOverride(OutputOverride::Logo), cx)
@@ -200,59 +255,57 @@ fn render_all_phase1_windows_and_states_via_headless_vulkan() {
         });
     });
     app.capture(aud_win)
-        .expect("capture logo override")
+        .expect("capture 10 logo countdown")
         .image
-        .save(out_dir.join("08-audience-override-logo.png"))
-        .expect("save 08");
+        .save(out_dir.join("10-phase2-audience-logo-countdown.png"))
+        .expect("save 10");
+
+    // 7. Stage Monitor with Sermon Warning Timer (01:40) & Overtime Timer (-00:18)
+    app.update(|cx| {
+        store.update(cx, |s, cx| {
+            let now = s.now_epoch_ms();
+            let mut sermon_warn = ServiceTimer::countdown("Sermon", 1800, false);
+            sermon_warn.start(now - 1_700_000); // 01:40 remaining -> Warning amber!
+            s.dispatch(PresentationCommand::SetOverride(OutputOverride::None), cx)
+                .expect("clear override");
+            s.dispatch(PresentationCommand::SetTimer(Some(sermon_warn)), cx)
+                .expect("set sermon timer");
+        });
+    });
+    app.capture(stg_win)
+        .expect("capture 11 stage warning timer")
+        .image
+        .save(out_dir.join("11-phase2-stage-timer-warning.png"))
+        .expect("save 11");
 
     app.update(|cx| {
         store.update(cx, |s, cx| {
-            s.dispatch(PresentationCommand::SetOverride(OutputOverride::Black), cx)
-                .expect("black override");
+            let now = s.now_epoch_ms();
+            let mut sermon_over = ServiceTimer::countdown("Sermon", 1800, false);
+            sermon_over.start(now - 1_818_000); // -00:18 overtime -> Red alert!
+            s.dispatch(PresentationCommand::SetTimer(Some(sermon_over)), cx)
+                .expect("set overtime timer");
         });
     });
-    app.capture(aud_win)
-        .expect("capture black override")
-        .image
-        .save(out_dir.join("09-audience-override-black.png"))
-        .expect("save 09");
-
-    // Stage monitor while Audience is Blacked Out — proves stage stays readable with warning badge!
     app.capture(stg_win)
-        .expect("capture stage during black")
+        .expect("capture 12 stage overtime timer")
         .image
-        .save(out_dir.join("10-stage-monitor-audience-black.png"))
-        .expect("save 10");
+        .save(out_dir.join("12-phase2-stage-timer-overtime.png"))
+        .expect("save 12");
 
-    // 5. Operator workspace showing Themes tab + Black override active on Live Monitor
-    app.update_window(op_win.into(), |view, _, cx| {
-        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
-            op.update(cx, |this, cx| {
-                this.active_library_tab = LibraryTab::Themes;
-                cx.notify();
-            });
-        }
-    })
-    .expect("switch to themes tab");
-    app.capture(op_win)
-        .expect("capture operator themes + black override")
-        .image
-        .save(out_dir.join("11-operator-themes-and-black-override.png"))
-        .expect("save 11");
-
-    // Verify all 11 PNGs were actually written and are non-empty
     for entry in [
         "01-operator-workspace-live.png",
         "02-audience-output-song-dark.png",
         "03-stage-monitor-live.png",
-        "04-operator-reflow-2lines-amber.png",
-        "05-audience-amber-reflow-alert.png",
-        "06-audience-scripture-clean.png",
-        "07-audience-override-clear-text.png",
-        "08-audience-override-logo.png",
-        "09-audience-override-black.png",
-        "10-stage-monitor-audience-black.png",
-        "11-operator-themes-and-black-override.png",
+        "04-phase2-bible-browser-continuous-scroll.png",
+        "05-phase2-audience-scripture-paginated.png",
+        "06-phase2-song-editor-arrangements.png",
+        "07-phase2-live-quick-edit.png",
+        "08-phase2-alerts-timers-modal.png",
+        "09-phase2-audience-ticker-and-timer.png",
+        "10-phase2-audience-logo-countdown.png",
+        "11-phase2-stage-timer-warning.png",
+        "12-phase2-stage-timer-overtime.png",
     ] {
         let path = out_dir.join(entry);
         let meta = std::fs::metadata(&path).expect("screenshot exists");
