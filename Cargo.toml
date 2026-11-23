@@ -4,6 +4,7 @@ members = [
     "crates/sundaydeck-core",
     "crates/sundaydeck-db",
     "crates/sundaydeck-planner",
+    "crates/sundaydeck-voice",
     "crates/sundaydeck-ui",
 ]
 
@@ -17,10 +18,12 @@ authors = ["SundayDeck Contributors"]
 sundaydeck-core = { path = "crates/sundaydeck-core" }
 sundaydeck-db = { path = "crates/sundaydeck-db" }
 sundaydeck-planner = { path = "crates/sundaydeck-planner" }
+sundaydeck-voice = { path = "crates/sundaydeck-voice" }
 
 anyhow = "1.0"
 async-channel = "2.5"
 chrono = { version = "0.4", features = ["clock", "serde"] }
+cpal = "0.18"
 gpui = { package = "mhr-gpui", version = "0.2.0" }
 gpui_platform = { package = "mhr-gpui-platform", version = "0.2.0", features = ["wayland", "x11", "font-kit"] }
 gpui_screenshot = { package = "mhr-gpui-screenshot", version = "0.2.0" }
