@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=SundayDeck
+GenericName=Church Presentation Studio
+Comment=Fast, offline-first church presentation studio with local AI and voice auto-follow
+Exec=sundaydeck %f
+Icon=sundaydeck
+Terminal=false
+Categories=AudioVideo;Presentation;Office;
+MimeType=application/x-sundaydeck;
+StartupWMClass=SundayDeck

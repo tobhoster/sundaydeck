@@ -1,0 +1,167 @@
+name: Release Installers (macOS, Windows, Linux)
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Optional version label for manual test build (e.g. v0.1.0)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-macos:
+    name: macOS DMG (${{ matrix.arch_label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch_label: arm64
+          - os: macos-15-intel
+            arch_label: x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build SundayDeck.app and macOS DMG
+        run: |
+          chmod +x scripts/build-macos-dmg.sh
+          ./scripts/build-macos-dmg.sh
+
+      - name: Upload macOS DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-${{ matrix.arch_label }}
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  build-linux:
+    name: Linux (.deb + .tar.gz)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            dpkg-dev \
+            libasound2-dev \
+            libfontconfig1-dev \
+            libfreetype-dev \
+            libvulkan-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            pkg-config
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Linux .tar.gz and .deb packages
+        run: |
+          chmod +x scripts/build-linux-packages.sh
+          ./scripts/build-linux-packages.sh
+
+      - name: Upload Linux release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-x86_64
+          path: |
+            dist/*.tar.gz
+            dist/*.deb
+          if-no-files-found: error
+
+  build-windows:
+    name: Windows (.exe Installer + Portable .zip)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Windows portable ZIP and Inno Setup EXE installer
+        shell: pwsh
+        run: ./scripts/build-windows-installer.ps1
+
+      - name: Upload Windows release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x86_64
+          path: |
+            dist/*.zip
+            dist/*.exe
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release & Homebrew Cask
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v4
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS and updated Homebrew Cask
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+          chmod +x scripts/update-homebrew-cask.sh
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ -z "$VERSION" || "$GITHUB_REF_TYPE" != "tag" ]]; then
+            VERSION="$(grep '^version =' Cargo.toml | head -n 1 | cut -d '"' -f 2)"
+          fi
+          ./scripts/update-homebrew-cask.sh "$GITHUB_REPOSITORY" "$VERSION" release-assets > release-assets/sundaydeck.rb
+
+      - name: Upload combined release bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sundaydeck-release-all
+          path: release-assets/*
+
+      - name: Publish GitHub Release (on v* tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release-assets/*.dmg
+            release-assets/*.exe
+            release-assets/*.zip
+            release-assets/*.deb
+            release-assets/*.tar.gz
+            release-assets/SHA256SUMS.txt
+            release-assets/sundaydeck.rb
