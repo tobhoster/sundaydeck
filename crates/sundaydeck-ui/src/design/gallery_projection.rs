@@ -4,145 +4,143 @@ use crate::design::gallery_console::section_frame;
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::motion::MotionMode;
 use crate::design::primitives::{
-    VoiceSyncMode, display_status_badge, hardware_switcher_key_body, render_voice_sync_pill_display,
+    VoiceSyncMode, display_status_pill, render_auto_follow_pill, volunteer_action_button_body,
 };
 use crate::design::tokens::{
-    FONT_DISPLAY, FONT_DISPLAY_PROJ, FONT_LYRIC_BOLD, FONT_MONO, FONT_SCRIPTURE_SERIF,
+    FONT_BODY, FONT_DISPLAY, FONT_DISPLAY_PROJ, FONT_LYRIC_BOLD, FONT_SCRIPTURE_SERIF,
     RADIUS_CONTROL, RADIUS_TILE, TOKENS,
 };
 
 pub(crate) fn render_switcher_and_voice_showcase(motion_mode: MotionMode) -> Div {
-    let switcher_col = div()
+    let controls_col = div()
         .flex_1()
+        .rounded(px(RADIUS_TILE))
         .bg(TOKENS.canvas)
         .border_1()
         .border_color(TOKENS.gridline)
-        .p(px(10.0))
+        .p(px(12.0))
         .flex()
         .flex_col()
-        .gap(px(8.0))
+        .gap(px(10.0))
         .child(
             div()
-                .font_family(FONT_MONO)
+                .font_family(FONT_BODY)
                 .text_color(TOKENS.ink_muted)
-                .text_size(px(9.5))
-                .child("TACTILE OVERRIDE STRIP // TALLY RED & ACTIVE WARNING ORANGE"),
+                .text_size(px(11.5))
+                .font_weight(FontWeight::MEDIUM)
+                .child("Plain-English Screen Controls (shortcuts in hover tooltips)"),
         )
         .child(
             div()
                 .w_full()
                 .flex()
-                .gap(px(6.0))
-                .child(div().flex_1().child(hardware_switcher_key_body(
+                .gap(px(8.0))
+                .child(div().flex_1().child(volunteer_action_button_body(
                     DeckIcon::PlayFill,
-                    "GO LIVE",
-                    "F5",
+                    "Show on Screen",
                     true,
                     TOKENS.signal_live,
                 )))
-                .child(div().flex_1().child(hardware_switcher_key_body(
+                .child(div().flex_1().child(volunteer_action_button_body(
                     DeckIcon::TextTSlash,
-                    "CLEAR",
-                    "F1",
+                    "Hide Words",
                     false,
                     TOKENS.signal_override,
                 )))
-                .child(div().flex_1().child(hardware_switcher_key_body(
+                .child(div().flex_1().child(volunteer_action_button_body(
                     DeckIcon::EyeSlash,
-                    "BLACK",
-                    "F2",
+                    "Black Screen",
                     true,
                     TOKENS.signal_override,
                 )))
-                .child(div().flex_1().child(hardware_switcher_key_body(
+                .child(div().flex_1().child(volunteer_action_button_body(
                     DeckIcon::Image,
-                    "LOGO",
-                    "F3",
+                    "Show Logo",
                     false,
                     TOKENS.signal_override,
                 ))),
         );
 
-    let voice_col = div()
+    let status_col = div()
         .flex_1()
+        .rounded(px(RADIUS_TILE))
         .bg(TOKENS.canvas)
         .border_1()
         .border_color(TOKENS.gridline)
-        .p(px(10.0))
+        .p(px(12.0))
         .flex()
         .flex_col()
-        .gap(px(8.0))
+        .gap(px(10.0))
         .child(
             div()
-                .font_family(FONT_MONO)
+                .font_family(FONT_BODY)
                 .text_color(TOKENS.ink_muted)
-                .text_size(px(9.5))
-                .child("VOICE-SYNC HARDWARE PILL & DISPLAY CONNECTION BADGES"),
+                .text_size(px(11.5))
+                .font_weight(FontWeight::MEDIUM)
+                .child("Calm Auto-Follow & Display Status Pills"),
         )
-        .child(render_voice_sync_pill_display(
-            "gal-voice-off",
-            VoiceSyncMode::Off,
-            0,
-            None,
-            "BOOTH-IN 1/2",
-            motion_mode,
-        ))
-        .child(render_voice_sync_pill_display(
-            "gal-voice-suggest",
-            VoiceSyncMode::Suggest,
-            4,
-            Some(82),
-            "X32-USB CH1",
-            motion_mode,
-        ))
-        .child(render_voice_sync_pill_display(
-            "gal-voice-auto",
-            VoiceSyncMode::Auto,
-            6,
-            Some(94),
-            "X32-USB CH1",
-            motion_mode,
-        ))
         .child(
             div()
                 .flex()
+                .flex_wrap()
                 .items_center()
-                .gap(px(6.0))
-                .child(display_status_badge(
-                    DeckIcon::MonitorFill,
-                    "AUD",
-                    "1920x1080",
-                    true,
-                    TOKENS.signal_live,
+                .gap(px(8.0))
+                .child(render_auto_follow_pill(
+                    "gal-voice-off",
+                    VoiceSyncMode::Off,
+                    0,
+                    motion_mode,
                 ))
-                .child(display_status_badge(
+                .child(render_auto_follow_pill(
+                    "gal-voice-suggest",
+                    VoiceSyncMode::Suggest,
+                    2,
+                    motion_mode,
+                ))
+                .child(render_auto_follow_pill(
+                    "gal-voice-auto",
+                    VoiceSyncMode::Auto,
+                    3,
+                    motion_mode,
+                )),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_wrap()
+                .items_center()
+                .gap(px(8.0))
+                .child(display_status_pill(
+                    DeckIcon::MonitorFill,
+                    "Projector Ready",
+                    true,
+                    TOKENS.signal_voice,
+                ))
+                .child(display_status_pill(
                     DeckIcon::ChalkboardSimple,
-                    "STG",
-                    "1920x1080",
+                    "Stage Screen",
                     true,
                     TOKENS.signal_preview,
                 ))
-                .child(display_status_badge(
+                .child(display_status_pill(
                     DeckIcon::Monitor,
-                    "AUD",
-                    "STANDBY",
+                    "Projector Off",
                     false,
                     TOKENS.ink_muted,
                 )),
         );
 
     section_frame(
-        "04",
-        "HARDWARE OVERRIDE KEYS & TELEMETRY",
-        "EMBOSSED TOP BEVEL // F1-F5 MONO KEYCAPS // 6-TICK AUDIO METER",
+        "Volunteer Controls & Status Pills",
+        "Zero broadcast jargon — every button reads in clear, calm English",
     )
     .child(
         div()
             .w_full()
             .flex()
-            .gap(px(12.0))
-            .child(switcher_col)
-            .child(voice_col),
+            .gap(px(14.0))
+            .child(controls_col)
+            .child(status_col),
     )
 }
 
@@ -150,76 +148,63 @@ pub(crate) fn render_projection_font_pack() -> Div {
     let cards: &[(&str, &str, &str, FontWeight, &str, bool)] = &[
         (
             FONT_LYRIC_BOLD,
-            "MODERN BOLD SANS // LYRICS",
+            "Sanctuary Lyrics — Manrope",
             "Amazing grace! How sweet the sound\nThat saved a wretch like me!",
             FontWeight::EXTRA_BOLD,
-            "JOHN NEWTON • CCLI #22025",
+            "John Newton · CCLI #22025",
             false,
         ),
         (
             FONT_SCRIPTURE_SERIF,
-            "EDITORIAL SCRIPTURE SERIF",
-            "4 Love is patient and is kind.\nLove doesn't envy. Love doesn't brag.",
+            "Editorial Scripture — Newsreader",
+            "Love is patient and is kind.\nLove doesn't envy. Love doesn't brag.",
             FontWeight::NORMAL,
-            "1 CORINTHIANS 13:4 (WEB)",
+            "1 Corinthians 13:4 · WEB",
             false,
         ),
         (
             FONT_DISPLAY,
-            "MINIMAL GROTESK // LOWER & CENTER",
+            "Clean Studio — Plus Jakarta Sans",
             "When peace, like a river, attendeth my way,\nIt is well with my soul.",
             FontWeight::SEMIBOLD,
-            "HORATIO G. SPAFFORD",
+            "Horatio G. Spafford",
             true,
         ),
         (
             FONT_DISPLAY_PROJ,
-            "CONTEMPORARY DISPLAY // TITLES",
-            "SUNDAY WORSHIP\nGATHERING AT 10:00 AM",
+            "Announcement Titles — Syne",
+            "Sunday Worship\nGathering at 10:00 AM",
             FontWeight::BOLD,
-            "GRACE FELLOWSHIP",
+            "Grace Fellowship",
             false,
         ),
     ];
 
-    let mut grid = div().w_full().flex().flex_wrap().gap(px(12.0));
+    let mut grid = div().w_full().flex().flex_wrap().gap(px(14.0));
     for &(family, role, sample, weight, footer, warm_bg) in cards {
         grid = grid.child(
             div()
                 .w(px(332.0))
                 .h(px(187.0)) // exact 16:9
                 .bg(if warm_bg {
-                    rgb(0x19120D)
+                    rgb(0x1E1813)
                 } else {
                     TOKENS.canvas
                 })
                 .border_1()
                 .border_color(TOKENS.gridline)
                 .rounded(px(RADIUS_TILE))
-                .p(px(14.0))
+                .p(px(16.0))
                 .flex()
                 .flex_col()
                 .justify_between()
                 .child(
                     div()
-                        .flex()
-                        .items_center()
-                        .justify_between()
-                        .child(
-                            div()
-                                .font_family(FONT_MONO)
-                                .text_color(TOKENS.signal_preview)
-                                .text_size(px(9.5))
-                                .font_weight(FontWeight::BOLD)
-                                .child(family.to_ascii_uppercase()),
-                        )
-                        .child(
-                            div()
-                                .font_family(FONT_MONO)
-                                .text_color(TOKENS.ink_muted)
-                                .text_size(px(9.0))
-                                .child(role),
-                        ),
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.signal_preview)
+                        .text_size(px(11.0))
+                        .font_weight(FontWeight::MEDIUM)
+                        .child(role),
                 )
                 .child(
                     div()
@@ -227,23 +212,22 @@ pub(crate) fn render_projection_font_pack() -> Div {
                         .font_weight(weight)
                         .text_color(TOKENS.ink_primary)
                         .text_size(px(19.0))
-                        .line_height(px(25.0))
+                        .line_height(px(26.0))
                         .child(sample),
                 )
                 .child(
                     div()
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_secondary)
-                        .text_size(px(9.5))
+                        .text_size(px(11.0))
                         .child(footer),
                 ),
         );
     }
 
     section_frame(
-        "05",
-        "SANCTUARY PROJECTION FONT PACK (4 OFL TYPEFACES)",
-        "ZERO FALLBACK TO SYSTEM ARIAL // 16:9 CONGREGATION-TESTED SAMPLES",
+        "Sanctuary Projection Font Pack",
+        "4 bundled SIL OFL typefaces ready offline out of the box",
     )
     .child(grid)
 }
@@ -252,15 +236,15 @@ pub(crate) fn render_icon_catalog() -> Div {
     let mut size_row = div()
         .flex()
         .items_center()
-        .gap(px(16.0))
+        .gap(px(18.0))
         .pb(px(10.0))
         .border_b_1()
         .border_color(TOKENS.gridline);
 
     for (label, sz) in [
-        ("SM 14PX (INLINE)", IconSize::Sm),
-        ("MD 16PX (TOOLBAR)", IconSize::Md),
-        ("LG 18PX (TRANSPORT)", IconSize::Lg),
+        ("Small 14px (Inline)", IconSize::Sm),
+        ("Medium 16px (Toolbar)", IconSize::Md),
+        ("Large 18px (Actions)", IconSize::Lg),
     ] {
         size_row = size_row.child(
             div()
@@ -272,15 +256,15 @@ pub(crate) fn render_icon_catalog() -> Div {
                 .child(deck_icon(DeckIcon::BookOpenText, sz, TOKENS.signal_preview))
                 .child(
                     div()
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_secondary)
-                        .text_size(px(10.0))
+                        .text_size(px(11.5))
                         .child(label),
                 ),
         );
     }
 
-    let mut swatches = div().w_full().flex().flex_wrap().gap(px(6.0));
+    let mut swatches = div().w_full().flex().flex_wrap().gap(px(8.0));
     for &icon in DeckIcon::ALL {
         let tint = if icon.short_name().ends_with('*') {
             TOKENS.signal_preview
@@ -289,31 +273,30 @@ pub(crate) fn render_icon_catalog() -> Div {
         };
         swatches = swatches.child(
             div()
-                .w(px(104.0))
-                .px(px(8.0))
-                .py(px(7.0))
+                .w(px(112.0))
+                .px(px(9.0))
+                .py(px(8.0))
                 .bg(TOKENS.canvas)
                 .border_1()
                 .border_color(TOKENS.gridline)
                 .rounded(px(RADIUS_CONTROL))
                 .flex()
                 .items_center()
-                .gap(px(7.0))
+                .gap(px(8.0))
                 .child(deck_icon(icon, IconSize::Md, tint))
                 .child(
                     div()
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_secondary)
-                        .text_size(px(9.5))
+                        .text_size(px(10.5))
                         .child(icon.short_name()),
                 ),
         );
     }
 
     section_frame(
-        "06",
-        "VENDORED PHOSPHOR SVG ICON CATALOG (49 EMBEDDED)",
-        "RUST-EMBED ASSET SOURCE // OFFLINE-SAFE // REGULAR + FILL WEIGHTS // ZERO EMOJIS",
+        "Embedded Phosphor Icon Catalog",
+        "49 offline-safe SVG icons bundled directly in the binary — zero emojis",
     )
     .child(size_row)
     .child(swatches)

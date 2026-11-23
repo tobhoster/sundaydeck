@@ -21,6 +21,7 @@ use crate::design::tokens::{FONT_BODY, TOKENS};
 use crate::store::PresentationStore;
 use crate::views::alerts_timers_modal::AlertsTimersModal;
 use crate::views::bible_browser::BibleBrowserView;
+use crate::views::header_popovers::render_header_popover;
 use crate::views::library_preview_pane::render_library_preview_pane;
 use crate::views::live_pane::render_live_pane;
 use crate::views::operator_header::render_operator_header;
@@ -29,6 +30,12 @@ use crate::views::quick_edit_modal::{ModalClosed, QuickEditModal};
 use crate::views::schedule_pane::render_schedule_pane;
 use crate::views::song_editor_modal::{EditorTab, SongEditorModal};
 use crate::windows::WindowManager;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HeaderPopover {
+    AutoFollow,
+    Projector,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LibraryTab {
@@ -55,6 +62,7 @@ pub struct OperatorWorkspace {
     pub song_search_input: Entity<TextInput>,
     pub bible_browser: Entity<BibleBrowserView>,
     pub active_modal: Option<ActiveModal>,
+    pub active_popover: Option<HeaderPopover>,
     modal_sub: Option<Subscription>,
     focus_handle: FocusHandle,
     _store_sub: Subscription,
@@ -130,6 +138,7 @@ impl OperatorWorkspace {
             song_search_input,
             bible_browser,
             active_modal: None,
+            active_popover: None,
             modal_sub: None,
             focus_handle: cx.focus_handle(),
             _store_sub: store_sub,
@@ -219,6 +228,20 @@ impl OperatorWorkspace {
     pub fn close_modal(&mut self, cx: &mut Context<Self>) {
         self.active_modal = None;
         self.modal_sub = None;
+        cx.notify();
+    }
+
+    pub fn toggle_popover(&mut self, target: HeaderPopover, cx: &mut Context<Self>) {
+        self.active_popover = if self.active_popover == Some(target) {
+            None
+        } else {
+            Some(target)
+        };
+        cx.notify();
+    }
+
+    pub fn close_popover(&mut self, cx: &mut Context<Self>) {
+        self.active_popover = None;
         cx.notify();
     }
 
@@ -430,6 +453,15 @@ impl Render for OperatorWorkspace {
                     .child(center_workspace)
                     .child(right_live),
             );
+
+        if let Some(popover) = self.active_popover {
+            let mut slot = div().absolute().top(gpui::px(48.0));
+            slot = match popover {
+                HeaderPopover::AutoFollow => slot.left_0().right_0().flex().justify_center(),
+                HeaderPopover::Projector => slot.right(gpui::px(18.0)),
+            };
+            root = root.child(slot.child(render_header_popover(self, popover, cx)));
+        }
 
         if let Some(modal) = &self.active_modal {
             let (modal_id, content): (&'static str, AnyElement) = match modal {

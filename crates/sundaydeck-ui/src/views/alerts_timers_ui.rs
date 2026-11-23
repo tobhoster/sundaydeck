@@ -7,7 +7,10 @@ use sundaydeck_core::{
 };
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::tokens::{FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, RADIUS_MODAL, TOKENS};
+use crate::design::tokens::{
+    FONT_BODY, FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, RADIUS_MODAL, RADIUS_PILL, RADIUS_TILE,
+    TOKENS,
+};
 use crate::views::alerts_timers_modal::AlertsTimersModal;
 use crate::views::quick_edit_modal::ModalClosed;
 
@@ -20,18 +23,18 @@ pub(crate) fn render_alerts_timers_modal(
     let now_ms = store_ref.now_epoch_ms();
 
     div()
-        .w(px(860.0))
+        .w(px(880.0))
         .rounded(px(RADIUS_MODAL))
         .bg(TOKENS.pane)
         .border_1()
         .border_color(TOKENS.focus_border)
-        .p(px(16.0))
+        .p(px(20.0))
         .flex()
         .flex_col()
-        .gap(px(14.0))
+        .gap(px(16.0))
         .child(
             div()
-                .pb(px(10.0))
+                .pb(px(12.0))
                 .border_b_1()
                 .border_color(TOKENS.gridline)
                 .flex()
@@ -41,7 +44,7 @@ pub(crate) fn render_alerts_timers_modal(
                     div()
                         .flex()
                         .items_center()
-                        .gap(px(8.0))
+                        .gap(px(10.0))
                         .child(deck_icon(
                             DeckIcon::Timer,
                             IconSize::Md,
@@ -51,16 +54,16 @@ pub(crate) fn render_alerts_timers_modal(
                             div()
                                 .font_family(FONT_DISPLAY)
                                 .text_color(TOKENS.ink_primary)
-                                .text_size(px(14.5))
-                                .font_weight(FontWeight::BOLD)
-                                .child("ALERTS & SERVICE TIMERS"),
+                                .text_size(px(16.0))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Alerts & Service Timers"),
                         ),
                 )
                 .child(
                     modal_btn(
                         "alerts-modal-close",
                         Some(DeckIcon::X),
-                        "CLOSE",
+                        "Close",
                         TOKENS.elevated,
                         TOKENS.gridline,
                         TOKENS.ink_secondary,
@@ -72,7 +75,7 @@ pub(crate) fn render_alerts_timers_modal(
             div()
                 .w_full()
                 .flex()
-                .gap(px(14.0))
+                .gap(px(16.0))
                 .child(render_alert_column(
                     modal,
                     snapshot.active_alert.as_ref(),
@@ -93,13 +96,13 @@ fn render_alert_column(
     now_ms: i64,
     cx: &mut Context<AlertsTimersModal>,
 ) -> Div {
-    let mut pos_row = div().flex().flex_wrap().gap(px(5.0));
+    let mut pos_row = div().flex().flex_wrap().gap(px(6.0));
     for pos in AlertPosition::ALL {
         let selected = pos == modal.alert_position;
         pos_row = pos_row.child(
             option_chip(
                 format!("alert-pos-{pos:?}"),
-                pos.display_label().to_ascii_uppercase(),
+                pos.display_label().to_owned(),
                 selected,
                 TOKENS.signal_preview,
                 TOKENS.signal_preview_tint,
@@ -111,13 +114,13 @@ fn render_alert_column(
         );
     }
 
-    let mut timeout_row = div().flex().items_center().gap(px(5.0));
+    let mut timeout_row = div().flex().items_center().gap(px(6.0));
     for preset in AlertTimeout::PRESETS {
         let selected = preset == modal.alert_timeout;
         timeout_row = timeout_row.child(
             option_chip(
                 format!("alert-to-{}", preset.display_label()),
-                preset.display_label().to_ascii_uppercase(),
+                preset.display_label().to_owned(),
                 selected,
                 TOKENS.ink_primary,
                 TOKENS.elevated_hover,
@@ -132,32 +135,29 @@ fn render_alert_column(
     let status_text = match active_alert {
         Some(a) => match a.remaining_secs(now_ms) {
             Some(secs) => format!(
-                "ACTIVE ({secs}S AUTO-DISMISS) // {}",
-                a.position.display_label().to_ascii_uppercase()
+                "Showing now ({secs}s remaining) · {}",
+                a.position.display_label()
             ),
-            None => format!(
-                "ACTIVE (MANUAL) // {}",
-                a.position.display_label().to_ascii_uppercase()
-            ),
+            None => format!("Showing now (manual) · {}", a.position.display_label()),
         },
-        None => "NO ACTIVE AUDIENCE ALERT".to_owned(),
+        None => "No alert showing on screen".to_owned(),
     };
 
     column_frame(
         DeckIcon::BellRinging,
-        "NURSERY / PARENT-PAGING ALERT",
+        "Nursery & Parent Alert",
         TOKENS.signal_preview,
     )
     .child(modal.alert_input.clone())
-    .child(field_label("PLACEMENT"))
+    .child(field_label("Screen position"))
     .child(pos_row)
-    .child(field_label("AUTO-DISMISS TIMEOUT"))
+    .child(field_label("Hide automatically after"))
     .child(timeout_row)
     .child(
         div()
-            .font_family(FONT_MONO)
+            .font_family(FONT_BODY)
             .text_color(TOKENS.ink_secondary)
-            .text_size(px(10.0))
+            .text_size(px(11.5))
             .child(status_text),
     )
     .child(
@@ -170,7 +170,7 @@ fn render_alert_column(
                 modal_btn(
                     "btn-send-alert",
                     None,
-                    "SEND ALERT",
+                    "Show Alert",
                     TOKENS.signal_preview,
                     TOKENS.signal_preview,
                     TOKENS.canvas,
@@ -181,9 +181,9 @@ fn render_alert_column(
                 modal_btn(
                     "btn-clear-alert",
                     None,
-                    "CLEAR ALERT",
+                    "Clear Alert",
                     TOKENS.signal_live_tint,
-                    TOKENS.signal_live,
+                    TOKENS.signal_live.alpha(0.55),
                     TOKENS.signal_live,
                 )
                 .on_click(cx.listener(|this, _, _, cx| {
@@ -210,8 +210,8 @@ fn render_timer_column(
                 TimerUrgency::Overtime => TOKENS.signal_live,
             };
             div()
-                .p(px(12.0))
-                .rounded(px(RADIUS_CONTROL))
+                .p(px(14.0))
+                .rounded(px(RADIUS_TILE))
                 .bg(TOKENS.pane)
                 .border_1()
                 .border_color(TOKENS.gridline)
@@ -222,19 +222,19 @@ fn render_timer_column(
                     div()
                         .flex()
                         .flex_col()
-                        .gap(px(2.0))
+                        .gap(px(3.0))
                         .child(
                             div()
                                 .font_family(FONT_DISPLAY)
                                 .text_color(TOKENS.ink_primary)
-                                .text_size(px(13.0))
-                                .font_weight(FontWeight::BOLD)
+                                .text_size(px(14.0))
+                                .font_weight(FontWeight::SEMIBOLD)
                                 .child(t.label.clone()),
                         )
                         .child(field_label(if t.show_on_audience {
-                            "AUDIENCE + STAGE"
+                            "Visible on Projector & Stage Screen"
                         } else {
-                            "STAGE MONITOR ONLY"
+                            "Stage Screen only"
                         })),
                 )
                 .child(
@@ -247,20 +247,20 @@ fn render_timer_column(
                 )
         }
         None => div()
-            .p(px(12.0))
-            .rounded(px(RADIUS_CONTROL))
+            .p(px(14.0))
+            .rounded(px(RADIUS_TILE))
             .bg(TOKENS.pane)
             .border_1()
             .border_color(TOKENS.gridline)
-            .font_family(FONT_MONO)
+            .font_family(FONT_BODY)
             .text_color(TOKENS.ink_muted)
-            .text_size(px(11.0))
-            .child("NO ACTIVE TIMER"),
+            .text_size(px(12.0))
+            .child("No timer running"),
     };
 
     column_frame(
         DeckIcon::Timer,
-        "PRE-SERVICE & SPEAKER TIMERS",
+        "Pre-Service & Speaker Timers",
         TOKENS.signal_voice,
     )
     .child(readout)
@@ -268,19 +268,24 @@ fn render_timer_column(
         div()
             .flex()
             .flex_wrap()
-            .gap(px(5.0))
-            .child(preset_btn("timer-5m", "05:00 PRE-SVC", cx, |this, cx| {
+            .gap(px(6.0))
+            .child(preset_btn("timer-5m", "5 min Countdown", cx, |this, cx| {
                 this.start_preset_timer(ServiceTimer::countdown("Pre-Service", 300, true), cx);
             }))
-            .child(preset_btn("timer-10m", "10:00 PRE-SVC", cx, |this, cx| {
-                this.start_preset_timer(ServiceTimer::countdown("Pre-Service", 600, true), cx);
-            }))
-            .child(preset_btn("timer-30m", "30:00 SERMON", cx, |this, cx| {
+            .child(preset_btn(
+                "timer-10m",
+                "10 min Countdown",
+                cx,
+                |this, cx| {
+                    this.start_preset_timer(ServiceTimer::countdown("Pre-Service", 600, true), cx);
+                },
+            ))
+            .child(preset_btn("timer-30m", "30 min Sermon", cx, |this, cx| {
                 this.start_preset_timer(ServiceTimer::countdown("Sermon", 1800, false), cx);
             }))
             .child(preset_btn(
                 "timer-elapsed",
-                "ELAPSED (STG)",
+                "Speaker Stopwatch",
                 cx,
                 |this, cx| {
                     this.start_preset_timer(ServiceTimer::elapsed("Speaker Elapsed"), cx);
@@ -292,7 +297,7 @@ fn render_timer_column(
             .pt(px(4.0))
             .flex()
             .items_center()
-            .gap(px(6.0))
+            .gap(px(8.0))
             .child(
                 modal_btn(
                     "btn-timer-play-pause",
@@ -301,7 +306,7 @@ fn render_timer_column(
                     } else {
                         DeckIcon::PlayFill
                     }),
-                    if is_running { "PAUSE" } else { "START" },
+                    if is_running { "Pause" } else { "Start" },
                     TOKENS.signal_voice,
                     TOKENS.signal_voice,
                     TOKENS.canvas,
@@ -322,7 +327,7 @@ fn render_timer_column(
                 modal_btn(
                     "btn-timer-reset",
                     Some(DeckIcon::ArrowCounterClockwise),
-                    "RESET",
+                    "Reset",
                     TOKENS.elevated,
                     TOKENS.gridline,
                     TOKENS.ink_primary,
@@ -337,9 +342,9 @@ fn render_timer_column(
                 modal_btn(
                     "btn-timer-clear",
                     Some(DeckIcon::StopFill),
-                    "STOP",
+                    "Stop",
                     TOKENS.signal_live_tint,
-                    TOKENS.signal_live,
+                    TOKENS.signal_live.alpha(0.55),
                     TOKENS.signal_live,
                 )
                 .on_click(cx.listener(|this, _, _, cx| {
@@ -354,25 +359,26 @@ fn render_timer_column(
 fn column_frame(icon: DeckIcon, title: &'static str, accent: Rgba) -> Div {
     div()
         .flex_1()
-        .p(px(12.0))
+        .p(px(16.0))
+        .rounded(px(RADIUS_TILE))
         .bg(TOKENS.canvas)
         .border_1()
         .border_color(TOKENS.gridline)
         .flex()
         .flex_col()
-        .gap(px(9.0))
+        .gap(px(10.0))
         .child(
             div()
                 .flex()
                 .items_center()
-                .gap(px(6.0))
+                .gap(px(8.0))
                 .child(deck_icon(icon, IconSize::Sm, accent))
                 .child(
                     div()
-                        .font_family(FONT_MONO)
-                        .text_color(accent)
-                        .text_size(px(10.5))
-                        .font_weight(FontWeight::BOLD)
+                        .font_family(FONT_DISPLAY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(13.5))
+                        .font_weight(FontWeight::SEMIBOLD)
                         .child(title),
                 ),
         )
@@ -380,9 +386,10 @@ fn column_frame(icon: DeckIcon, title: &'static str, accent: Rgba) -> Div {
 
 fn field_label(label: &'static str) -> Div {
     div()
-        .font_family(FONT_MONO)
+        .font_family(FONT_BODY)
         .text_color(TOKENS.ink_muted)
-        .text_size(px(9.5))
+        .text_size(px(11.0))
+        .font_weight(FontWeight::MEDIUM)
         .child(label)
 }
 
@@ -395,21 +402,25 @@ fn option_chip(
 ) -> gpui::Stateful<Div> {
     div()
         .id(id)
-        .px(px(8.0))
-        .py(px(4.0))
-        .rounded(px(RADIUS_CONTROL))
+        .px(px(11.0))
+        .py(px(5.0))
+        .rounded(px(RADIUS_PILL))
         .cursor_pointer()
         .bg(if selected { active_bg } else { TOKENS.elevated })
         .border_1()
-        .border_color(if selected { active_fg } else { TOKENS.gridline })
-        .font_family(FONT_MONO)
+        .border_color(if selected {
+            active_fg.alpha(0.6)
+        } else {
+            TOKENS.gridline
+        })
+        .font_family(FONT_BODY)
         .text_color(if selected {
             active_fg
         } else {
             TOKENS.ink_secondary
         })
-        .text_size(px(10.0))
-        .font_weight(FontWeight::BOLD)
+        .text_size(px(11.5))
+        .font_weight(FontWeight::MEDIUM)
         .child(label)
 }
 
@@ -423,8 +434,8 @@ fn modal_btn(
 ) -> gpui::Stateful<Div> {
     let mut btn = div()
         .id(id)
-        .h(px(26.0))
-        .px(px(9.0))
+        .h(px(32.0))
+        .px(px(13.0))
         .rounded(px(RADIUS_CONTROL))
         .cursor_pointer()
         .bg(bg)
@@ -432,16 +443,16 @@ fn modal_btn(
         .border_color(border)
         .flex()
         .items_center()
-        .gap(px(5.0));
+        .gap(px(6.0));
     if let Some(ic) = icon {
         btn = btn.child(deck_icon(ic, IconSize::Sm, fg));
     }
     btn.child(
         div()
-            .font_family(FONT_MONO)
+            .font_family(FONT_BODY)
             .text_color(fg)
-            .text_size(px(10.0))
-            .font_weight(FontWeight::BOLD)
+            .text_size(px(12.0))
+            .font_weight(FontWeight::SEMIBOLD)
             .child(label),
     )
 }
@@ -454,17 +465,17 @@ fn preset_btn(
 ) -> gpui::Stateful<Div> {
     div()
         .id(id)
-        .px(px(8.0))
-        .py(px(4.0))
+        .px(px(11.0))
+        .py(px(6.0))
         .rounded(px(RADIUS_CONTROL))
         .cursor_pointer()
         .bg(TOKENS.elevated)
         .hover(|s| s.bg(TOKENS.elevated_hover))
         .border_1()
         .border_color(TOKENS.gridline)
-        .font_family(FONT_MONO)
+        .font_family(FONT_BODY)
         .text_color(TOKENS.ink_primary)
-        .text_size(px(10.0))
+        .text_size(px(11.5))
         .on_click(cx.listener(move |this, _, _, cx| on_press(this, cx)))
         .child(label)
 }

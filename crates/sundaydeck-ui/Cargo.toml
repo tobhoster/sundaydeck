@@ -8,6 +8,10 @@ license.workspace = true
 name = "sundaydeck"
 path = "src/main.rs"
 
+[features]
+default = []
+embedded-llm = ["sundaydeck-planner/embedded-llm"]
+
 [dependencies]
 anyhow.workspace = true
 async-channel.workspace = true
@@ -18,6 +22,7 @@ image.workspace = true
 rust-embed.workspace = true
 sundaydeck-core.workspace = true
 sundaydeck-db.workspace = true
+sundaydeck-planner.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]

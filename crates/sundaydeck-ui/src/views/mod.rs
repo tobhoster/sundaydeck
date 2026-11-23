@@ -3,6 +3,7 @@ pub mod alerts_timers_ui;
 pub mod audience_window;
 pub mod bible_browser;
 pub mod bible_browser_ui;
+pub mod header_popovers;
 pub mod library_browser;
 pub mod library_preview_pane;
 pub mod live_pane;

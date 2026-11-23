@@ -7,7 +7,7 @@ use sundaydeck_core::{OutputOverride, StageRenderState, TimerUrgency};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, FONT_LYRIC_BOLD, FONT_MONO, RADIUS_CONTROL, TOKENS,
+    FONT_BODY, FONT_DISPLAY, FONT_LYRIC_BOLD, FONT_MONO, RADIUS_CONTROL, RADIUS_PILL, TOKENS,
 };
 use crate::store::PresentationStore;
 
@@ -81,17 +81,17 @@ impl Render for StageMonitorView {
 }
 
 fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scale: f32) -> Div {
-    let title = stage.live_title.as_deref().unwrap_or("STANDBY");
+    let title = stage.live_title.as_deref().unwrap_or("Waiting to begin");
     let pos_text = stage
         .slide_position
-        .map(|(cur, total)| format!("{cur:02} / {total:02}"))
-        .unwrap_or_else(|| "-- / --".to_owned());
+        .map(|(cur, total)| format!("Slide {cur} of {total}"))
+        .unwrap_or_default();
 
     let (status_label, status_col) = match stage.active_override {
-        OutputOverride::None => ("ON AIR", TOKENS.signal_live),
-        OutputOverride::ClearText => ("OVERRIDE: CLEAR TEXT", TOKENS.signal_override),
-        OutputOverride::Black => ("OVERRIDE: BLACKOUT", TOKENS.signal_override),
-        OutputOverride::Logo => ("OVERRIDE: LOGO", TOKENS.signal_override),
+        OutputOverride::None => ("Live", TOKENS.signal_live),
+        OutputOverride::ClearText => ("Words Hidden", TOKENS.signal_override),
+        OutputOverride::Black => ("Black Screen", TOKENS.signal_override),
+        OutputOverride::Logo => ("Showing Logo", TOKENS.signal_override),
     };
 
     let mut right_cluster = div().flex().items_center().gap(px(18.0 * scale));
@@ -123,11 +123,11 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
                 .gap(px(10.0 * scale))
                 .child(
                     div()
-                        .font_family(FONT_MONO)
-                        .text_color(t_fg.alpha(0.85))
-                        .text_size(px(12.0 * scale))
+                        .font_family(FONT_BODY)
+                        .text_color(t_fg.alpha(0.9))
+                        .text_size(px(13.0 * scale))
                         .font_weight(FontWeight::SEMIBOLD)
-                        .child(timer.label.to_ascii_uppercase()),
+                        .child(timer.label.clone()),
                 )
                 .child(
                     div()
@@ -172,16 +172,16 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
                 .gap(px(14.0 * scale))
                 .child(
                     div()
-                        .px(px(8.0 * scale))
-                        .py(px(3.0 * scale))
-                        .rounded(px(RADIUS_CONTROL))
-                        .bg(status_col.alpha(0.20))
+                        .px(px(11.0 * scale))
+                        .py(px(4.0 * scale))
+                        .rounded(px(RADIUS_PILL))
+                        .bg(status_col.alpha(0.22))
                         .border_1()
                         .border_color(status_col)
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(status_col)
-                        .text_size(px(12.5 * scale))
-                        .font_weight(FontWeight::BOLD)
+                        .text_size(px(13.0 * scale))
+                        .font_weight(FontWeight::SEMIBOLD)
                         .child(status_label),
                 )
                 .child(
@@ -189,12 +189,12 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
                         .font_family(FONT_DISPLAY)
                         .text_color(TOKENS.ink_primary)
                         .text_size(px(20.0 * scale))
-                        .font_weight(FontWeight::BOLD)
+                        .font_weight(FontWeight::SEMIBOLD)
                         .child(title.to_owned()),
                 )
                 .child(
                     div()
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_secondary)
                         .text_size(px(14.0 * scale))
                         .font_weight(FontWeight::MEDIUM)
@@ -224,31 +224,31 @@ fn render_private_stage_banner(note: &str, scale: f32) -> Div {
                 .gap(px(12.0 * scale))
                 .child(
                     div()
-                        .px(px(8.0 * scale))
-                        .py(px(3.0 * scale))
-                        .rounded(px(RADIUS_CONTROL))
+                        .px(px(10.0 * scale))
+                        .py(px(3.5 * scale))
+                        .rounded(px(RADIUS_PILL))
                         .bg(TOKENS.signal_preview)
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(TOKENS.canvas)
-                        .text_size(px(12.0 * scale))
-                        .font_weight(FontWeight::BOLD)
-                        .child("STAGE ONLY"),
+                        .text_size(px(12.5 * scale))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child("Stage Note"),
                 )
                 .child(
                     div()
                         .font_family(FONT_DISPLAY)
                         .text_color(TOKENS.ink_primary)
                         .text_size(px(21.0 * scale))
-                        .font_weight(FontWeight::BOLD)
+                        .font_weight(FontWeight::SEMIBOLD)
                         .child(note.to_owned()),
                 ),
         )
         .child(
             div()
-                .font_family(FONT_MONO)
+                .font_family(FONT_BODY)
                 .text_color(TOKENS.signal_preview)
-                .text_size(px(12.0 * scale))
-                .child("HIDDEN FROM AUDIENCE"),
+                .text_size(px(12.5 * scale))
+                .child("Visible on stage only"),
         )
 }
 
@@ -256,8 +256,8 @@ fn render_current_slide_section(stage: &StageRenderState, has_banner: bool, scal
     let (label, body) = match &stage.current_slide {
         Some(slide) => (slide.label.clone(), slide.content.primary_text().to_owned()),
         None => (
-            "STANDBY".to_owned(),
-            "Waiting for active slide.\nPress F5 to take preview live.".to_owned(),
+            "Waiting to begin".to_owned(),
+            "No slide on screen yet.\nClick Show on Screen to begin.".to_owned(),
         ),
     };
 
@@ -315,11 +315,11 @@ fn render_current_slide_section(stage: &StageRenderState, has_banner: bool, scal
                 )
                 .child(
                     div()
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_secondary)
-                        .text_size(px(13.0 * scale))
-                        .font_weight(FontWeight::BOLD)
-                        .child(format!("CURRENT // {}", label.to_ascii_uppercase())),
+                        .text_size(px(14.0 * scale))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(format!("Now · {label}")),
                 ),
         )
         .child(lines_box)
@@ -328,7 +328,7 @@ fn render_current_slide_section(stage: &StageRenderState, has_banner: bool, scal
 fn render_next_slide_section(stage: &StageRenderState, scale: f32) -> Div {
     let (next_label, next_body) = match &stage.next_slide {
         Some(slide) => (slide.label.clone(), slide.content.primary_text().to_owned()),
-        None => ("END OF DECK".to_owned(), "No next slide queued.".to_owned()),
+        None => ("End of item".to_owned(), "No next slide queued.".to_owned()),
     };
 
     let mut preview_lines = div()
@@ -362,12 +362,12 @@ fn render_next_slide_section(stage: &StageRenderState, scale: f32) -> Div {
         .gap(px(8.0 * scale))
         .child(
             div()
-                .font_family(FONT_MONO)
+                .font_family(FONT_BODY)
                 .text_color(TOKENS.signal_preview)
-                .opacity(0.85)
-                .text_size(px(12.5 * scale))
-                .font_weight(FontWeight::BOLD)
-                .child(format!("NEXT // {}", next_label.to_ascii_uppercase())),
+                .opacity(0.90)
+                .text_size(px(14.0 * scale))
+                .font_weight(FontWeight::SEMIBOLD)
+                .child(format!("Next Up · {next_label}")),
         )
         .child(preview_lines)
 }

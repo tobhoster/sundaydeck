@@ -3,8 +3,13 @@ use std::path::PathBuf;
 use gpui::{
     AppContext as _, Context, Entity, EventEmitter, IntoElement, PathPromptOptions, Render, Window,
 };
-use sundaydeck_core::{GeneratedServicePlan, PlanApplyMode, sample_pastor_sermon_outline};
+use sundaydeck_core::{
+    ExtractedDocument, GeneratedServicePlan, PlanApplyMode, extract_office_file,
+    extract_plain_outline, sample_pastor_sermon_outline,
+};
 use sundaydeck_db::DbWorker;
+use sundaydeck_planner::benchmark_corpus::lookup_starter_web;
+use sundaydeck_planner::{PlanRunMetrics, PlannerConfig, PlannerEngineKind, run_planner};
 
 use crate::components::TextInput;
 use crate::store::PresentationStore;
@@ -18,15 +23,18 @@ pub enum PlanInputTab {
 }
 
 /// Offline Pastor PowerPoint (`.pptx`) / Word (`.docx`) / Outline Auto-Planner modal.
-/// Parses uploaded files off-thread on `DbWorker`, matches library songs & SQLite Bible
-/// passages, auto-paginates dense sermon copy, and lets volunteers review before applying.
+/// Supports switching head-to-head between pure-Rust No-LLM rules, a Local LLM sidecar,
+/// and an Embedded in-process GGUF model, always running off-thread so live playback stays 60fps.
 pub struct PlanImportModal {
     pub(crate) store: Entity<PresentationStore>,
     db: Option<DbWorker>,
     pub(crate) active_tab: PlanInputTab,
+    pub(crate) engine: PlannerEngineKind,
     pub(crate) path_input: Entity<TextInput>,
     pub(crate) outline_input: Entity<TextInput>,
+    pub(crate) last_doc: Option<ExtractedDocument>,
     pub(crate) plan: Option<GeneratedServicePlan>,
+    pub(crate) last_metrics: Option<PlanRunMetrics>,
     pub(crate) selected_item_idx: usize,
     pub(crate) apply_mode: PlanApplyMode,
     pub(crate) loading: bool,
@@ -61,9 +69,12 @@ impl PlanImportModal {
             store,
             db,
             active_tab: PlanInputTab::FileUpload,
+            engine: PlannerEngineKind::Deterministic,
             path_input,
             outline_input,
+            last_doc: None,
             plan: None,
+            last_metrics: None,
             selected_item_idx: 0,
             apply_mode: PlanApplyMode::ReplaceSchedule,
             loading: false,
@@ -77,6 +88,29 @@ impl PlanImportModal {
         self.loading = false;
         self.error_message = None;
         cx.notify();
+    }
+
+    pub fn set_plan_with_metrics(
+        &mut self,
+        plan: GeneratedServicePlan,
+        metrics: PlanRunMetrics,
+        cx: &mut Context<Self>,
+    ) {
+        self.engine = metrics.engine;
+        self.last_metrics = Some(metrics);
+        self.set_plan_for_preview(plan, cx);
+    }
+
+    pub(crate) fn select_engine(&mut self, engine: PlannerEngineKind, cx: &mut Context<Self>) {
+        if self.engine == engine {
+            return;
+        }
+        self.engine = engine;
+        if let Some(doc) = self.last_doc.clone() {
+            self.run_engine_on_doc(doc, cx);
+        } else {
+            cx.notify();
+        }
     }
 
     pub(crate) fn browse_office_file(&mut self, cx: &mut Context<Self>) {
@@ -113,49 +147,15 @@ impl PlanImportModal {
     }
 
     pub(crate) fn parse_file_path(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        self.loading = true;
-        self.error_message = None;
-        cx.notify();
-
-        let translation = self.store.read(cx).active_translation_code.clone();
-        if let Some(db) = self.db.clone() {
-            cx.spawn(async move |this, cx| {
-                let res = db.generate_plan_from_file(path, &translation).await;
-                let _ = this.update(cx, |modal, cx| {
-                    modal.loading = false;
-                    match res {
-                        Ok(plan) => {
-                            modal.plan = Some(plan);
-                            modal.selected_item_idx = 0;
-                            modal.error_message = None;
-                        }
-                        Err(err) => {
-                            modal.error_message = Some(err.to_string());
-                        }
-                    }
-                    cx.notify();
-                });
-            })
-            .detach();
-        } else {
-            self.loading = false;
-            match sundaydeck_core::extract_office_file(&path) {
-                Ok(doc) => {
-                    let store_ref = self.store.read(cx);
-                    let themes: Vec<_> = store_ref.themes.iter().map(|t| (**t).clone()).collect();
-                    let plan = sundaydeck_core::build_service_plan(
-                        &doc,
-                        &store_ref.songs,
-                        &themes,
-                        &translation,
-                        |_| Vec::new(),
-                    );
-                    self.plan = Some(plan);
-                    self.selected_item_idx = 0;
-                }
-                Err(err) => self.error_message = Some(err.to_string()),
+        match extract_office_file(&path) {
+            Ok(doc) => {
+                self.last_doc = Some(doc.clone());
+                self.run_engine_on_doc(doc, cx);
             }
-            cx.notify();
+            Err(err) => {
+                self.error_message = Some(err.to_string());
+                cx.notify();
+            }
         }
     }
 
@@ -172,45 +172,72 @@ impl PlanImportModal {
     }
 
     fn parse_outline_text(&mut self, source_name: String, text: String, cx: &mut Context<Self>) {
+        match extract_plain_outline(&source_name, &text) {
+            Ok(doc) => {
+                self.last_doc = Some(doc.clone());
+                self.run_engine_on_doc(doc, cx);
+            }
+            Err(err) => {
+                self.error_message = Some(err.to_string());
+                cx.notify();
+            }
+        }
+    }
+
+    fn run_engine_on_doc(&mut self, doc: ExtractedDocument, cx: &mut Context<Self>) {
         self.loading = true;
         self.error_message = None;
         cx.notify();
 
-        let translation = self.store.read(cx).active_translation_code.clone();
-        if let Some(db) = self.db.clone() {
-            cx.spawn(async move |this, cx| {
-                let res = db
-                    .generate_plan_from_text(&source_name, &text, &translation)
-                    .await;
-                let _ = this.update(cx, |modal, cx| {
-                    modal.loading = false;
-                    match res {
-                        Ok(plan) => {
-                            modal.plan = Some(plan);
-                            modal.selected_item_idx = 0;
-                            modal.error_message = None;
-                        }
-                        Err(err) => modal.error_message = Some(err.to_string()),
+        let engine = self.engine;
+        let (songs, themes, translation) = {
+            let store_ref = self.store.read(cx);
+            (
+                store_ref.songs.clone(),
+                store_ref
+                    .themes
+                    .iter()
+                    .map(|t| (**t).clone())
+                    .collect::<Vec<_>>(),
+                store_ref.active_translation_code.clone(),
+            )
+        };
+
+        let (tx, rx) = async_channel::bounded(1);
+        std::thread::spawn(move || {
+            let cfg = PlannerConfig {
+                engine,
+                ..PlannerConfig::default()
+            };
+            let res = run_planner(
+                &cfg,
+                &doc,
+                &songs,
+                &themes,
+                &translation,
+                lookup_starter_web,
+            );
+            let _ = tx.send_blocking(res);
+        });
+
+        cx.spawn(async move |this, cx| {
+            let res = rx.recv().await;
+            let _ = this.update(cx, |modal, cx| {
+                modal.loading = false;
+                match res {
+                    Ok(Ok(outcome)) => {
+                        modal.plan = Some(outcome.plan);
+                        modal.last_metrics = Some(outcome.metrics);
+                        modal.selected_item_idx = 0;
+                        modal.error_message = None;
                     }
-                    cx.notify();
-                });
-            })
-            .detach();
-        } else {
-            self.loading = false;
-            match self
-                .store
-                .read(cx)
-                .build_plan_from_text_local(&source_name, &text)
-            {
-                Ok(plan) => {
-                    self.plan = Some(plan);
-                    self.selected_item_idx = 0;
+                    Ok(Err(err)) => modal.error_message = Some(err.to_string()),
+                    Err(_) => modal.error_message = Some("Planner worker terminated".to_owned()),
                 }
-                Err(err) => self.error_message = Some(err.to_string()),
-            }
-            cx.notify();
-        }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     pub(crate) fn toggle_item_enabled(&mut self, idx: usize, cx: &mut Context<Self>) {

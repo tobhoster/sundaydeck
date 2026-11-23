@@ -7,14 +7,14 @@ use sundaydeck_db::DbWorker;
 
 use crate::components::TextInput;
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::tokens::{FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, RADIUS_MODAL, TOKENS};
+use crate::design::primitives::soft_pill;
+use crate::design::tokens::{FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_MODAL, TOKENS};
 use crate::store::PresentationStore;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ModalClosed;
 
-/// On-the-Fly Live Quick Edit overlay: patches the currently projected slide text
-/// instantaneously without stopping playback or triggering a crossfade flash.
+/// On-the-Fly Live Quick Edit sheet: fixes typos on screen instantly without flashing.
 pub struct QuickEditModal {
     store: Entity<PresentationStore>,
     db: Option<DbWorker>,
@@ -36,12 +36,7 @@ impl QuickEditModal {
         cx: &mut Context<Self>,
     ) -> Self {
         let body_input = cx.new(|cx| {
-            TextInput::multiline(
-                "quick-edit-body",
-                "Edit live slide lyrics...",
-                initial_body,
-                cx,
-            )
+            TextInput::multiline("quick-edit-body", "Edit slide lyrics...", initial_body, cx)
         });
         Self {
             store,
@@ -74,18 +69,18 @@ impl QuickEditModal {
 impl Render for QuickEditModal {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .w(px(620.0))
+            .w(px(640.0))
             .rounded(px(RADIUS_MODAL))
             .bg(TOKENS.pane)
             .border_1()
             .border_color(TOKENS.focus_border)
-            .p(px(16.0))
+            .p(px(20.0))
             .flex()
             .flex_col()
-            .gap(px(12.0))
+            .gap(px(14.0))
             .child(
                 div()
-                    .pb(px(10.0))
+                    .pb(px(12.0))
                     .border_b_1()
                     .border_color(TOKENS.gridline)
                     .flex()
@@ -95,40 +90,29 @@ impl Render for QuickEditModal {
                         div()
                             .flex()
                             .items_center()
-                            .gap(px(8.0))
-                            .child(
-                                div()
-                                    .px(px(6.0))
-                                    .py(px(2.0))
-                                    .rounded(px(RADIUS_CONTROL))
-                                    .bg(TOKENS.signal_live)
-                                    .font_family(FONT_MONO)
-                                    .text_color(TOKENS.canvas)
-                                    .text_size(px(9.5))
-                                    .font_weight(FontWeight::BOLD)
-                                    .child("LIVE QUICK EDIT"),
-                            )
+                            .gap(px(10.0))
+                            .child(soft_pill("Live", TOKENS.signal_live, TOKENS.ink_primary))
                             .child(
                                 div()
                                     .font_family(FONT_DISPLAY)
                                     .text_color(TOKENS.ink_primary)
-                                    .text_size(px(14.0))
-                                    .font_weight(FontWeight::BOLD)
-                                    .child(self.slide_label.clone()),
+                                    .text_size(px(15.0))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child(format!("Quick Edit · {}", self.slide_label)),
                             ),
                     )
                     .child(
                         div()
-                            .font_family(FONT_MONO)
+                            .font_family(FONT_BODY)
                             .text_color(TOKENS.ink_muted)
-                            .text_size(px(10.0))
-                            .child("ZERO-FLASH IN-PLACE PATCH"),
+                            .text_size(px(11.5))
+                            .child("Updates on screen without flashing"),
                     ),
             )
             .child(self.body_input.clone())
             .child(
                 div()
-                    .pt(px(10.0))
+                    .pt(px(12.0))
                     .border_t_1()
                     .border_color(TOKENS.gridline)
                     .flex()
@@ -137,8 +121,8 @@ impl Render for QuickEditModal {
                     .child(
                         div()
                             .id("quick-edit-persist-toggle")
-                            .h(px(26.0))
-                            .px(px(9.0))
+                            .h(px(32.0))
+                            .px(px(12.0))
                             .rounded(px(RADIUS_CONTROL))
                             .cursor_pointer()
                             .bg(if self.persist_to_library {
@@ -148,13 +132,13 @@ impl Render for QuickEditModal {
                             })
                             .border_1()
                             .border_color(if self.persist_to_library {
-                                TOKENS.signal_preview
+                                TOKENS.signal_preview.alpha(0.55)
                             } else {
                                 TOKENS.gridline
                             })
                             .flex()
                             .items_center()
-                            .gap(px(6.0))
+                            .gap(px(7.0))
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.persist_to_library = !this.persist_to_library;
                                 cx.notify();
@@ -170,18 +154,18 @@ impl Render for QuickEditModal {
                             ))
                             .child(
                                 div()
-                                    .font_family(FONT_MONO)
+                                    .font_family(FONT_BODY)
                                     .text_color(if self.persist_to_library {
                                         TOKENS.signal_preview
                                     } else {
                                         TOKENS.ink_secondary
                                     })
-                                    .text_size(px(10.0))
-                                    .font_weight(FontWeight::BOLD)
+                                    .text_size(px(12.0))
+                                    .font_weight(FontWeight::MEDIUM)
                                     .child(if self.persist_to_library {
-                                        "SYNC TO SONG LIBRARY"
+                                        "Also save fix to song library"
                                     } else {
-                                        "LIVE SLIDE ONLY"
+                                        "Update this live slide only"
                                     }),
                             ),
                     )
@@ -193,8 +177,8 @@ impl Render for QuickEditModal {
                             .child(
                                 div()
                                     .id("quick-edit-cancel")
-                                    .h(px(26.0))
-                                    .px(px(10.0))
+                                    .h(px(32.0))
+                                    .px(px(14.0))
                                     .rounded(px(RADIUS_CONTROL))
                                     .cursor_pointer()
                                     .bg(TOKENS.elevated)
@@ -203,28 +187,28 @@ impl Render for QuickEditModal {
                                     .border_color(TOKENS.gridline)
                                     .flex()
                                     .items_center()
-                                    .font_family(FONT_MONO)
+                                    .font_family(FONT_BODY)
                                     .text_color(TOKENS.ink_secondary)
-                                    .text_size(px(10.5))
+                                    .text_size(px(12.0))
                                     .on_click(cx.listener(|_, _, _, cx| cx.emit(ModalClosed)))
-                                    .child("CANCEL"),
+                                    .child("Cancel"),
                             )
                             .child(
                                 div()
                                     .id("quick-edit-apply")
-                                    .h(px(26.0))
-                                    .px(px(12.0))
+                                    .h(px(32.0))
+                                    .px(px(16.0))
                                     .rounded(px(RADIUS_CONTROL))
                                     .cursor_pointer()
                                     .bg(TOKENS.signal_live)
                                     .flex()
                                     .items_center()
-                                    .font_family(FONT_DISPLAY)
-                                    .text_color(TOKENS.canvas)
-                                    .text_size(px(11.5))
-                                    .font_weight(FontWeight::BOLD)
+                                    .font_family(FONT_BODY)
+                                    .text_color(TOKENS.ink_primary)
+                                    .text_size(px(12.0))
+                                    .font_weight(FontWeight::SEMIBOLD)
                                     .on_click(cx.listener(|this, _, _, cx| this.apply_patch(cx)))
-                                    .child("APPLY LIVE"),
+                                    .child("Update on Screen"),
                             ),
                     ),
             )

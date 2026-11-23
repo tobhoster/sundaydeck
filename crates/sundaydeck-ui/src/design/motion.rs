@@ -22,14 +22,14 @@ impl MotionMode {
 
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Full => "FULL",
-            Self::CrossfadeOnly => "CROSSFADE",
-            Self::Instant => "INSTANT",
+            Self::Full => "Smooth",
+            Self::CrossfadeOnly => "Calm",
+            Self::Instant => "Instant",
         }
     }
 }
 
-// Fast, mechanical operator console timings (90ms-160ms).
+// Gentle, calm studio timings.
 pub const OPERATOR_SNAP_MS: u64 = 120;
 pub const PALETTE_ENTER_MS: u64 = 120;
 pub const VOICE_BAR_MS: u64 = 100;
@@ -40,15 +40,15 @@ pub const SLIDE_CROSSFADE_MS: u64 = 280;
 pub const OVERRIDE_FADE_MS: u64 = 280;
 pub const BACKGROUND_SWAP_MS: u64 = 600;
 
-/// Subtle 4px broadcast tally indicator dot that gently breathes (`0.45 -> 1.0`, `1800ms` sine)
-/// *only* when live/listening and `MotionMode::Full` is active.
+/// Soft 7px status dot that gently breathes (`0.45 -> 1.0`, `1800ms` sine)
+/// when live or listening with Smooth animations enabled.
 pub fn tally_pulse_dot(
     id: impl Into<ElementId>,
     color: Rgba,
     active: bool,
     mode: MotionMode,
 ) -> AnyElement {
-    let dot = div().w(px(5.0)).h(px(5.0)).rounded(px(99.0)).bg(color);
+    let dot = div().w(px(7.0)).h(px(7.0)).rounded(px(99.0)).bg(color);
     if active && mode == MotionMode::Full {
         dot.with_animation(
             id,

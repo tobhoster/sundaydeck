@@ -7,11 +7,17 @@ use sundaydeck_core::{
 };
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::tokens::{FONT_BODY, FONT_MONO, RADIUS_CONTROL, TOKENS};
+use crate::design::tokens::{FONT_BODY, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS};
 use crate::store::BibleBrowseMode;
 use crate::views::bible_browser::BibleBrowserView;
 
-const QUICK_REFS: &[&str] = &["ps 23", "jn 3:16", "1cor 13:4-7", "rom 8:28", "php 4:6-7"];
+const QUICK_REFS: &[(&str, &str)] = &[
+    ("ps 23", "Psalm 23"),
+    ("jn 3:16", "John 3:16"),
+    ("1cor 13:4-7", "1 Corinthians 13:4–7"),
+    ("rom 8:28", "Romans 8:28"),
+    ("php 4:6-7", "Philippians 4:6–7"),
+];
 
 pub(crate) fn render_bible_browser(
     view: &BibleBrowserView,
@@ -31,6 +37,7 @@ pub(crate) fn render_bible_browser(
     let mut trans_segs = div()
         .flex()
         .items_center()
+        .p(px(2.0))
         .bg(TOKENS.canvas)
         .border_1()
         .border_color(TOKENS.gridline)
@@ -42,22 +49,23 @@ pub(crate) fn render_bible_browser(
         trans_segs = trans_segs.child(
             div()
                 .id(format!("bible-tr-{}", tr.code))
-                .px(px(8.0))
+                .px(px(9.0))
                 .py(px(4.0))
+                .rounded(px(4.0))
                 .cursor_pointer()
                 .bg(if is_active {
                     TOKENS.signal_preview_tint
                 } else {
                     rgba(0x0000_0000)
                 })
-                .font_family(FONT_MONO)
+                .font_family(FONT_BODY)
                 .text_color(if is_active {
                     TOKENS.signal_preview
                 } else {
                     TOKENS.ink_secondary
                 })
-                .text_size(px(10.0))
-                .font_weight(FontWeight::BOLD)
+                .text_size(px(11.0))
+                .font_weight(FontWeight::SEMIBOLD)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.switch_translation(code_click.clone(), cx);
                 }))
@@ -71,17 +79,11 @@ pub(crate) fn render_bible_browser(
             book_number,
             chapter,
         } => {
-            let name = book_by_number(*book_number).map_or("BOOK", |b| b.name);
-            format!(
-                "{} {chapter} ({active_code}) // SCROLL",
-                name.to_ascii_uppercase()
-            )
+            let name = book_by_number(*book_number).map_or("Book", |b| b.name);
+            format!("{name} {chapter} · {active_code}")
         }
         BibleBrowseMode::Search { query } => {
-            format!(
-                "FTS5 \"{query}\" // {:02} HITS ({active_code})",
-                verses.len()
-            )
+            format!("{} matches for \"{query}\" ({active_code})", verses.len())
         }
     };
 
@@ -89,37 +91,42 @@ pub(crate) fn render_bible_browser(
         .id("bible-continuous-scroll")
         .flex_1()
         .overflow_y_scroll()
+        .p(px(10.0))
         .flex()
-        .flex_col();
+        .flex_col()
+        .gap(px(4.0));
 
     for (idx, v) in verses.iter().enumerate() {
         let is_selected = selection.is_some_and(|(s, e)| idx >= s && idx <= e);
         let verse_tag = match &browse_mode {
-            BibleBrowseMode::Chapter { .. } => format!("{:02}", v.verse),
+            BibleBrowseMode::Chapter { .. } => format!("{}", v.verse),
             BibleBrowseMode::Search { .. } => {
-                format!(
-                    "{} {}:{}",
-                    v.book_name.to_ascii_uppercase(),
-                    v.chapter,
-                    v.verse
-                )
+                format!("{} {}:{}", v.book_name, v.chapter, v.verse)
             }
         };
         list = list.child(
             div()
                 .id(format!("bible-verse-{idx}"))
                 .w_full()
+                .px(px(11.0))
+                .py(px(8.0))
+                .rounded(px(RADIUS_TILE))
                 .cursor_pointer()
                 .bg(if is_selected {
                     TOKENS.signal_preview_tint
                 } else {
-                    TOKENS.pane
+                    rgba(0x0000_0000)
                 })
                 .hover(|s| s.bg(TOKENS.elevated_hover))
-                .border_b_1()
-                .border_color(TOKENS.gridline)
+                .border_1()
+                .border_color(if is_selected {
+                    TOKENS.signal_preview.alpha(0.5)
+                } else {
+                    rgba(0x0000_0000)
+                })
                 .flex()
-                .items_stretch()
+                .items_start()
+                .gap(px(10.0))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.store.update(cx, |s, cx| {
                         s.selected_verse_range = Some((idx, idx));
@@ -128,50 +135,34 @@ pub(crate) fn render_bible_browser(
                         }
                     });
                 }))
-                .child(div().w(px(3.0)).flex_shrink_0().bg(if is_selected {
-                    TOKENS.signal_preview
-                } else {
-                    rgba(0x0000_0000)
-                }))
+                .child(
+                    div()
+                        .px(px(8.0))
+                        .py(px(2.0))
+                        .rounded(px(RADIUS_PILL))
+                        .bg(if is_selected {
+                            TOKENS.signal_preview.alpha(0.22)
+                        } else {
+                            TOKENS.elevated
+                        })
+                        .font_family(FONT_BODY)
+                        .text_color(if is_selected {
+                            TOKENS.signal_preview
+                        } else {
+                            TOKENS.ink_secondary
+                        })
+                        .text_size(px(11.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(verse_tag),
+                )
                 .child(
                     div()
                         .flex_1()
-                        .px(px(10.0))
-                        .py(px(6.0))
-                        .flex()
-                        .items_start()
-                        .gap(px(8.0))
-                        .child(
-                            div()
-                                .px(px(5.0))
-                                .py(px(1.5))
-                                .rounded(px(RADIUS_CONTROL))
-                                .bg(TOKENS.elevated)
-                                .border_1()
-                                .border_color(if is_selected {
-                                    TOKENS.signal_preview
-                                } else {
-                                    TOKENS.gridline
-                                })
-                                .font_family(FONT_MONO)
-                                .text_color(if is_selected {
-                                    TOKENS.signal_preview
-                                } else {
-                                    TOKENS.ink_secondary
-                                })
-                                .text_size(px(10.0))
-                                .font_weight(FontWeight::BOLD)
-                                .child(verse_tag),
-                        )
-                        .child(
-                            div()
-                                .flex_1()
-                                .font_family(FONT_BODY)
-                                .text_color(TOKENS.ink_primary)
-                                .text_size(px(12.0))
-                                .line_height(px(17.0))
-                                .child(v.text.clone()),
-                        ),
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(12.5))
+                        .line_height(px(18.0))
+                        .child(v.text.clone()),
                 ),
         );
     }
@@ -184,13 +175,13 @@ pub(crate) fn render_bible_browser(
         .overflow_hidden()
         .child(
             div()
-                .px(px(10.0))
-                .py(px(6.0))
+                .px(px(12.0))
+                .py(px(8.0))
                 .border_b_1()
                 .border_color(TOKENS.gridline)
                 .flex()
                 .flex_col()
-                .gap(px(5.0))
+                .gap(px(7.0))
                 .child(
                     div()
                         .flex()
@@ -201,8 +192,8 @@ pub(crate) fn render_bible_browser(
                         .child(
                             div()
                                 .id("bible-go-btn")
-                                .h(px(27.0))
-                                .px(px(9.0))
+                                .w(px(32.0))
+                                .h(px(30.0))
                                 .rounded(px(RADIUS_CONTROL))
                                 .cursor_pointer()
                                 .bg(TOKENS.elevated)
@@ -211,7 +202,7 @@ pub(crate) fn render_bible_browser(
                                 .border_color(TOKENS.focus_border)
                                 .flex()
                                 .items_center()
-                                .gap(px(5.0))
+                                .justify_center()
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     let q = this.query_input.read(cx).value().to_owned();
                                     this.run_query(&q, cx);
@@ -220,15 +211,7 @@ pub(crate) fn render_bible_browser(
                                     DeckIcon::MagnifyingGlass,
                                     IconSize::Sm,
                                     TOKENS.ink_primary,
-                                ))
-                                .child(
-                                    div()
-                                        .font_family(FONT_MONO)
-                                        .text_color(TOKENS.ink_primary)
-                                        .text_size(px(10.0))
-                                        .font_weight(FontWeight::BOLD)
-                                        .child("LOOKUP"),
-                                ),
+                                )),
                         ),
                 )
                 .child(
@@ -240,9 +223,9 @@ pub(crate) fn render_bible_browser(
                         .child(quick_chips)
                         .child(
                             div()
-                                .font_family(FONT_MONO)
+                                .font_family(FONT_BODY)
                                 .text_color(TOKENS.ink_muted)
-                                .text_size(px(9.5))
+                                .text_size(px(11.0))
                                 .child(mode_label),
                         ),
                 ),
@@ -252,51 +235,48 @@ pub(crate) fn render_bible_browser(
 }
 
 fn build_quick_or_autocomplete_chips(query_text: &str, cx: &mut Context<BibleBrowserView>) -> Div {
-    let mut chips = div().flex().items_center().gap(px(4.0));
+    let mut chips = div().flex().items_center().gap(px(5.0));
     if !query_text.trim().is_empty() && parse_scripture_ref(query_text).is_err() {
         for meta in autocomplete_books(query_text, 4) {
             let name = meta.name;
             chips = chips.child(
                 div()
                     .id(format!("bible-auto-{}", meta.number))
-                    .px(px(6.0))
-                    .py(px(2.0))
-                    .rounded(px(RADIUS_CONTROL))
+                    .px(px(9.0))
+                    .py(px(3.0))
+                    .rounded(px(RADIUS_PILL))
                     .cursor_pointer()
                     .bg(TOKENS.signal_preview_tint)
-                    .border_1()
-                    .border_color(TOKENS.signal_preview)
-                    .font_family(FONT_MONO)
+                    .font_family(FONT_BODY)
                     .text_color(TOKENS.signal_preview)
-                    .text_size(px(9.5))
+                    .text_size(px(11.0))
+                    .font_weight(FontWeight::MEDIUM)
                     .on_click(cx.listener(move |this, _, _, cx| {
                         let next = format!("{name} 1");
                         this.query_input
                             .update(cx, |inp, cx| inp.set_value(&next, cx));
                     }))
-                    .child(name.to_ascii_uppercase()),
+                    .child(name),
             );
         }
     } else {
-        for &preset in QUICK_REFS {
+        for &(query, label) in QUICK_REFS {
             chips = chips.child(
                 div()
-                    .id(format!("bible-quick-{preset}"))
-                    .px(px(6.0))
-                    .py(px(2.0))
-                    .rounded(px(RADIUS_CONTROL))
+                    .id(format!("bible-quick-{query}"))
+                    .px(px(9.0))
+                    .py(px(3.0))
+                    .rounded(px(RADIUS_PILL))
                     .cursor_pointer()
                     .bg(TOKENS.elevated)
                     .hover(|s| s.bg(TOKENS.elevated_hover))
-                    .border_1()
-                    .border_color(TOKENS.gridline)
-                    .font_family(FONT_MONO)
+                    .font_family(FONT_BODY)
                     .text_color(TOKENS.ink_secondary)
-                    .text_size(px(9.5))
+                    .text_size(px(11.0))
                     .on_click(cx.listener(move |this, _, _, cx| {
-                        this.run_query(preset, cx);
+                        this.run_query(query, cx);
                     }))
-                    .child(preset.to_ascii_uppercase()),
+                    .child(label),
             );
         }
     }
@@ -308,9 +288,19 @@ fn build_bible_footer(
     slide_count: usize,
     cx: &mut Context<BibleBrowserView>,
 ) -> Div {
+    let summary = format!(
+        "{selected_count} {} · {slide_count} {}",
+        if selected_count == 1 {
+            "verse"
+        } else {
+            "verses"
+        },
+        if slide_count == 1 { "slide" } else { "slides" }
+    );
+
     div()
-        .px(px(10.0))
-        .py(px(6.0))
+        .px(px(12.0))
+        .py(px(8.0))
         .border_t_1()
         .border_color(TOKENS.gridline)
         .flex()
@@ -320,21 +310,19 @@ fn build_bible_footer(
             div()
                 .flex()
                 .items_center()
-                .gap(px(8.0))
+                .gap(px(10.0))
                 .child(
                     div()
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_secondary)
-                        .text_size(px(10.0))
-                        .child(format!(
-                            "{selected_count:02} VERSE(S) // {slide_count:02} SLIDE(S)"
-                        )),
+                        .text_size(px(11.5))
+                        .child(summary),
                 )
                 .child(
                     div()
                         .id("bible-extend-range")
-                        .h(px(22.0))
-                        .px(px(7.0))
+                        .h(px(28.0))
+                        .px(px(10.0))
                         .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
                         .bg(TOKENS.elevated)
@@ -343,7 +331,7 @@ fn build_bible_footer(
                         .border_color(TOKENS.gridline)
                         .flex()
                         .items_center()
-                        .gap(px(3.0))
+                        .gap(px(4.0))
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.store.update(cx, |s, cx| {
                                 if let Some((start, end)) = s.selected_verse_range {
@@ -358,10 +346,10 @@ fn build_bible_footer(
                         .child(deck_icon(DeckIcon::Plus, IconSize::Sm, TOKENS.ink_primary))
                         .child(
                             div()
-                                .font_family(FONT_MONO)
+                                .font_family(FONT_BODY)
                                 .text_color(TOKENS.ink_primary)
-                                .text_size(px(9.5))
-                                .child("1 VERSE"),
+                                .text_size(px(11.5))
+                                .child("Add next verse"),
                         ),
                 ),
         )
@@ -369,31 +357,40 @@ fn build_bible_footer(
             div()
                 .flex()
                 .items_center()
-                .gap(px(6.0))
+                .gap(px(8.0))
                 .child(
                     div()
                         .id("bible-stage-btn")
-                        .h(px(23.0))
-                        .px(px(8.0))
+                        .h(px(28.0))
+                        .px(px(10.0))
                         .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
                         .bg(TOKENS.signal_preview_tint)
                         .border_1()
-                        .border_color(TOKENS.signal_preview)
+                        .border_color(TOKENS.signal_preview.alpha(0.55))
                         .flex()
                         .items_center()
-                        .font_family(FONT_MONO)
-                        .text_color(TOKENS.signal_preview)
-                        .text_size(px(10.0))
-                        .font_weight(FontWeight::BOLD)
+                        .gap(px(5.0))
                         .on_click(cx.listener(|this, _, _, cx| this.stage_selected(false, cx)))
-                        .child("STAGE PREVIEW"),
+                        .child(deck_icon(
+                            DeckIcon::PlayFill,
+                            IconSize::Sm,
+                            TOKENS.signal_preview,
+                        ))
+                        .child(
+                            div()
+                                .font_family(FONT_BODY)
+                                .text_color(TOKENS.signal_preview)
+                                .text_size(px(11.5))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Preview"),
+                        ),
                 )
                 .child(
                     div()
                         .id("bible-add-sched-btn")
-                        .h(px(23.0))
-                        .px(px(8.0))
+                        .h(px(28.0))
+                        .px(px(10.0))
                         .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
                         .bg(TOKENS.elevated)
@@ -402,16 +399,16 @@ fn build_bible_footer(
                         .border_color(TOKENS.focus_border)
                         .flex()
                         .items_center()
-                        .gap(px(4.0))
+                        .gap(px(5.0))
                         .on_click(cx.listener(|this, _, _, cx| this.stage_selected(true, cx)))
                         .child(deck_icon(DeckIcon::Plus, IconSize::Sm, TOKENS.ink_primary))
                         .child(
                             div()
-                                .font_family(FONT_MONO)
+                                .font_family(FONT_BODY)
                                 .text_color(TOKENS.ink_primary)
-                                .text_size(px(10.0))
-                                .font_weight(FontWeight::BOLD)
-                                .child("SCHEDULE"),
+                                .text_size(px(11.5))
+                                .font_weight(FontWeight::MEDIUM)
+                                .child("Service"),
                         ),
                 ),
         )

@@ -11,9 +11,8 @@ use crate::design::gallery_projection::{
 };
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::motion::MotionMode;
-use crate::design::primitives::keycap;
 use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, TOKENS, TOP_BAR_HEIGHT,
+    FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_PILL, TOKENS, TOP_BAR_HEIGHT,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -23,9 +22,9 @@ pub enum GalleryPage {
     ProjectionAndIcons,
 }
 
-/// Runnable Kitchen-Sink / Storybook debug view (`sundaydeck --ui-gallery`)
-/// showcasing every design token, bundled OFL font, 16:9 slide tile, hardware switcher key,
-/// voice-sync telemetry pill, and vendored Phosphor SVG icon.
+/// Runnable Design Gallery (`sundaydeck --ui-gallery`) showcasing the Warm, Volunteer-First
+/// Studio palette, Sentence-case Plus Jakarta Sans typography, 16:9 slide cards, gentle screen
+/// controls, Auto-Follow pill, and vendored Phosphor SVG icons.
 pub struct DesignGalleryView {
     pub active_page: GalleryPage,
     pub motion_mode: MotionMode,
@@ -54,20 +53,20 @@ impl Render for DesignGalleryView {
         let body: Div = match page {
             GalleryPage::ConsoleAndControls => div()
                 .w_full()
-                .p(px(16.0))
+                .p(px(20.0))
                 .flex()
                 .flex_col()
-                .gap(px(16.0))
+                .gap(px(18.0))
                 .child(render_color_swatches())
                 .child(render_operator_typography())
                 .child(render_slide_tile_showcase())
                 .child(render_switcher_and_voice_showcase(motion)),
             GalleryPage::ProjectionAndIcons => div()
                 .w_full()
-                .p(px(16.0))
+                .p(px(20.0))
                 .flex()
                 .flex_col()
-                .gap(px(16.0))
+                .gap(px(18.0))
                 .child(render_projection_font_pack())
                 .child(render_icon_catalog()),
         };
@@ -104,8 +103,8 @@ fn render_gallery_top_bar(
         let active = page == target;
         div()
             .id(id)
-            .h(px(24.0))
-            .px(px(10.0))
+            .h(px(28.0))
+            .px(px(12.0))
             .rounded(px(RADIUS_CONTROL))
             .cursor_pointer()
             .bg(if active {
@@ -113,22 +112,16 @@ fn render_gallery_top_bar(
             } else {
                 rgba(0x0000_0000)
             })
-            .border_1()
-            .border_color(if active {
-                TOKENS.focus_border
-            } else {
-                rgba(0x0000_0000)
-            })
             .flex()
             .items_center()
-            .font_family(FONT_MONO)
+            .font_family(FONT_BODY)
             .text_color(if active {
                 TOKENS.ink_primary
             } else {
                 TOKENS.ink_secondary
             })
-            .text_size(px(10.5))
-            .font_weight(FontWeight::BOLD)
+            .text_size(px(12.0))
+            .font_weight(FontWeight::MEDIUM)
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.active_page = target;
                 cx.notify();
@@ -139,44 +132,51 @@ fn render_gallery_top_bar(
     let mut motion_segs = div()
         .flex()
         .items_center()
+        .p(px(2.0))
         .bg(TOKENS.canvas)
         .border_1()
         .border_color(TOKENS.gridline)
-        .rounded(px(RADIUS_CONTROL));
+        .rounded(px(RADIUS_PILL));
 
     for opt in MotionMode::ALL {
         let active = opt == motion;
+        let friendly = match opt {
+            MotionMode::Full => "Smooth",
+            MotionMode::CrossfadeOnly => "Calm",
+            MotionMode::Instant => "Instant",
+        };
         motion_segs = motion_segs.child(
             div()
                 .id(format!("gallery-motion-{}", opt.label()))
-                .px(px(7.0))
+                .px(px(10.0))
                 .py(px(3.0))
+                .rounded(px(RADIUS_PILL))
                 .cursor_pointer()
                 .bg(if active {
                     TOKENS.elevated
                 } else {
                     rgba(0x0000_0000)
                 })
-                .font_family(FONT_MONO)
+                .font_family(FONT_BODY)
                 .text_color(if active {
-                    TOKENS.signal_preview
+                    TOKENS.ink_primary
                 } else {
                     TOKENS.ink_muted
                 })
-                .text_size(px(9.5))
-                .font_weight(FontWeight::BOLD)
+                .text_size(px(11.0))
+                .font_weight(FontWeight::MEDIUM)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.motion_mode = opt;
                     cx.notify();
                 }))
-                .child(opt.label()),
+                .child(friendly),
         );
     }
 
     div()
         .w_full()
         .h(px(TOP_BAR_HEIGHT))
-        .px(px(14.0))
+        .px(px(16.0))
         .bg(TOKENS.pane)
         .border_b_1()
         .border_color(TOKENS.gridline)
@@ -189,7 +189,7 @@ fn render_gallery_top_bar(
                 .items_center()
                 .gap(px(10.0))
                 .child(deck_icon(
-                    DeckIcon::SlidersHorizontal,
+                    DeckIcon::Palette,
                     IconSize::Md,
                     TOKENS.signal_preview,
                 ))
@@ -197,27 +197,27 @@ fn render_gallery_top_bar(
                     div()
                         .font_family(FONT_DISPLAY)
                         .text_color(TOKENS.ink_primary)
-                        .text_size(px(13.0))
-                        .font_weight(FontWeight::BOLD)
-                        .child("SUNDAYDECK"),
+                        .text_size(px(14.5))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child("SundayDeck"),
                 )
                 .child(
                     div()
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_muted)
-                        .text_size(px(10.5))
-                        .child("// UI-GALLERY"),
+                        .text_size(px(12.5))
+                        .child("Design Gallery"),
                 )
-                .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.gridline))
+                .child(div().w(px(1.0)).h(px(18.0)).bg(TOKENS.gridline))
                 .child(page_tab(
                     "gal-tab-console",
-                    "01 CONSOLE & SWITCHER",
+                    "Studio & Controls",
                     GalleryPage::ConsoleAndControls,
                     cx,
                 ))
                 .child(page_tab(
                     "gal-tab-icons",
-                    "02 PROJECTION & ICONS (49)",
+                    "Projection & Icons",
                     GalleryPage::ProjectionAndIcons,
                     cx,
                 )),
@@ -226,15 +226,14 @@ fn render_gallery_top_bar(
             div()
                 .flex()
                 .items_center()
-                .gap(px(8.0))
+                .gap(px(10.0))
                 .child(
                     div()
-                        .font_family(FONT_MONO)
+                        .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_muted)
-                        .text_size(px(10.0))
-                        .child("MOTION"),
+                        .text_size(px(11.5))
+                        .child("Motion"),
                 )
-                .child(motion_segs)
-                .child(keycap("--ui-gallery", false)),
+                .child(motion_segs),
         )
 }

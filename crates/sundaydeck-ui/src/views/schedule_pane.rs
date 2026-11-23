@@ -4,16 +4,16 @@ use gpui::{
 };
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::primitives::keycap;
+use crate::design::primitives::soft_pill;
 use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, FONT_MONO, PANE_HEADER_HEIGHT, RADIUS_CONTROL, SCHEDULE_RAIL_WIDTH,
+    FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, SCHEDULE_RAIL_WIDTH,
     TOKENS, payload_icon,
 };
 use crate::views::operator_workspace::OperatorWorkspace;
 
-/// Left Pane (`240px` Schedule Rail):
-/// Dense numbered rows (`01`, `02`, `03`) separated by `1px` architectural gridlines,
-/// `14px` Phosphor type icons, and an unmistakable `3px` left accent bar (amber = Preview, red = Live).
+/// Left Pane (Service Order):
+/// Calm, warm list of songs, scriptures, and slides in plain Sentence case — zero `01`/`02`
+/// numbering noise or stark wireframes. Soft tinted row highlights + `Live` / `Next Up` pills.
 pub fn render_schedule_pane(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
@@ -29,8 +29,10 @@ pub fn render_schedule_pane(
         .id("service-schedule-list")
         .flex_1()
         .overflow_y_scroll()
+        .p(px(10.0))
         .flex()
-        .flex_col();
+        .flex_col()
+        .gap(px(5.0));
 
     for (idx, item) in items.iter().enumerate() {
         let is_live = live_item_id == Some(item.id);
@@ -39,20 +41,20 @@ pub fn render_schedule_pane(
         let can_move_up = idx > 0;
         let can_move_down = idx + 1 < item_count;
 
-        let left_bar = if is_live {
-            TOKENS.signal_live
-        } else if is_preview {
-            TOKENS.signal_preview
-        } else {
-            rgba(0x0000_0000)
-        };
-
         let row_bg = if is_live {
             TOKENS.signal_live_tint
         } else if is_preview {
             TOKENS.signal_preview_tint
         } else {
-            TOKENS.pane
+            rgba(0x0000_0000)
+        };
+
+        let row_border = if is_live {
+            TOKENS.signal_live.alpha(0.55)
+        } else if is_preview {
+            TOKENS.signal_preview.alpha(0.55)
+        } else {
+            rgba(0x0000_0000)
         };
 
         let icon_tint = if is_live {
@@ -68,8 +70,8 @@ pub fn render_schedule_pane(
             reorder = reorder.child(
                 div()
                     .id(format!("sched-up-{item_id}"))
-                    .w(px(18.0))
-                    .h(px(18.0))
+                    .w(px(22.0))
+                    .h(px(22.0))
                     .rounded(px(RADIUS_CONTROL))
                     .hover(|s| s.bg(TOKENS.elevated_hover))
                     .flex()
@@ -85,8 +87,8 @@ pub fn render_schedule_pane(
             reorder = reorder.child(
                 div()
                     .id(format!("sched-dn-{item_id}"))
-                    .w(px(18.0))
-                    .h(px(18.0))
+                    .w(px(22.0))
+                    .h(px(22.0))
                     .rounded(px(RADIUS_CONTROL))
                     .hover(|s| s.bg(TOKENS.elevated_hover))
                     .flex()
@@ -103,96 +105,110 @@ pub fn render_schedule_pane(
             );
         }
 
-        let state_tag = if is_live {
-            Some(("LIVE", TOKENS.signal_live))
+        let state_badge = if is_live {
+            Some(soft_pill("Live", TOKENS.signal_live, TOKENS.ink_primary))
         } else if is_preview {
-            Some(("PRV", TOKENS.signal_preview))
+            Some(soft_pill(
+                "Next Up",
+                TOKENS.signal_preview_tint,
+                TOKENS.signal_preview,
+            ))
         } else {
             None
         };
 
-        list = list.child(
+        let row_top = if is_live || is_preview {
             div()
-                .id(format!("sched-item-{item_id}"))
                 .w_full()
-                .bg(row_bg)
-                .hover(|s| s.bg(TOKENS.elevated_hover))
-                .border_b_1()
-                .border_color(TOKENS.gridline)
-                .cursor_pointer()
                 .flex()
-                .items_stretch()
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.store
-                        .update(cx, |s, cx| s.activate_service_item(item_id, cx));
-                }))
-                // Unmistakable 3px left accent bar (red = Live, amber = Preview)
-                .child(div().w(px(3.0)).flex_shrink_0().bg(left_bar))
+                .items_center()
+                .justify_between()
+                .gap(px(6.0))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(7.0))
+                        .child(deck_icon(
+                            payload_icon(&item.payload, true),
+                            IconSize::Sm,
+                            icon_tint,
+                        ))
+                        .child(match state_badge {
+                            Some(pill) => pill,
+                            None => div(),
+                        }),
+                )
+                .child(reorder)
+        } else {
+            div()
+                .w_full()
+                .flex()
+                .items_center()
+                .justify_between()
+                .gap(px(6.0))
                 .child(
                     div()
                         .flex_1()
-                        .px(px(9.0))
-                        .py(px(8.0))
+                        .min_w_0()
+                        .overflow_hidden()
                         .flex()
-                        .flex_col()
-                        .gap(px(4.0))
+                        .items_center()
+                        .gap(px(8.0))
+                        .child(div().flex_shrink_0().child(deck_icon(
+                            payload_icon(&item.payload, false),
+                            IconSize::Sm,
+                            icon_tint,
+                        )))
                         .child(
                             div()
-                                .flex()
-                                .items_center()
-                                .justify_between()
-                                .child(
-                                    div()
-                                        .flex()
-                                        .items_center()
-                                        .gap(px(6.0))
-                                        .child(
-                                            div()
-                                                .font_family(FONT_MONO)
-                                                .text_color(if is_live || is_preview {
-                                                    TOKENS.ink_primary
-                                                } else {
-                                                    TOKENS.ink_muted
-                                                })
-                                                .text_size(px(10.0))
-                                                .font_weight(FontWeight::BOLD)
-                                                .child(format!("{:02}", idx + 1)),
-                                        )
-                                        .child(deck_icon(
-                                            payload_icon(&item.payload, is_live || is_preview),
-                                            IconSize::Sm,
-                                            icon_tint,
-                                        ))
-                                        .child(match state_tag {
-                                            Some((tag, col)) => div()
-                                                .px(px(4.0))
-                                                .py(px(1.0))
-                                                .rounded(px(RADIUS_CONTROL))
-                                                .bg(col)
-                                                .font_family(FONT_MONO)
-                                                .text_color(TOKENS.canvas)
-                                                .text_size(px(8.5))
-                                                .font_weight(FontWeight::BOLD)
-                                                .child(tag),
-                                            None => div(),
-                                        }),
-                                )
-                                .child(reorder),
-                        )
-                        .child(
-                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .overflow_hidden()
                                 .font_family(FONT_BODY)
                                 .text_color(TOKENS.ink_primary)
-                                .text_size(px(12.5))
-                                .font_weight(if is_live || is_preview {
-                                    FontWeight::SEMIBOLD
-                                } else {
-                                    FontWeight::MEDIUM
-                                })
+                                .text_size(px(13.0))
+                                .font_weight(FontWeight::MEDIUM)
                                 .child(item.title.clone()),
                         ),
-                ),
-        );
+                )
+                .child(div().flex_shrink_0().child(reorder))
+        };
+
+        let mut card = div()
+            .id(format!("sched-item-{item_id}"))
+            .w_full()
+            .px(px(11.0))
+            .py(px(10.0))
+            .rounded(px(RADIUS_TILE))
+            .bg(row_bg)
+            .hover(|s| s.bg(TOKENS.elevated_hover))
+            .border_1()
+            .border_color(row_border)
+            .cursor_pointer()
+            .flex()
+            .flex_col()
+            .gap(px(5.0))
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.store
+                    .update(cx, |s, cx| s.activate_service_item(item_id, cx));
+            }))
+            .child(row_top);
+
+        if is_live || is_preview {
+            card = card.child(
+                div()
+                    .w_full()
+                    .min_w_0()
+                    .font_family(FONT_BODY)
+                    .text_color(TOKENS.ink_primary)
+                    .text_size(px(13.0))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child(item.title.clone()),
+            );
+        }
+
+        list = list.child(card);
     }
 
     div()
@@ -207,7 +223,7 @@ pub fn render_schedule_pane(
             div()
                 .w_full()
                 .h(px(PANE_HEADER_HEIGHT))
-                .px(px(10.0))
+                .px(px(14.0))
                 .border_b_1()
                 .border_color(TOKENS.gridline)
                 .flex()
@@ -215,94 +231,57 @@ pub fn render_schedule_pane(
                 .justify_between()
                 .child(
                     div()
-                        .font_family(FONT_DISPLAY)
-                        .text_color(TOKENS.ink_secondary)
-                        .text_size(px(11.0))
-                        .font_weight(FontWeight::BOLD)
-                        .child("SCHEDULE"),
+                        .flex()
+                        .items_center()
+                        .gap(px(7.0))
+                        .child(deck_icon(
+                            DeckIcon::ListNumbers,
+                            IconSize::Sm,
+                            TOKENS.signal_preview,
+                        ))
+                        .child(
+                            div()
+                                .font_family(FONT_DISPLAY)
+                                .text_color(TOKENS.ink_primary)
+                                .text_size(px(13.5))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Service Order"),
+                        ),
                 )
                 .child(
                     div()
+                        .id("btn-schedule-import-plan")
+                        .w(px(28.0))
+                        .h(px(28.0))
+                        .rounded(px(RADIUS_CONTROL))
+                        .cursor_pointer()
+                        .bg(TOKENS.elevated)
+                        .hover(|s| s.bg(TOKENS.elevated_hover))
+                        .border_1()
+                        .border_color(TOKENS.gridline)
                         .flex()
                         .items_center()
-                        .gap(px(6.0))
-                        .child(
-                            div()
-                                .font_family(FONT_MONO)
-                                .text_color(TOKENS.ink_muted)
-                                .text_size(px(10.0))
-                                .child(format!("{item_count:02}")),
-                        )
-                        .child(
-                            div()
-                                .id("btn-schedule-import-plan")
-                                .h(px(21.0))
-                                .px(px(6.0))
-                                .rounded(px(RADIUS_CONTROL))
-                                .cursor_pointer()
-                                .bg(TOKENS.elevated)
-                                .hover(|s| s.bg(TOKENS.elevated_hover))
-                                .border_1()
-                                .border_color(TOKENS.focus_border)
-                                .flex()
-                                .items_center()
-                                .gap(px(4.0))
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.open_plan_importer(cx);
-                                }))
-                                .child(deck_icon(
-                                    DeckIcon::UploadSimple,
-                                    IconSize::Sm,
-                                    TOKENS.signal_preview,
-                                ))
-                                .child(
-                                    div()
-                                        .font_family(FONT_MONO)
-                                        .text_color(TOKENS.ink_primary)
-                                        .text_size(px(9.0))
-                                        .font_weight(FontWeight::BOLD)
-                                        .child("PLAN"),
-                                ),
-                        ),
+                        .justify_center()
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.open_plan_importer(cx);
+                        }))
+                        .child(deck_icon(
+                            DeckIcon::UploadSimple,
+                            IconSize::Sm,
+                            TOKENS.signal_preview,
+                        )),
                 ),
         )
         .child(list)
         .child(
             div()
-                .px(px(10.0))
-                .py(px(7.0))
+                .px(px(14.0))
+                .py(px(10.0))
                 .border_t_1()
                 .border_color(TOKENS.gridline)
-                .flex()
-                .items_center()
-                .justify_between()
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(4.0))
-                        .child(keycap("F5", false))
-                        .child(
-                            div()
-                                .font_family(FONT_MONO)
-                                .text_color(TOKENS.ink_muted)
-                                .text_size(px(9.5))
-                                .child("LIVE"),
-                        ),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(4.0))
-                        .child(keycap("SPACE", false))
-                        .child(
-                            div()
-                                .font_family(FONT_MONO)
-                                .text_color(TOKENS.ink_muted)
-                                .text_size(px(9.5))
-                                .child("NEXT"),
-                        ),
-                ),
+                .font_family(FONT_BODY)
+                .text_color(TOKENS.ink_muted)
+                .text_size(px(11.0))
+                .child("Press Space for next slide"),
         )
 }

@@ -13,7 +13,7 @@ use sundaydeck_ui::design::gallery::{DesignGalleryView, GalleryPage};
 use sundaydeck_ui::design::primitives::VoiceSyncMode;
 use sundaydeck_ui::design::{DeckAssetSource, register_fonts};
 use sundaydeck_ui::store::{BibleBrowseMode, PresentationStore};
-use sundaydeck_ui::views::operator_workspace::LibraryTab;
+use sundaydeck_ui::views::operator_workspace::{HeaderPopover, LibraryTab};
 use sundaydeck_ui::views::song_editor_modal::EditorTab;
 use sundaydeck_ui::views::{AudienceOutputView, OperatorWorkspace, StageMonitorView};
 use sundaydeck_ui::windows::WindowManager;
@@ -78,7 +78,7 @@ fn render_all_design_gallery_and_console_windows_via_headless_vulkan() {
         let store = cx.new(|_| {
             let mut s = PresentationStore::from_bootstrap(bootstrap);
             s.clock_override_ms = Some(1_000_000);
-            s.fixed_clock_label = Some("10:15".to_owned());
+            s.fixed_clock_label = Some("10:15 AM".to_owned());
             s
         });
         let windows = cx.new(|_| WindowManager::new());
@@ -410,6 +410,28 @@ fn render_all_design_gallery_and_console_windows_via_headless_vulkan() {
         .save(out_dir.join("15-operator-after-plan-applied.png"))
         .expect("save 15");
 
+    // 10. Friendly Auto-Follow Popover open (with Auto-Follow: On active)
+    app.update(|cx| {
+        store.update(cx, |s, cx| {
+            s.voice_sync_mode = VoiceSyncMode::Auto;
+            cx.notify();
+        });
+    });
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.toggle_popover(HeaderPopover::AutoFollow, cx);
+            });
+        }
+    })
+    .expect("open auto-follow popover");
+
+    app.capture(op_win)
+        .expect("capture 16 auto-follow popover")
+        .image
+        .save(out_dir.join("16-auto-follow-popover.png"))
+        .expect("save 16");
+
     for entry in [
         "00a-ui-gallery-console.png",
         "00b-ui-gallery-projection-icons.png",
@@ -428,6 +450,7 @@ fn render_all_design_gallery_and_console_windows_via_headless_vulkan() {
         "13-operator-override-blackout.png",
         "14-pastor-plan-importer-modal.png",
         "15-operator-after-plan-applied.png",
+        "16-auto-follow-popover.png",
     ] {
         let path = out_dir.join(entry);
         let meta = std::fs::metadata(&path).expect("screenshot exists");
