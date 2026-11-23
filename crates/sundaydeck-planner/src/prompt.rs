@@ -306,14 +306,23 @@ where
         });
     }
 
-    Ok(GeneratedServicePlan {
+    let mut plan = GeneratedServicePlan {
         source_name: doc.source_name.clone(),
         source_format: doc.format,
         sermon_title,
         translation_code: translation_code.to_owned(),
         items,
         stats,
-    })
+    };
+    crate::hybrid::apply_hybrid_safety_pass(
+        &mut plan,
+        doc,
+        songs,
+        themes,
+        translation_code,
+        &mut lookup_verses,
+    );
+    Ok(plan)
 }
 
 fn materialize_scripture<F>(

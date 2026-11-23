@@ -5,6 +5,56 @@ use ureq::Agent;
 
 use crate::error::PlannerError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalLlmPreset {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub model_name: &'static str,
+    pub ram_requirement: &'static str,
+    pub notes: &'static str,
+}
+
+impl LocalLlmPreset {
+    /// Curated local LLM recommendations for church presentation laptops and studio Macs.
+    pub const ALL: &'static [Self] = &[
+        Self {
+            id: "qwen3-4b",
+            label: "Qwen3 4B",
+            model_name: "qwen3:4b",
+            ram_requirement: "8-16 GB RAM",
+            notes: "Recommended default for church laptops; strong JSON schema adherence.",
+        },
+        Self {
+            id: "qwen25-3b",
+            label: "Qwen2.5 3B",
+            model_name: "qwen2.5-3b-instruct",
+            ram_requirement: "8 GB RAM",
+            notes: "Fast 2.0 GB Q4_K_M GGUF; 100% messy-doc accuracy with Hybrid Post-Pass.",
+        },
+        Self {
+            id: "phi4-mini",
+            label: "Phi-4 Mini",
+            model_name: "phi4-mini",
+            ram_requirement: "8 GB RAM",
+            notes: "Microsoft 3.8B compact reasoning model for strict structured output.",
+        },
+        Self {
+            id: "gemma3-4b",
+            label: "Gemma 3 4B",
+            model_name: "gemma3:4b",
+            ram_requirement: "8-16 GB RAM",
+            notes: "Google 4B instruction model; clean summarization of long pastor paragraphs.",
+        },
+        Self {
+            id: "inkling-2-mini",
+            label: "Inkling 2 Mini",
+            model_name: "inkling-2-mini",
+            ram_requirement: "32 GB+ RAM",
+            notes: "Thinking Machines 26.4B MoE (~20 GB weights); great on 32 GB+ Apple Silicon Macs.",
+        },
+    ];
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocalLlmConfig {
     /// OpenAI-compatible chat completions endpoint (llama-server, Ollama `/v1`, LM Studio).
@@ -19,7 +69,7 @@ impl Default for LocalLlmConfig {
     fn default() -> Self {
         Self {
             endpoint_url: "http://127.0.0.1:8080/v1/chat/completions".to_owned(),
-            model: "qwen2.5-3b-instruct".to_owned(),
+            model: "qwen3:4b".to_owned(),
             timeout_secs: 120,
             max_tokens: 1400,
             api_key: None,

@@ -1,6 +1,7 @@
 pub mod benchmark_corpus;
 pub mod embedded_llm;
 pub mod error;
+pub mod hybrid;
 pub mod local_llm;
 pub mod prompt;
 
@@ -16,7 +17,7 @@ pub use crate::embedded_llm::{
     EmbeddedLlmConfig, default_embedded_model_path, is_embedded_runtime_compiled,
 };
 pub use crate::error::PlannerError;
-pub use crate::local_llm::LocalLlmConfig;
+pub use crate::local_llm::{LocalLlmConfig, LocalLlmPreset};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
