@@ -2,60 +2,56 @@ use std::sync::Arc;
 
 use gpui::{
     Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgba,
+    Styled, div, px, rgb, rgba,
 };
 use sundaydeck_core::{BackgroundSpec, PresentationCommand, ReflowMode, SlideContent};
 
 use crate::design::fonts::resolve_font_family;
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::primitives::{section_pill, soft_pill};
+use crate::design::primitives::{
+    next_up_caption, primary_ivory_button_body, section_meta_label, status_dot_label,
+};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
-    rgba8_to_gpui,
 };
+use crate::media::apply_theme_background;
 use crate::views::operator_workspace::OperatorWorkspace;
 
 const TILE_W_PX: f32 = 256.0;
 const TILE_H_PX: f32 = 144.0; // exact 16:9
 
 /// Top half of the Center Pane:
-/// Realistic 16:9 miniature slide previews styled like the sanctuary projector,
-/// with human-readable colored section pills (`Verse 1`, `Chorus`, `Romans 8:28`),
-/// clean Sentence-case reflow & theme controls, and an inviting `Show on Screen` action.
+/// Clean 16:9 sanctuary slide cards with typographic dot+label metadata (`Verse 1`, `Chorus`),
+/// `1.5px` warm-amber Next Up ring + bottom `Next up · Space` caption, real Unsplash photo /
+/// looping motion video backgrounds, and a warm paper-ivory `Show on Screen` primary button.
 pub fn render_preview_section(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
 ) -> Div {
     let store = workspace.store.read(cx);
     let snapshot = store.snapshot();
+    let now_ms = store.now_epoch_ms();
     let preview = snapshot.preview.clone();
     let active_reflow = store.preview_reflow_mode;
     let themes = store.themes.clone();
     let active_theme = store.active_theme();
 
-    let (title, slide_count, active_idx, slides, preview_font, tile_canvas_bg) = match &preview {
-        Some(cursor) => {
-            let bg = match &cursor.theme.background {
-                BackgroundSpec::Solid { color } => rgba8_to_gpui(*color),
-                BackgroundSpec::LinearGradient { start, .. } => rgba8_to_gpui(*start),
-                BackgroundSpec::Image { .. } => TOKENS.elevated,
-            };
-            (
-                cursor.title.clone(),
-                cursor.len(),
-                cursor.active_index,
-                cursor.slides.to_vec(),
-                resolve_font_family(&cursor.theme.font_family, cx),
-                bg,
-            )
-        }
+    let (title, slide_count, active_idx, slides, preview_font, preview_bg_spec) = match &preview {
+        Some(cursor) => (
+            cursor.title.clone(),
+            cursor.len(),
+            cursor.active_index,
+            cursor.slides.to_vec(),
+            resolve_font_family(&cursor.theme.font_family, cx),
+            cursor.theme.background.clone(),
+        ),
         None => (
             "Select an item from Service Order".to_owned(),
             0,
             0,
             Vec::new(),
             resolve_font_family(&active_theme.font_family, cx),
-            TOKENS.elevated,
+            active_theme.background.clone(),
         ),
     };
 
@@ -64,7 +60,7 @@ pub fn render_preview_section(
         .items_center()
         .gap(px(2.0))
         .p(px(2.0))
-        .bg(TOKENS.canvas)
+        .bg(TOKENS.recessed)
         .border_1()
         .border_color(TOKENS.gridline)
         .rounded(px(RADIUS_CONTROL))
@@ -110,45 +106,72 @@ pub fn render_preview_section(
         );
     }
 
-    let mut theme_strip = div().flex().items_center().gap(px(6.0));
+    let mut theme_strip = div()
+        .id("preview-theme-strip")
+        .flex_1()
+        .min_w_0()
+        .overflow_hidden()
+        .flex()
+        .items_center()
+        .gap(px(5.0));
+
     for theme in themes {
         let is_active = theme.id == active_theme.id;
         let theme_click = Arc::clone(&theme);
+        let kind_dot = match &theme.background {
+            BackgroundSpec::VideoLoop { .. } => Some(TOKENS.signal_preview),
+            BackgroundSpec::Image { .. } => Some(rgb(0x6B9BF2)),
+            BackgroundSpec::LinearGradient { .. } | BackgroundSpec::Solid { .. } => None,
+        };
+
+        let mut chip = div()
+            .id(format!("preview-theme-{}", theme.id))
+            .flex_shrink_0()
+            .px(px(9.0))
+            .py(px(3.5))
+            .rounded(px(RADIUS_PILL))
+            .cursor_pointer()
+            .bg(if is_active {
+                TOKENS.elevated
+            } else {
+                rgba(0x0000_0000)
+            })
+            .hover(|s| s.bg(TOKENS.elevated_hover))
+            .border_1()
+            .border_color(if is_active {
+                TOKENS.focus_border
+            } else {
+                rgba(0x0000_0000)
+            })
+            .flex()
+            .items_center()
+            .gap(px(5.0))
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.store.update(cx, |s, cx| {
+                    let _ = s.dispatch(
+                        PresentationCommand::ApplyLiveTheme(Arc::clone(&theme_click)),
+                        cx,
+                    );
+                });
+            }));
+
+        if let Some(dot) = kind_dot {
+            chip = chip.child(div().w(px(5.0)).h(px(5.0)).rounded(px(RADIUS_PILL)).bg(dot));
+        }
+
         theme_strip = theme_strip.child(
-            div()
-                .id(format!("preview-theme-{}", theme.id))
-                .px(px(10.0))
-                .py(px(4.0))
-                .rounded(px(RADIUS_PILL))
-                .cursor_pointer()
-                .bg(if is_active {
-                    TOKENS.elevated
-                } else {
-                    rgba(0x0000_0000)
-                })
-                .border_1()
-                .border_color(if is_active {
-                    TOKENS.focus_border
-                } else {
-                    rgba(0x0000_0000)
-                })
-                .font_family(FONT_BODY)
-                .text_color(if is_active {
-                    TOKENS.ink_primary
-                } else {
-                    TOKENS.ink_secondary
-                })
-                .text_size(px(11.0))
-                .font_weight(FontWeight::MEDIUM)
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.store.update(cx, |s, cx| {
-                        let _ = s.dispatch(
-                            PresentationCommand::ApplyLiveTheme(Arc::clone(&theme_click)),
-                            cx,
-                        );
-                    });
-                }))
-                .child(theme.name.clone()),
+            chip.child(
+                div()
+                    .font_family(FONT_BODY)
+                    .text_color(if is_active {
+                        TOKENS.ink_primary
+                    } else {
+                        TOKENS.ink_secondary
+                    })
+                    .text_size(px(11.0))
+                    .font_weight(FontWeight::MEDIUM)
+                    .child(short_theme_label(&theme.name)),
+            ),
         );
     }
 
@@ -163,6 +186,11 @@ pub fn render_preview_section(
         .content_start()
         .gap(px(14.0));
 
+    let has_media_bg = matches!(
+        preview_bg_spec,
+        BackgroundSpec::Image { .. } | BackgroundSpec::VideoLoop { .. }
+    );
+
     for (idx, slide) in slides.iter().enumerate() {
         let is_selected = idx == active_idx;
         let sec_kind = match &slide.content {
@@ -171,73 +199,63 @@ pub fn render_preview_section(
         };
         let raw_text = slide.content.primary_text();
         let line_count = raw_text.lines().count();
-        let body_size = if raw_text.len() > 140 || line_count > 4 {
-            11.0
+        let body_size = if raw_text.len() > 110 || line_count >= 4 {
+            10.5
         } else {
-            12.5
+            12.0
         };
-        let body_lh = body_size * 1.4;
+        let body_lh = body_size * 1.35;
 
-        let mut tile = div()
-            .id(format!("preview-slide-{idx}"))
+        let base_tile = div()
+            .relative()
             .w(px(TILE_W_PX))
             .h(px(TILE_H_PX))
             .rounded(px(RADIUS_TILE))
             .overflow_hidden()
-            .cursor_pointer()
-            .bg(tile_canvas_bg)
-            .hover(|s| s.border_color(TOKENS.focus_border))
+            .border(px(if is_selected { 1.5 } else { 1.0 }))
             .border_color(if is_selected {
                 TOKENS.signal_preview
             } else {
                 TOKENS.gridline
             })
             .flex()
-            .flex_col()
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.store.update(cx, |s, cx| {
-                    let _ = s.dispatch(PresentationCommand::SelectPreviewSlide(idx), cx);
-                    if s.snapshot().direct_click_live {
-                        let _ = s.dispatch(PresentationCommand::GoLive, cx);
-                    }
-                });
-            }));
+            .flex_col();
 
-        tile = if is_selected {
-            tile.border_2()
+        let mut styled_tile = if has_media_bg {
+            apply_theme_background(base_tile, &preview_bg_spec, now_ms)
         } else {
-            tile.border_1()
+            base_tile.bg(TOKENS.slide_card)
         };
 
-        grid = grid.child(
-            tile.child(
+        styled_tile = styled_tile
+            .child(
                 div()
+                    .relative()
                     .w_full()
-                    .px(px(10.0))
+                    .px(px(11.0))
                     .pt(px(8.0))
                     .pb(px(3.0))
                     .flex()
                     .items_center()
                     .justify_between()
                     .gap(px(6.0))
-                    .child(section_pill(&slide.label, sec_kind))
-                    .child(if is_selected {
-                        soft_pill("Next Up", TOKENS.signal_preview_tint, TOKENS.signal_preview)
-                    } else {
+                    .child(section_meta_label(&slide.label, sec_kind))
+                    .child(
                         div()
                             .font_family(FONT_BODY)
                             .text_color(TOKENS.ink_muted)
                             .text_size(px(10.5))
-                            .child(format!("{}", idx + 1))
-                    }),
+                            .child(format!("{}", idx + 1)),
+                    ),
             )
             .child(
                 div()
+                    .relative()
                     .flex_1()
                     .w_full()
                     .min_w_0()
                     .px(px(14.0))
-                    .py(px(6.0))
+                    .py(px(5.0))
                     .overflow_hidden()
                     .flex()
                     .flex_col()
@@ -253,7 +271,41 @@ pub fn render_preview_section(
                             .line_height(px(body_lh))
                             .child(raw_text.to_owned()),
                     ),
-            ),
+            );
+
+        if is_selected {
+            styled_tile = styled_tile
+                .child(
+                    div()
+                        .relative()
+                        .w_full()
+                        .pb(px(6.0))
+                        .flex()
+                        .justify_center()
+                        .child(next_up_caption()),
+                )
+                .child(
+                    div()
+                        .relative()
+                        .w_full()
+                        .h(px(2.0))
+                        .bg(TOKENS.signal_preview),
+                );
+        }
+
+        grid = grid.child(
+            div()
+                .id(format!("preview-slide-{idx}"))
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.store.update(cx, |s, cx| {
+                        let _ = s.dispatch(PresentationCommand::SelectPreviewSlide(idx), cx);
+                        if s.snapshot().direct_click_live {
+                            let _ = s.dispatch(PresentationCommand::GoLive, cx);
+                        }
+                    });
+                }))
+                .child(styled_tile),
         );
     }
 
@@ -267,7 +319,7 @@ pub fn render_preview_section(
         .flex_1()
         .w_full()
         .border_b_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
         .flex_col()
         .overflow_hidden()
@@ -278,7 +330,7 @@ pub fn render_preview_section(
                 .px(px(14.0))
                 .bg(TOKENS.pane)
                 .border_b_1()
-                .border_color(TOKENS.gridline)
+                .border_color(TOKENS.hairline)
                 .flex()
                 .items_center()
                 .justify_between()
@@ -290,11 +342,11 @@ pub fn render_preview_section(
                         .overflow_hidden()
                         .flex()
                         .items_center()
-                        .gap(px(9.0))
-                        .child(div().flex_shrink_0().child(soft_pill(
+                        .gap(px(10.0))
+                        .child(div().flex_shrink_0().child(status_dot_label(
                             "Next Up",
-                            TOKENS.signal_preview_tint,
                             TOKENS.signal_preview,
+                            TOKENS.ink_secondary,
                         )))
                         .child(
                             div()
@@ -327,32 +379,17 @@ pub fn render_preview_section(
                         .child(
                             div()
                                 .id("btn-go-live")
-                                .h(px(30.0))
-                                .px(px(13.0))
-                                .rounded(px(RADIUS_CONTROL))
                                 .cursor_pointer()
-                                .bg(TOKENS.signal_live)
-                                .flex()
-                                .items_center()
-                                .gap(px(6.0))
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.store.update(cx, |s, cx| {
                                         let _ = s.dispatch(PresentationCommand::GoLive, cx);
                                     });
                                 }))
-                                .child(deck_icon(
-                                    DeckIcon::PlayFill,
-                                    IconSize::Sm,
-                                    TOKENS.ink_primary,
-                                ))
-                                .child(
-                                    div()
-                                        .font_family(FONT_BODY)
-                                        .text_color(TOKENS.ink_primary)
-                                        .text_size(px(12.0))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .child("Show on Screen"),
-                                ),
+                                .child(primary_ivory_button_body(
+                                    Some(DeckIcon::PlayFill),
+                                    "Show on Screen",
+                                    preview.is_some(),
+                                )),
                         ),
                 ),
         )
@@ -363,7 +400,7 @@ pub fn render_preview_section(
                 .py(px(6.0))
                 .bg(TOKENS.pane)
                 .border_b_1()
-                .border_color(TOKENS.gridline)
+                .border_color(TOKENS.hairline)
                 .flex()
                 .items_center()
                 .gap(px(8.0))
@@ -371,4 +408,17 @@ pub fn render_preview_section(
                 .child(theme_strip),
         )
         .child(grid)
+}
+
+fn short_theme_label(name: &str) -> String {
+    match name {
+        "Classic Sanctuary Dark" => "Sanctuary Dark".to_owned(),
+        "Warm Sanctuary Amber" => "Warm Amber".to_owned(),
+        "Scripture Clean" => "Scripture".to_owned(),
+        "Modern Display" => "Modern".to_owned(),
+        "Sanctuary Mountains" => "Mountains".to_owned(),
+        "Golden Light Motion" => "Golden Motion".to_owned(),
+        "Still Waters Scripture" => "Still Waters".to_owned(),
+        other => other.to_owned(),
+    }
 }

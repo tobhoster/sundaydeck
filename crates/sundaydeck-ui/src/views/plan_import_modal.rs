@@ -9,7 +9,9 @@ use sundaydeck_core::{
 };
 use sundaydeck_db::DbWorker;
 use sundaydeck_planner::benchmark_corpus::lookup_starter_web;
-use sundaydeck_planner::{PlanRunMetrics, PlannerConfig, PlannerEngineKind, run_planner};
+use sundaydeck_planner::{
+    LocalLlmConfig, LocalLlmPreset, PlanRunMetrics, PlannerConfig, PlannerEngineKind, run_planner,
+};
 
 use crate::components::TextInput;
 use crate::store::PresentationStore;
@@ -30,6 +32,7 @@ pub struct PlanImportModal {
     db: Option<DbWorker>,
     pub(crate) active_tab: PlanInputTab,
     pub(crate) engine: PlannerEngineKind,
+    pub(crate) local_model_preset: String,
     pub(crate) path_input: Entity<TextInput>,
     pub(crate) outline_input: Entity<TextInput>,
     pub(crate) last_doc: Option<ExtractedDocument>,
@@ -70,6 +73,7 @@ impl PlanImportModal {
             db,
             active_tab: PlanInputTab::FileUpload,
             engine: PlannerEngineKind::Deterministic,
+            local_model_preset: LocalLlmPreset::ALL[0].model_name.to_owned(),
             path_input,
             outline_input,
             last_doc: None,
@@ -90,6 +94,11 @@ impl PlanImportModal {
         cx.notify();
     }
 
+    pub fn set_engine_for_preview(&mut self, engine: PlannerEngineKind, cx: &mut Context<Self>) {
+        self.engine = engine;
+        cx.notify();
+    }
+
     pub fn set_plan_with_metrics(
         &mut self,
         plan: GeneratedServicePlan,
@@ -99,6 +108,17 @@ impl PlanImportModal {
         self.engine = metrics.engine;
         self.last_metrics = Some(metrics);
         self.set_plan_for_preview(plan, cx);
+    }
+
+    pub(crate) fn select_local_model(&mut self, model: String, cx: &mut Context<Self>) {
+        self.local_model_preset = model;
+        if self.engine == PlannerEngineKind::LocalLlm
+            && let Some(doc) = self.last_doc.clone()
+        {
+            self.run_engine_on_doc(doc, cx);
+        } else {
+            cx.notify();
+        }
     }
 
     pub(crate) fn select_engine(&mut self, engine: PlannerEngineKind, cx: &mut Context<Self>) {
@@ -190,6 +210,7 @@ impl PlanImportModal {
         cx.notify();
 
         let engine = self.engine;
+        let local_model = self.local_model_preset.clone();
         let (songs, themes, translation) = {
             let store_ref = self.store.read(cx);
             (
@@ -207,6 +228,10 @@ impl PlanImportModal {
         std::thread::spawn(move || {
             let cfg = PlannerConfig {
                 engine,
+                local_llm: LocalLlmConfig {
+                    model: local_model,
+                    ..LocalLlmConfig::default()
+                },
                 ..PlannerConfig::default()
             };
             let res = run_planner(

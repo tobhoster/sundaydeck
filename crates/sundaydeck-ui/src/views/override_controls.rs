@@ -1,16 +1,16 @@
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px,
+    Context, Div, InteractiveElement, ParentElement, StatefulInteractiveElement, Styled, div, px,
 };
 use sundaydeck_core::{OutputOverride, PresentationCommand};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::primitives::volunteer_action_button_body;
-use crate::design::tokens::{FONT_BODY, RADIUS_CONTROL, RADIUS_PILL, TOKENS};
+use crate::design::primitives::{native_screen_key_body, neutral_option_chip};
+use crate::design::tokens::{RADIUS_CONTROL, TOKENS};
 use crate::views::operator_workspace::OperatorWorkspace;
 
-/// Calm, Plain-English Screen Controls (`Hide Words`, `Black Screen`, `Show Logo`).
-/// Global hotkeys (F1-F3, F5) stay wired, without cluttering the button faces.
+/// Sculpted Native Screen Controls (`Hide Words`, `Black Screen`, `Show Logo`).
+/// Idle keys use raised warm-graphite gradients; engaged overrides switch to a pressed-in
+/// recessed latched state with crisp `#D97736` border, `6px` indicator dot, and `Active` label.
 pub fn render_override_buttons(
     active: OutputOverride,
     _has_live: bool,
@@ -31,18 +31,13 @@ pub fn render_override_buttons(
                     let _ = s.dispatch(PresentationCommand::ToggleOverride(target), cx);
                 });
             }))
-            .child(volunteer_action_button_body(
-                icon,
-                label,
-                is_on,
-                TOKENS.signal_override,
-            ))
+            .child(native_screen_key_body(icon, label, is_on))
     };
 
     div()
         .w_full()
         .flex()
-        .items_center()
+        .items_stretch()
         .gap(px(8.0))
         .child(make_override_btn(
             "override-clear-text",
@@ -67,7 +62,7 @@ pub fn render_override_buttons(
         ))
 }
 
-/// Friendly private Stage Screen note presets docked beneath the live slide list.
+/// Private Stage Screen note presets docked beneath the live slide list.
 pub fn render_stage_cue_strip(
     active_note: Option<&str>,
     cx: &mut Context<OperatorWorkspace>,
@@ -81,39 +76,14 @@ pub fn render_stage_cue_strip(
     for (id, label) in presets {
         let is_on = active_note == Some(label);
         row = row.child(
-            div()
-                .id(id)
-                .px(px(10.0))
-                .py(px(4.5))
-                .rounded(px(RADIUS_PILL))
-                .cursor_pointer()
-                .bg(if is_on {
-                    TOKENS.signal_preview_tint
-                } else {
-                    TOKENS.elevated
-                })
-                .hover(|s| s.bg(TOKENS.elevated_hover))
-                .border_1()
-                .border_color(if is_on {
-                    TOKENS.signal_preview
-                } else {
-                    TOKENS.gridline
-                })
-                .font_family(FONT_BODY)
-                .text_color(if is_on {
-                    TOKENS.signal_preview
-                } else {
-                    TOKENS.ink_secondary
-                })
-                .text_size(px(11.0))
-                .font_weight(FontWeight::MEDIUM)
-                .on_click(cx.listener(move |this, _, _, cx| {
+            neutral_option_chip(id, label, is_on, TOKENS.signal_preview).on_click(cx.listener(
+                move |this, _, _, cx| {
                     let next = if is_on { None } else { Some(label.to_owned()) };
                     this.store.update(cx, |s, cx| {
                         let _ = s.dispatch(PresentationCommand::SetStageMessage(next), cx);
                     });
-                }))
-                .child(label),
+                },
+            )),
         );
     }
 
@@ -121,21 +91,23 @@ pub fn render_stage_cue_strip(
         row = row.child(
             div()
                 .id("stage-cue-clear")
-                .px(px(6.0))
-                .py(px(4.5))
+                .w(px(26.0))
+                .h(px(26.0))
                 .rounded(px(RADIUS_CONTROL))
                 .cursor_pointer()
-                .bg(TOKENS.signal_live_tint)
+                .bg(TOKENS.status_surface)
+                .hover(|s| s.bg(TOKENS.elevated_hover))
                 .border_1()
-                .border_color(TOKENS.signal_live)
+                .border_color(TOKENS.gridline)
                 .flex()
                 .items_center()
+                .justify_center()
                 .on_click(cx.listener(|this, _, _, cx| {
                     this.store.update(cx, |s, cx| {
                         let _ = s.dispatch(PresentationCommand::SetStageMessage(None), cx);
                     });
                 }))
-                .child(deck_icon(DeckIcon::X, IconSize::Sm, TOKENS.signal_live)),
+                .child(deck_icon(DeckIcon::X, IconSize::Sm, TOKENS.signal_live_dot)),
         );
     }
 
@@ -143,7 +115,7 @@ pub fn render_stage_cue_strip(
         .px(px(14.0))
         .py(px(10.0))
         .border_t_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
         .items_center()
         .justify_between()

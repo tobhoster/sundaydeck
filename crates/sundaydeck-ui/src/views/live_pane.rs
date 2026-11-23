@@ -1,12 +1,12 @@
 use gpui::{
     Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgb,
+    Styled, div, px, rgb, rgba,
 };
 use sundaydeck_core::{OutputOverride, PresentationCommand, SlideContent};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::motion::tally_pulse_dot;
-use crate::design::primitives::{section_pill, soft_pill};
+use crate::design::primitives::{live_meta_indicator, section_meta_label};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, LIVE_DECK_WIDTH, MONITOR_HEIGHT_PX, MONITOR_WIDTH_PX,
     PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
@@ -16,9 +16,9 @@ use crate::views::operator_workspace::OperatorWorkspace;
 use crate::views::override_controls::{render_override_buttons, render_stage_cue_strip};
 
 /// Right Pane (On Screen Now):
-/// Realistic 16:9 Live Preview framed with a clean 2px warm coral-crimson ring (or warm terracotta
-/// ring + unmistakable status pill when screen is paused), plain-English recovery buttons,
-/// calm active slide list, and private Note for Stage strip.
+/// Realistic 16:9 Live Preview framed with a crisp `1.5px` deep crimson ring (or amber-terracotta
+/// ring when an override is latched), sculpted tactile screen keys, calm matte slide list,
+/// and private Stage Screen cue strip.
 pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<OperatorWorkspace>) -> Div {
     let store_ref = workspace.store.read(cx);
     let snapshot = store_ref.snapshot();
@@ -47,11 +47,11 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
         TOKENS.gridline
     };
 
-    let override_pill_copy = match active_override {
+    let override_caption = match active_override {
         OutputOverride::None => None,
-        OutputOverride::ClearText => Some("Words Hidden"),
-        OutputOverride::Black => Some("Screen Paused · Black Screen"),
-        OutputOverride::Logo => Some("Showing Church Logo"),
+        OutputOverride::ClearText => Some("Words Hidden · Active"),
+        OutputOverride::Black => Some("Black Screen · Active"),
+        OutputOverride::Logo => Some("Showing Logo · Active"),
     };
 
     let mut monitor = div()
@@ -60,7 +60,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
         .h(px(MONITOR_HEIGHT_PX))
         .rounded(px(RADIUS_TILE))
         .overflow_hidden()
-        .border_2()
+        .border(px(1.5))
         .border_color(monitor_border)
         .bg(rgb(0x0E0F12))
         .child(render_audience_canvas(
@@ -70,7 +70,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             cx,
         ));
 
-    if let Some(text) = override_pill_copy {
+    if let Some(text) = override_caption {
         monitor = monitor.child(
             div()
                 .absolute()
@@ -79,12 +79,27 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                 .px(px(10.0))
                 .py(px(4.0))
                 .rounded(px(RADIUS_PILL))
-                .bg(TOKENS.signal_override)
-                .font_family(FONT_BODY)
-                .text_color(TOKENS.ink_primary)
-                .text_size(px(11.0))
-                .font_weight(FontWeight::SEMIBOLD)
-                .child(text),
+                .bg(TOKENS.recessed)
+                .border_1()
+                .border_color(TOKENS.signal_override)
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .child(
+                    div()
+                        .w(px(6.0))
+                        .h(px(6.0))
+                        .rounded(px(RADIUS_PILL))
+                        .bg(TOKENS.signal_override),
+                )
+                .child(
+                    div()
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(10.5))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(text),
+                ),
         );
     }
 
@@ -114,16 +129,16 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
         let mut card = div()
             .id(format!("live-slide-{idx}"))
             .w_full()
-            .px(px(12.0))
-            .py(px(10.0))
             .rounded(px(RADIUS_TILE))
+            .overflow_hidden()
             .cursor_pointer()
             .bg(if is_current {
-                TOKENS.signal_live_tint
-            } else {
                 TOKENS.elevated
+            } else {
+                TOKENS.slide_card
             })
             .hover(|s| s.bg(TOKENS.elevated_hover))
+            .border(px(if is_current { 1.5 } else { 1.0 }))
             .border_color(if is_current {
                 TOKENS.signal_live
             } else {
@@ -131,53 +146,59 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             })
             .flex()
             .flex_col()
-            .gap(px(6.0))
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.store.update(cx, |s, cx| {
                     let _ = s.dispatch(PresentationCommand::SelectLiveSlide(idx), cx);
                 });
-            }));
-
-        card = if is_current {
-            card.border_2()
-        } else {
-            card.border_1()
-        };
-
-        live_list = live_list.child(
-            card.child(
-                div()
-                    .w_full()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .gap(px(6.0))
-                    .child(section_pill(&slide.label, sec_kind))
-                    .child(if is_current {
-                        soft_pill("Live", TOKENS.signal_live, TOKENS.ink_primary)
-                    } else {
-                        div()
-                            .font_family(FONT_BODY)
-                            .text_color(TOKENS.ink_muted)
-                            .text_size(px(11.0))
-                            .child(format!("{}", idx + 1))
-                    }),
-            )
+            }))
             .child(
                 div()
                     .w_full()
-                    .min_w_0()
-                    .font_family(FONT_BODY)
-                    .text_color(if is_current {
-                        TOKENS.ink_primary
-                    } else {
-                        TOKENS.ink_secondary
-                    })
-                    .text_size(px(12.0))
-                    .line_height(px(17.0))
-                    .child(excerpt),
-            ),
-        );
+                    .px(px(12.0))
+                    .pt(px(9.0))
+                    .pb(px(10.0))
+                    .flex()
+                    .flex_col()
+                    .gap(px(6.0))
+                    .child(
+                        div()
+                            .w_full()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .gap(px(6.0))
+                            .child(section_meta_label(&slide.label, sec_kind))
+                            .child(if is_current {
+                                live_meta_indicator()
+                            } else {
+                                div()
+                                    .font_family(FONT_BODY)
+                                    .text_color(TOKENS.ink_muted)
+                                    .text_size(px(11.0))
+                                    .child(format!("{}", idx + 1))
+                            }),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .min_w_0()
+                            .font_family(FONT_BODY)
+                            .text_color(if is_current {
+                                TOKENS.ink_primary
+                            } else {
+                                TOKENS.ink_secondary
+                            })
+                            .text_size(px(12.0))
+                            .line_height(px(17.0))
+                            .child(excerpt),
+                    ),
+            );
+
+        if is_current {
+            card = card.child(div().w_full().h(px(2.0)).bg(rgba(0xF5F3_EF8C)));
+        }
+
+        live_list = live_list.child(card);
     }
 
     div()
@@ -185,7 +206,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
         .h_full()
         .bg(TOKENS.pane)
         .border_l_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
         .flex_col()
         .child(
@@ -194,7 +215,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                 .h(px(PANE_HEADER_HEIGHT))
                 .px(px(14.0))
                 .border_b_1()
-                .border_color(TOKENS.gridline)
+                .border_color(TOKENS.hairline)
                 .flex()
                 .items_center()
                 .justify_between()
@@ -209,15 +230,20 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                         .gap(px(7.0))
                         .child(div().flex_shrink_0().child(tally_pulse_dot(
                             "live-pane-tally",
-                            TOKENS.signal_live,
+                            TOKENS.signal_live_dot,
                             has_live && active_override == OutputOverride::None,
                             motion_mode,
                         )))
-                        .child(div().flex_shrink_0().child(soft_pill(
-                            "Live",
-                            TOKENS.signal_live_tint,
-                            TOKENS.signal_live,
-                        )))
+                        .child(
+                            div()
+                                .flex_shrink_0()
+                                .font_family(FONT_BODY)
+                                .text_color(TOKENS.ink_primary)
+                                .text_size(px(11.5))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Live"),
+                        )
+                        .child(div().w(px(1.0)).h(px(12.0)).bg(TOKENS.hairline))
                         .child(
                             div()
                                 .flex_1()
@@ -244,7 +270,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                                 .h(px(26.0))
                                 .rounded(px(RADIUS_CONTROL))
                                 .cursor_pointer()
-                                .bg(TOKENS.elevated)
+                                .bg(TOKENS.status_surface)
                                 .hover(|s| s.bg(TOKENS.elevated_hover))
                                 .border_1()
                                 .border_color(TOKENS.gridline)
@@ -274,7 +300,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                                 .h(px(26.0))
                                 .rounded(px(RADIUS_CONTROL))
                                 .cursor_pointer()
-                                .bg(TOKENS.elevated)
+                                .bg(TOKENS.status_surface)
                                 .hover(|s| s.bg(TOKENS.elevated_hover))
                                 .border_1()
                                 .border_color(TOKENS.gridline)
@@ -299,7 +325,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                                 .h(px(26.0))
                                 .rounded(px(RADIUS_CONTROL))
                                 .cursor_pointer()
-                                .bg(TOKENS.elevated)
+                                .bg(TOKENS.status_surface)
                                 .hover(|s| s.bg(TOKENS.elevated_hover))
                                 .border_1()
                                 .border_color(TOKENS.gridline)
@@ -323,7 +349,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             div()
                 .p(px(14.0))
                 .border_b_1()
-                .border_color(TOKENS.gridline)
+                .border_color(TOKENS.hairline)
                 .flex()
                 .flex_col()
                 .gap(px(12.0))

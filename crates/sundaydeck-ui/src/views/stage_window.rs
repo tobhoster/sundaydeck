@@ -87,8 +87,8 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
         .map(|(cur, total)| format!("Slide {cur} of {total}"))
         .unwrap_or_default();
 
-    let (status_label, status_col) = match stage.active_override {
-        OutputOverride::None => ("Live", TOKENS.signal_live),
+    let (status_label, status_dot) = match stage.active_override {
+        OutputOverride::None => ("Live", TOKENS.signal_live_dot),
         OutputOverride::ClearText => ("Words Hidden", TOKENS.signal_override),
         OutputOverride::Black => ("Black Screen", TOKENS.signal_override),
         OutputOverride::Logo => ("Showing Logo", TOKENS.signal_override),
@@ -97,25 +97,25 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
     let mut right_cluster = div().flex().items_center().gap(px(18.0 * scale));
     if let Some(timer) = &stage.active_timer {
         let disp = timer.display(now_ms);
-        let (t_bg, t_fg, t_border) = match disp.urgency {
-            TimerUrgency::Normal => (
-                TOKENS.signal_voice_tint,
-                TOKENS.signal_voice,
-                TOKENS.signal_voice,
-            ),
+        let (t_dot, t_fg, t_border) = match disp.urgency {
+            TimerUrgency::Normal => (TOKENS.signal_voice, TOKENS.ink_primary, TOKENS.gridline),
             TimerUrgency::Warning => (
-                TOKENS.signal_preview_tint,
+                TOKENS.signal_preview,
                 TOKENS.signal_preview,
                 TOKENS.signal_preview,
             ),
-            TimerUrgency::Overtime => (TOKENS.signal_live, TOKENS.ink_primary, TOKENS.signal_live),
+            TimerUrgency::Overtime => (
+                TOKENS.signal_live_dot,
+                TOKENS.signal_live_dot,
+                TOKENS.signal_live,
+            ),
         };
         right_cluster = right_cluster.child(
             div()
                 .px(px(12.0 * scale))
                 .py(px(5.0 * scale))
                 .rounded(px(RADIUS_CONTROL))
-                .bg(t_bg)
+                .bg(TOKENS.recessed)
                 .border_1()
                 .border_color(t_border)
                 .flex()
@@ -123,8 +123,15 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
                 .gap(px(10.0 * scale))
                 .child(
                     div()
+                        .w(px(7.0 * scale))
+                        .h(px(7.0 * scale))
+                        .rounded(px(RADIUS_PILL))
+                        .bg(t_dot),
+                )
+                .child(
+                    div()
                         .font_family(FONT_BODY)
-                        .text_color(t_fg.alpha(0.9))
+                        .text_color(TOKENS.ink_secondary)
                         .text_size(px(13.0 * scale))
                         .font_weight(FontWeight::SEMIBOLD)
                         .child(timer.label.clone()),
@@ -173,16 +180,29 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
                 .child(
                     div()
                         .px(px(11.0 * scale))
-                        .py(px(4.0 * scale))
+                        .py(px(4.5 * scale))
                         .rounded(px(RADIUS_PILL))
-                        .bg(status_col.alpha(0.22))
+                        .bg(TOKENS.status_surface)
                         .border_1()
-                        .border_color(status_col)
-                        .font_family(FONT_BODY)
-                        .text_color(status_col)
-                        .text_size(px(13.0 * scale))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child(status_label),
+                        .border_color(TOKENS.gridline)
+                        .flex()
+                        .items_center()
+                        .gap(px(7.0 * scale))
+                        .child(
+                            div()
+                                .w(px(7.0 * scale))
+                                .h(px(7.0 * scale))
+                                .rounded(px(RADIUS_PILL))
+                                .bg(status_dot),
+                        )
+                        .child(
+                            div()
+                                .font_family(FONT_BODY)
+                                .text_color(TOKENS.ink_primary)
+                                .text_size(px(13.0 * scale))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(status_label),
+                        ),
                 )
                 .child(
                     div()
@@ -209,10 +229,11 @@ fn render_private_stage_banner(note: &str, scale: f32) -> Div {
         .w_full()
         .px(px(28.0 * scale))
         .py(px(10.0 * scale))
-        .bg(TOKENS.signal_preview_tint)
+        .bg(TOKENS.recessed)
         .border_b_1()
-        .border_color(TOKENS.signal_preview)
+        .border_color(TOKENS.hairline)
         .border_l_4()
+        .border_color(TOKENS.signal_preview)
         .flex()
         .items_center()
         .justify_between()
@@ -227,12 +248,27 @@ fn render_private_stage_banner(note: &str, scale: f32) -> Div {
                         .px(px(10.0 * scale))
                         .py(px(3.5 * scale))
                         .rounded(px(RADIUS_PILL))
-                        .bg(TOKENS.signal_preview)
-                        .font_family(FONT_BODY)
-                        .text_color(TOKENS.canvas)
-                        .text_size(px(12.5 * scale))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child("Stage Note"),
+                        .bg(TOKENS.status_surface)
+                        .border_1()
+                        .border_color(TOKENS.gridline)
+                        .flex()
+                        .items_center()
+                        .gap(px(6.0 * scale))
+                        .child(
+                            div()
+                                .w(px(6.0 * scale))
+                                .h(px(6.0 * scale))
+                                .rounded(px(RADIUS_PILL))
+                                .bg(TOKENS.signal_preview),
+                        )
+                        .child(
+                            div()
+                                .font_family(FONT_BODY)
+                                .text_color(TOKENS.ink_primary)
+                                .text_size(px(12.5 * scale))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Stage Note"),
+                        ),
                 )
                 .child(
                     div()
@@ -246,7 +282,7 @@ fn render_private_stage_banner(note: &str, scale: f32) -> Div {
         .child(
             div()
                 .font_family(FONT_BODY)
-                .text_color(TOKENS.signal_preview)
+                .text_color(TOKENS.ink_secondary)
                 .text_size(px(12.5 * scale))
                 .child("Visible on stage only"),
         )

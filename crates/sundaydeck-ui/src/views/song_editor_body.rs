@@ -5,7 +5,7 @@ use gpui::{
 use sundaydeck_core::SectionKind;
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::primitives::section_pill;
+use crate::design::primitives::{neutral_option_chip, section_meta_label};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
 };
@@ -49,7 +49,7 @@ pub(crate) fn render_editor_body(
                         .rounded(px(RADIUS_TILE))
                         .bg(TOKENS.canvas)
                         .border_1()
-                        .border_color(TOKENS.gridline)
+                        .border_color(TOKENS.hairline)
                         .flex()
                         .flex_col()
                         .gap(px(10.0))
@@ -101,7 +101,7 @@ pub(crate) fn render_editor_body(
                         .rounded(px(RADIUS_TILE))
                         .bg(TOKENS.canvas)
                         .border_1()
-                        .border_color(TOKENS.gridline)
+                        .border_color(TOKENS.hairline)
                         .flex()
                         .flex_col()
                         .gap(px(10.0))
@@ -113,7 +113,7 @@ pub(crate) fn render_editor_body(
                                 .child(deck_icon(
                                     DeckIcon::ListNumbers,
                                     IconSize::Sm,
-                                    TOKENS.signal_preview,
+                                    TOKENS.ink_secondary,
                                 ))
                                 .child(
                                     div()
@@ -130,7 +130,7 @@ pub(crate) fn render_editor_body(
                             div()
                                 .pt(px(8.0))
                                 .border_t_1()
-                                .border_color(TOKENS.gridline)
+                                .border_color(TOKENS.hairline)
                                 .flex()
                                 .flex_col()
                                 .gap(px(6.0))
@@ -171,11 +171,11 @@ pub(crate) fn render_import_body(modal: &SongEditorModal) -> Div {
                 .px(px(12.0))
                 .py(px(8.0))
                 .rounded(px(RADIUS_CONTROL))
-                .bg(TOKENS.signal_live_tint)
+                .bg(TOKENS.recessed)
                 .border_1()
-                .border_color(TOKENS.signal_live.alpha(0.55))
+                .border_color(TOKENS.signal_live)
                 .font_family(FONT_BODY)
-                .text_color(TOKENS.signal_live)
+                .text_color(TOKENS.ink_primary)
                 .text_size(px(12.0))
                 .child(format!("Could not import song: {err}")),
         );
@@ -190,17 +190,24 @@ fn build_section_chips(modal: &SongEditorModal, cx: &mut Context<SongEditorModal
         chips = chips.child(
             div()
                 .id(format!("se-sec-{idx}"))
-                .p(px(2.0))
-                .rounded(px(RADIUS_PILL))
+                .px(px(10.0))
+                .py(px(5.0))
+                .rounded(px(RADIUS_CONTROL))
                 .cursor_pointer()
+                .bg(if selected {
+                    TOKENS.elevated
+                } else {
+                    TOKENS.status_surface
+                })
+                .hover(|s| s.bg(TOKENS.elevated_hover))
                 .border_1()
                 .border_color(if selected {
-                    TOKENS.signal_preview
+                    TOKENS.focus_border
                 } else {
                     TOKENS.gridline
                 })
                 .on_click(cx.listener(move |this, _, _, cx| this.select_section(idx, cx)))
-                .child(section_pill(&sec.label, Some(sec.kind))),
+                .child(section_meta_label(&sec.label, Some(sec.kind))),
         );
     }
     chips
@@ -209,38 +216,17 @@ fn build_section_chips(modal: &SongEditorModal, cx: &mut Context<SongEditorModal
 fn build_arrangement_tabs(modal: &SongEditorModal, cx: &mut Context<SongEditorModal>) -> Div {
     let mut tabs = div().flex().flex_wrap().items_center().gap(px(6.0));
     for (idx, arr) in modal.draft.arrangements.iter().enumerate() {
-        let selected = idx == modal.selected_arrangement_idx;
         tabs = tabs.child(
-            div()
-                .id(format!("se-arr-{idx}"))
-                .px(px(10.0))
-                .py(px(4.5))
-                .rounded(px(RADIUS_PILL))
-                .cursor_pointer()
-                .bg(if selected {
-                    TOKENS.signal_preview_tint
-                } else {
-                    TOKENS.elevated
-                })
-                .border_1()
-                .border_color(if selected {
-                    TOKENS.signal_preview.alpha(0.6)
-                } else {
-                    TOKENS.gridline
-                })
-                .font_family(FONT_BODY)
-                .text_color(if selected {
-                    TOKENS.signal_preview
-                } else {
-                    TOKENS.ink_secondary
-                })
-                .text_size(px(11.5))
-                .font_weight(FontWeight::MEDIUM)
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.selected_arrangement_idx = idx;
-                    cx.notify();
-                }))
-                .child(arr.name.clone()),
+            neutral_option_chip(
+                format!("se-arr-{idx}"),
+                arr.name.clone(),
+                idx == modal.selected_arrangement_idx,
+                TOKENS.signal_preview,
+            )
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.selected_arrangement_idx = idx;
+                cx.notify();
+            })),
         );
     }
     tabs.child(
@@ -250,10 +236,10 @@ fn build_arrangement_tabs(modal: &SongEditorModal, cx: &mut Context<SongEditorMo
             .py(px(4.5))
             .rounded(px(RADIUS_PILL))
             .cursor_pointer()
-            .bg(TOKENS.elevated)
+            .bg(TOKENS.status_surface)
             .hover(|s| s.bg(TOKENS.elevated_hover))
             .border_1()
-            .border_color(TOKENS.focus_border)
+            .border_color(TOKENS.gridline)
             .flex()
             .items_center()
             .gap(px(4.0))
@@ -292,15 +278,15 @@ fn build_arrangement_sequence(
                 div()
                     .w_full()
                     .px(px(10.0))
-                    .py(px(7.0))
+                    .py(px(7.5))
                     .rounded(px(RADIUS_CONTROL))
                     .bg(TOKENS.pane)
                     .border_1()
-                    .border_color(TOKENS.gridline)
+                    .border_color(TOKENS.hairline)
                     .flex()
                     .items_center()
                     .justify_between()
-                    .child(section_pill(&label, kind))
+                    .child(section_meta_label(&label, kind))
                     .child(
                         div()
                             .id(format!("se-arr-rm-{pos}"))
@@ -308,7 +294,7 @@ fn build_arrangement_sequence(
                             .h(px(24.0))
                             .rounded(px(RADIUS_CONTROL))
                             .cursor_pointer()
-                            .hover(|s| s.bg(TOKENS.signal_live_tint))
+                            .hover(|s| s.bg(TOKENS.elevated_hover))
                             .flex()
                             .items_center()
                             .justify_center()
@@ -340,7 +326,7 @@ fn build_append_buttons(modal: &SongEditorModal, cx: &mut Context<SongEditorModa
                 .py(px(4.5))
                 .rounded(px(RADIUS_CONTROL))
                 .cursor_pointer()
-                .bg(TOKENS.elevated)
+                .bg(TOKENS.status_surface)
                 .hover(|s| s.bg(TOKENS.elevated_hover))
                 .border_1()
                 .border_color(TOKENS.gridline)
@@ -382,7 +368,7 @@ fn add_sec_btn(
         .py(px(4.0))
         .rounded(px(RADIUS_CONTROL))
         .cursor_pointer()
-        .bg(TOKENS.elevated)
+        .bg(TOKENS.status_surface)
         .hover(|s| s.bg(TOKENS.elevated_hover))
         .border_1()
         .border_color(TOKENS.gridline)

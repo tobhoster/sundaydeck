@@ -1,7 +1,7 @@
 use chrono::Local;
 use gpui::{
     Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px,
+    Styled, div, px, rgb,
 };
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
@@ -13,10 +13,9 @@ use crate::design::tokens::{
 use crate::views::operator_workspace::{HeaderPopover, OperatorWorkspace};
 use crate::windows::WindowManager;
 
-/// Calm, Uncluttered Top Bar (`44px` height):
-/// Left: friendly `SundayDeck` wordmark + clickable service title.
-/// Center: clean **Auto-Follow** pill (click opens tidy popover).
-/// Right: `Timers`, `Projector Ready`, `Stage Screen`, clean clock (`10:15 AM`), and Settings gear.
+/// Calm, Native Desktop Top Bar (`44px` height):
+/// Every status pill shares the exact same neutral `#1C1F26` surface + `1px` `#2B2F3A` border;
+/// state is communicated strictly through crisp `6px` precision dots and clean icon tint.
 pub fn render_operator_header(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
@@ -61,7 +60,7 @@ pub fn render_operator_header(
         .px(px(14.0))
         .bg(TOKENS.pane)
         .border_b_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
         .items_center()
         .justify_between()
@@ -76,18 +75,18 @@ pub fn render_operator_header(
                         .w(px(22.0))
                         .h(px(22.0))
                         .rounded(px(RADIUS_CONTROL))
-                        .bg(TOKENS.signal_preview_tint)
+                        .bg(TOKENS.status_surface)
                         .border_1()
-                        .border_color(TOKENS.signal_preview.alpha(0.45))
+                        .border_color(rgb(0x2B2F3A))
                         .flex()
                         .items_center()
                         .justify_center()
                         .child(
                             div()
-                                .w(px(8.0))
-                                .h(px(8.0))
+                                .w(px(7.0))
+                                .h(px(7.0))
                                 .rounded(px(RADIUS_PILL))
-                                .bg(TOKENS.signal_preview),
+                                .bg(TOKENS.ivory_bg),
                         ),
                 )
                 .child(
@@ -98,7 +97,7 @@ pub fn render_operator_header(
                         .font_weight(FontWeight::SEMIBOLD)
                         .child("SundayDeck"),
                 )
-                .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.gridline))
+                .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.hairline))
                 .child(
                     div()
                         .id("btn-header-service-title")
@@ -142,43 +141,44 @@ pub fn render_operator_header(
                     let mut btn = div()
                         .id("open-alerts-timers")
                         .h(px(30.0))
-                        .px(px(if timers_label.is_some() { 10.0 } else { 8.0 }))
+                        .px(px(if timers_label.is_some() { 10.0 } else { 9.0 }))
                         .rounded(px(RADIUS_PILL))
                         .cursor_pointer()
-                        .bg(if alerts_timer_active {
-                            TOKENS.signal_preview_tint
-                        } else {
-                            TOKENS.elevated
-                        })
+                        .bg(TOKENS.status_surface)
                         .hover(|s| s.bg(TOKENS.elevated_hover))
                         .border_1()
-                        .border_color(if alerts_timer_active {
-                            TOKENS.signal_preview.alpha(0.55)
-                        } else {
-                            TOKENS.gridline
-                        })
+                        .border_color(rgb(0x2B2F3A))
                         .flex()
                         .items_center()
                         .justify_center()
-                        .gap(px(6.0))
+                        .gap(px(6.5))
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.open_alerts_timers(cx);
-                        }))
-                        .child(deck_icon(
-                            if snapshot.active_alert.is_some() {
-                                DeckIcon::BellRingingFill
-                            } else if snapshot.active_timer.is_some() {
-                                DeckIcon::TimerFill
-                            } else {
-                                DeckIcon::Timer
-                            },
-                            IconSize::Sm,
-                            if alerts_timer_active {
-                                TOKENS.signal_preview
-                            } else {
-                                TOKENS.ink_secondary
-                            },
-                        ));
+                        }));
+                    if alerts_timer_active {
+                        btn = btn.child(
+                            div()
+                                .w(px(6.0))
+                                .h(px(6.0))
+                                .rounded(px(RADIUS_PILL))
+                                .bg(TOKENS.signal_preview),
+                        );
+                    }
+                    btn = btn.child(deck_icon(
+                        if snapshot.active_alert.is_some() {
+                            DeckIcon::BellRingingFill
+                        } else if snapshot.active_timer.is_some() {
+                            DeckIcon::TimerFill
+                        } else {
+                            DeckIcon::Timer
+                        },
+                        IconSize::Sm,
+                        if alerts_timer_active {
+                            TOKENS.signal_preview
+                        } else {
+                            TOKENS.ink_secondary
+                        },
+                    ));
                     if let Some(label) = timers_label {
                         btn = btn.child(
                             div()
@@ -187,7 +187,7 @@ pub fn render_operator_header(
                                 } else {
                                     FONT_BODY
                                 })
-                                .text_color(TOKENS.signal_preview)
+                                .text_color(rgb(0xEAE7E1))
                                 .text_size(px(11.5))
                                 .font_weight(FontWeight::MEDIUM)
                                 .child(label),
@@ -211,7 +211,7 @@ pub fn render_operator_header(
                             projector_label,
                             projector_ready,
                             if audience_open {
-                                TOKENS.signal_live
+                                TOKENS.signal_live_dot
                             } else {
                                 TOKENS.signal_voice
                             },
@@ -232,7 +232,7 @@ pub fn render_operator_header(
                             TOKENS.signal_preview,
                         )),
                 )
-                .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.gridline))
+                .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.hairline))
                 .child(
                     div()
                         .flex()
@@ -255,10 +255,10 @@ pub fn render_operator_header(
                         .h(px(30.0))
                         .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
-                        .bg(TOKENS.elevated)
+                        .bg(TOKENS.status_surface)
                         .hover(|s| s.bg(TOKENS.elevated_hover))
                         .border_1()
-                        .border_color(TOKENS.gridline)
+                        .border_color(rgb(0x2B2F3A))
                         .flex()
                         .items_center()
                         .justify_center()
@@ -289,18 +289,31 @@ pub fn render_operator_header(
                 .w_full()
                 .h(px(30.0))
                 .px(px(14.0))
-                .bg(TOKENS.signal_preview_tint)
+                .bg(TOKENS.recessed)
                 .border_b_1()
-                .border_color(TOKENS.signal_preview.alpha(0.45))
+                .border_color(TOKENS.hairline)
                 .flex()
                 .items_center()
                 .justify_between()
                 .child(
                     div()
-                        .font_family(FONT_BODY)
-                        .text_color(TOKENS.ink_primary)
-                        .text_size(px(12.0))
-                        .child(msg),
+                        .flex()
+                        .items_center()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .w(px(6.0))
+                                .h(px(6.0))
+                                .rounded(px(RADIUS_PILL))
+                                .bg(TOKENS.signal_preview),
+                        )
+                        .child(
+                            div()
+                                .font_family(FONT_BODY)
+                                .text_color(TOKENS.ink_primary)
+                                .text_size(px(12.0))
+                                .child(msg),
+                        ),
                 )
                 .child(
                     div()

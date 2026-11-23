@@ -4,7 +4,7 @@ use gpui::{
 };
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::primitives::soft_pill;
+use crate::design::primitives::{live_meta_indicator, status_dot_label};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, SCHEDULE_RAIL_WIDTH,
     TOKENS, payload_icon,
@@ -12,8 +12,8 @@ use crate::design::tokens::{
 use crate::views::operator_workspace::OperatorWorkspace;
 
 /// Left Pane (Service Order):
-/// Calm, warm list of songs, scriptures, and slides in plain Sentence case — zero `01`/`02`
-/// numbering noise or stark wireframes. Soft tinted row highlights + `Live` / `Next Up` pills.
+/// Quiet warm dark-linen list with subtle neutral elevated rows and precision `6px` status dots
+/// (`Live` / `Next Up`) — zero translucent colored row washes or noisy pill bubbles.
 pub fn render_schedule_pane(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
@@ -32,7 +32,7 @@ pub fn render_schedule_pane(
         .p(px(10.0))
         .flex()
         .flex_col()
-        .gap(px(5.0));
+        .gap(px(4.0));
 
     for (idx, item) in items.iter().enumerate() {
         let is_live = live_item_id == Some(item.id);
@@ -41,28 +41,26 @@ pub fn render_schedule_pane(
         let can_move_up = idx > 0;
         let can_move_down = idx + 1 < item_count;
 
-        let row_bg = if is_live {
-            TOKENS.signal_live_tint
-        } else if is_preview {
-            TOKENS.signal_preview_tint
+        let row_bg = if is_live || is_preview {
+            TOKENS.elevated
         } else {
             rgba(0x0000_0000)
         };
 
         let row_border = if is_live {
-            TOKENS.signal_live.alpha(0.55)
+            TOKENS.signal_live
         } else if is_preview {
-            TOKENS.signal_preview.alpha(0.55)
+            TOKENS.focus_border
         } else {
             rgba(0x0000_0000)
         };
 
         let icon_tint = if is_live {
-            TOKENS.signal_live
+            TOKENS.signal_live_dot
         } else if is_preview {
             TOKENS.signal_preview
         } else {
-            TOKENS.ink_secondary
+            TOKENS.ink_muted
         };
 
         let mut reorder = div().flex().items_center().gap(px(2.0));
@@ -105,13 +103,13 @@ pub fn render_schedule_pane(
             );
         }
 
-        let state_badge = if is_live {
-            Some(soft_pill("Live", TOKENS.signal_live, TOKENS.ink_primary))
+        let state_meta = if is_live {
+            Some(live_meta_indicator())
         } else if is_preview {
-            Some(soft_pill(
+            Some(status_dot_label(
                 "Next Up",
-                TOKENS.signal_preview_tint,
                 TOKENS.signal_preview,
+                TOKENS.ink_secondary,
             ))
         } else {
             None
@@ -128,14 +126,14 @@ pub fn render_schedule_pane(
                     div()
                         .flex()
                         .items_center()
-                        .gap(px(7.0))
+                        .gap(px(8.0))
                         .child(deck_icon(
                             payload_icon(&item.payload, true),
                             IconSize::Sm,
                             icon_tint,
                         ))
-                        .child(match state_badge {
-                            Some(pill) => pill,
+                        .child(match state_meta {
+                            Some(meta) => meta,
                             None => div(),
                         }),
                 )
@@ -216,7 +214,7 @@ pub fn render_schedule_pane(
         .h_full()
         .bg(TOKENS.pane)
         .border_r_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
         .flex_col()
         .child(
@@ -225,7 +223,7 @@ pub fn render_schedule_pane(
                 .h(px(PANE_HEADER_HEIGHT))
                 .px(px(14.0))
                 .border_b_1()
-                .border_color(TOKENS.gridline)
+                .border_color(TOKENS.hairline)
                 .flex()
                 .items_center()
                 .justify_between()
@@ -237,7 +235,7 @@ pub fn render_schedule_pane(
                         .child(deck_icon(
                             DeckIcon::ListNumbers,
                             IconSize::Sm,
-                            TOKENS.signal_preview,
+                            TOKENS.ink_secondary,
                         ))
                         .child(
                             div()
@@ -255,7 +253,7 @@ pub fn render_schedule_pane(
                         .h(px(28.0))
                         .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
-                        .bg(TOKENS.elevated)
+                        .bg(TOKENS.status_surface)
                         .hover(|s| s.bg(TOKENS.elevated_hover))
                         .border_1()
                         .border_color(TOKENS.gridline)
@@ -268,7 +266,7 @@ pub fn render_schedule_pane(
                         .child(deck_icon(
                             DeckIcon::UploadSimple,
                             IconSize::Sm,
-                            TOKENS.signal_preview,
+                            TOKENS.ink_primary,
                         )),
                 ),
         )
@@ -278,7 +276,7 @@ pub fn render_schedule_pane(
                 .px(px(14.0))
                 .py(px(10.0))
                 .border_t_1()
-                .border_color(TOKENS.gridline)
+                .border_color(TOKENS.hairline)
                 .font_family(FONT_BODY)
                 .text_color(TOKENS.ink_muted)
                 .text_size(px(11.0))

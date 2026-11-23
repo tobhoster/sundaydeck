@@ -10,6 +10,7 @@ use sundaydeck_db::DbWorker;
 
 use crate::components::TextInput;
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
+use crate::design::primitives::{primary_ivory_button_body, sculpted_secondary_button_body};
 use crate::design::tokens::{FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_MODAL, TOKENS};
 use crate::store::PresentationStore;
 use crate::views::quick_edit_modal::ModalClosed;
@@ -306,7 +307,7 @@ impl Render for SongEditorModal {
                 div()
                     .pt(px(12.0))
                     .border_t_1()
-                    .border_color(TOKENS.gridline)
+                    .border_color(TOKENS.hairline)
                     .flex()
                     .items_center()
                     .justify_end()
@@ -314,54 +315,34 @@ impl Render for SongEditorModal {
                     .child(
                         div()
                             .id("se-cancel")
-                            .h(px(32.0))
-                            .px(px(14.0))
-                            .rounded(px(RADIUS_CONTROL))
                             .cursor_pointer()
-                            .bg(TOKENS.elevated)
-                            .hover(|s| s.bg(TOKENS.elevated_hover))
-                            .border_1()
-                            .border_color(TOKENS.gridline)
-                            .flex()
-                            .items_center()
-                            .font_family(FONT_BODY)
-                            .text_color(TOKENS.ink_secondary)
-                            .text_size(px(12.0))
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(ModalClosed)))
-                            .child("Cancel"),
+                            .child(sculpted_secondary_button_body(
+                                None,
+                                "Cancel",
+                                TOKENS.ink_secondary,
+                            )),
                     )
                     .child(if self.active_tab == EditorTab::Edit {
                         div()
                             .id("se-save")
-                            .h(px(32.0))
-                            .px(px(16.0))
-                            .rounded(px(RADIUS_CONTROL))
                             .cursor_pointer()
-                            .bg(TOKENS.signal_preview)
-                            .flex()
-                            .items_center()
-                            .font_family(FONT_BODY)
-                            .text_color(TOKENS.canvas)
-                            .text_size(px(12.0))
-                            .font_weight(FontWeight::SEMIBOLD)
                             .on_click(cx.listener(|this, _, _, cx| this.save_song(cx)))
-                            .child("Save Song")
+                            .child(primary_ivory_button_body(
+                                Some(DeckIcon::Check),
+                                "Save Song",
+                                true,
+                            ))
                     } else {
                         div()
                             .id("se-import-submit")
-                            .h(px(32.0))
-                            .px(px(16.0))
-                            .rounded(px(RADIUS_CONTROL))
                             .cursor_pointer()
-                            .bg(TOKENS.signal_preview)
-                            .flex()
-                            .items_center()
-                            .font_family(FONT_BODY)
-                            .text_color(TOKENS.canvas)
-                            .text_size(px(12.0))
-                            .font_weight(FontWeight::SEMIBOLD)
                             .on_click(cx.listener(|this, _, _, cx| this.import_pasted_song(cx)))
-                            .child("Import Song")
+                            .child(primary_ivory_button_body(
+                                Some(DeckIcon::UploadSimple),
+                                "Import Song",
+                                true,
+                            ))
                     }),
             )
     }

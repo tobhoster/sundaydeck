@@ -1,12 +1,16 @@
 use gpui::{
     Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, px, rgba,
+    StatefulInteractiveElement, Styled, div, px, rgb, rgba,
 };
 use sundaydeck_core::PresentationCommand;
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::primitives::VoiceSyncMode;
-use crate::design::tokens::{FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_TILE, TOKENS};
+use crate::design::primitives::{
+    VoiceSyncMode, primary_ivory_button_body, sculpted_secondary_button_body,
+};
+use crate::design::tokens::{
+    FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
+};
 use crate::views::operator_workspace::{HeaderPopover, OperatorWorkspace};
 use crate::windows::WindowManager;
 
@@ -35,28 +39,28 @@ fn render_auto_follow_popover(
             VoiceSyncMode::Suggest => DeckIcon::Crosshair,
             VoiceSyncMode::Auto => DeckIcon::Waveform,
         };
-        let ic_col = if active {
-            TOKENS.signal_voice
-        } else {
-            TOKENS.ink_muted
+        let dot_col = match opt {
+            VoiceSyncMode::Off => rgb(0x565C6B),
+            VoiceSyncMode::Suggest => TOKENS.signal_preview,
+            VoiceSyncMode::Auto => TOKENS.signal_voice,
         };
         options = options.child(
             div()
                 .id(format!("pop-af-{opt:?}"))
                 .w_full()
                 .px(px(11.0))
-                .py(px(8.0))
+                .py(px(8.5))
                 .rounded(px(RADIUS_CONTROL))
                 .cursor_pointer()
                 .bg(if active {
-                    TOKENS.signal_voice_tint
+                    TOKENS.elevated
                 } else {
-                    TOKENS.canvas
+                    TOKENS.status_surface
                 })
                 .hover(|s| s.bg(TOKENS.elevated_hover))
                 .border_1()
                 .border_color(if active {
-                    TOKENS.signal_voice.alpha(0.6)
+                    TOKENS.focus_border
                 } else {
                     TOKENS.gridline
                 })
@@ -74,18 +78,37 @@ fn render_auto_follow_popover(
                         .flex()
                         .items_center()
                         .gap(px(8.0))
-                        .child(deck_icon(opt_icon, IconSize::Sm, ic_col))
+                        .child(
+                            div()
+                                .w(px(6.0))
+                                .h(px(6.0))
+                                .rounded(px(RADIUS_PILL))
+                                .bg(if active { dot_col } else { rgb(0x565C6B) }),
+                        )
+                        .child(deck_icon(
+                            opt_icon,
+                            IconSize::Sm,
+                            if active {
+                                dot_col
+                            } else {
+                                TOKENS.ink_secondary
+                            },
+                        ))
                         .child(
                             div()
                                 .font_family(FONT_BODY)
-                                .text_color(TOKENS.ink_primary)
+                                .text_color(if active {
+                                    TOKENS.ink_primary
+                                } else {
+                                    TOKENS.ink_secondary
+                                })
                                 .text_size(px(12.0))
                                 .font_weight(FontWeight::MEDIUM)
                                 .child(opt.label()),
                         ),
                 )
                 .child(if active {
-                    deck_icon(DeckIcon::Check, IconSize::Sm, TOKENS.signal_voice).into_any_element()
+                    deck_icon(DeckIcon::Check, IconSize::Sm, dot_col).into_any_element()
                 } else {
                     div().into_any_element()
                 }),
@@ -93,7 +116,7 @@ fn render_auto_follow_popover(
     }
 
     div()
-        .w(px(280.0))
+        .w(px(284.0))
         .p(px(14.0))
         .rounded(px(RADIUS_TILE))
         .bg(TOKENS.pane)
@@ -128,7 +151,7 @@ fn render_auto_follow_popover(
             div()
                 .pt(px(8.0))
                 .border_t_1()
-                .border_color(TOKENS.gridline)
+                .border_color(TOKENS.hairline)
                 .font_family(FONT_BODY)
                 .text_color(TOKENS.ink_muted)
                 .text_size(px(11.0))
@@ -144,8 +167,18 @@ fn render_projector_popover(
     let audience_open = workspace.windows.read(cx).is_audience_open();
     let display_count = WindowManager::display_count(cx);
 
+    let toggle_action = if audience_open {
+        sculpted_secondary_button_body(
+            Some(DeckIcon::Monitor),
+            "Close Projector Window",
+            TOKENS.signal_live_dot,
+        )
+    } else {
+        primary_ivory_button_body(Some(DeckIcon::MonitorFill), "Open Projector Window", true)
+    };
+
     div()
-        .w(px(290.0))
+        .w(px(292.0))
         .p(px(14.0))
         .rounded(px(RADIUS_TILE))
         .bg(TOKENS.pane)
@@ -188,35 +221,13 @@ fn render_projector_popover(
             div()
                 .id("pop-toggle-aud-btn")
                 .w_full()
-                .px(px(12.0))
-                .py(px(9.0))
-                .rounded(px(RADIUS_CONTROL))
                 .cursor_pointer()
-                .bg(if audience_open {
-                    TOKENS.signal_live_tint
-                } else {
-                    TOKENS.signal_voice_tint
-                })
-                .border_1()
-                .border_color(if audience_open {
-                    TOKENS.signal_live.alpha(0.6)
-                } else {
-                    TOKENS.signal_voice.alpha(0.6)
-                })
-                .font_family(FONT_BODY)
-                .text_color(TOKENS.ink_primary)
-                .text_size(px(12.0))
-                .font_weight(FontWeight::SEMIBOLD)
                 .on_click(cx.listener(|this, _, _, cx| {
                     let store = this.store.clone();
                     this.windows
                         .update(cx, |wm, cx| wm.toggle_audience(store, cx));
                 }))
-                .child(if audience_open {
-                    "Close Projector Window"
-                } else {
-                    "Open Projector Window"
-                }),
+                .child(toggle_action),
         )
         .child(
             div()
@@ -227,12 +238,17 @@ fn render_projector_popover(
                 .rounded(px(RADIUS_CONTROL))
                 .cursor_pointer()
                 .bg(if direct_click {
-                    TOKENS.signal_preview_tint
+                    TOKENS.elevated
                 } else {
                     rgba(0x0000_0000)
                 })
+                .hover(|s| s.bg(TOKENS.elevated_hover))
                 .border_1()
-                .border_color(TOKENS.gridline)
+                .border_color(if direct_click {
+                    TOKENS.focus_border
+                } else {
+                    TOKENS.gridline
+                })
                 .flex()
                 .items_center()
                 .justify_between()
@@ -251,15 +267,28 @@ fn render_projector_popover(
                 )
                 .child(
                     div()
-                        .font_family(FONT_BODY)
-                        .text_color(if direct_click {
-                            TOKENS.signal_preview
-                        } else {
-                            TOKENS.ink_muted
-                        })
-                        .text_size(px(11.0))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child(if direct_click { "On" } else { "Off" }),
+                        .flex()
+                        .items_center()
+                        .gap(px(5.0))
+                        .child(div().w(px(6.0)).h(px(6.0)).rounded(px(RADIUS_PILL)).bg(
+                            if direct_click {
+                                TOKENS.signal_preview
+                            } else {
+                                rgb(0x565C6B)
+                            },
+                        ))
+                        .child(
+                            div()
+                                .font_family(FONT_BODY)
+                                .text_color(if direct_click {
+                                    TOKENS.ink_primary
+                                } else {
+                                    TOKENS.ink_muted
+                                })
+                                .text_size(px(11.0))
+                                .font_weight(FontWeight::MEDIUM)
+                                .child(if direct_click { "On" } else { "Off" }),
+                        ),
                 ),
         )
 }

@@ -1,83 +1,71 @@
-use gpui::{Div, FontWeight, ParentElement, Styled, div, px, rgb};
+use gpui::{Div, FontWeight, ObjectFit, ParentElement, Styled, StyledImage, div, img, px, rgba};
 
 use crate::design::gallery_console::section_frame;
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::motion::MotionMode;
 use crate::design::primitives::{
-    VoiceSyncMode, display_status_pill, render_auto_follow_pill, volunteer_action_button_body,
+    VoiceSyncMode, display_status_pill, native_screen_key_body, primary_ivory_deck_key_body,
+    render_auto_follow_pill,
 };
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, FONT_DISPLAY_PROJ, FONT_LYRIC_BOLD, FONT_SCRIPTURE_SERIF,
     RADIUS_CONTROL, RADIUS_TILE, TOKENS,
 };
+use crate::media::load_background_image;
 
 pub(crate) fn render_switcher_and_voice_showcase(motion_mode: MotionMode) -> Div {
     let controls_col = div()
         .flex_1()
-        .rounded(px(RADIUS_TILE))
-        .bg(TOKENS.canvas)
-        .border_1()
-        .border_color(TOKENS.gridline)
-        .p(px(12.0))
         .flex()
         .flex_col()
-        .gap(px(10.0))
+        .gap(px(11.0))
         .child(
             div()
                 .font_family(FONT_BODY)
                 .text_color(TOKENS.ink_muted)
                 .text_size(px(11.5))
                 .font_weight(FontWeight::MEDIUM)
-                .child("Plain-English Screen Controls (shortcuts in hover tooltips)"),
+                .child("Tactile Native Screen Controls (Ivory Primary · Sculpted Graphite · Latched Override)"),
         )
         .child(
             div()
                 .w_full()
                 .flex()
-                .gap(px(8.0))
-                .child(div().flex_1().child(volunteer_action_button_body(
+                .items_stretch()
+                .gap(px(9.0))
+                .child(div().flex_1().child(primary_ivory_deck_key_body(
                     DeckIcon::PlayFill,
                     "Show on Screen",
-                    true,
-                    TOKENS.signal_live,
                 )))
-                .child(div().flex_1().child(volunteer_action_button_body(
+                .child(div().flex_1().child(native_screen_key_body(
                     DeckIcon::TextTSlash,
                     "Hide Words",
                     false,
-                    TOKENS.signal_override,
                 )))
-                .child(div().flex_1().child(volunteer_action_button_body(
+                .child(div().flex_1().child(native_screen_key_body(
                     DeckIcon::EyeSlash,
                     "Black Screen",
                     true,
-                    TOKENS.signal_override,
                 )))
-                .child(div().flex_1().child(volunteer_action_button_body(
+                .child(div().flex_1().child(native_screen_key_body(
                     DeckIcon::Image,
                     "Show Logo",
                     false,
-                    TOKENS.signal_override,
                 ))),
         );
 
     let status_col = div()
         .flex_1()
-        .rounded(px(RADIUS_TILE))
-        .bg(TOKENS.canvas)
-        .border_1()
-        .border_color(TOKENS.gridline)
-        .p(px(12.0))
         .flex()
         .flex_col()
-        .gap(px(10.0))
+        .gap(px(11.0))
         .child(
             div()
                 .font_family(FONT_BODY)
                 .text_color(TOKENS.ink_muted)
                 .text_size(px(11.5))
                 .font_weight(FontWeight::MEDIUM)
-                .child("Calm Auto-Follow & Display Status Pills"),
+                .child("Neutral Status Surface + Precision 6px Dots"),
         )
         .child(
             div()
@@ -131,103 +119,129 @@ pub(crate) fn render_switcher_and_voice_showcase(motion_mode: MotionMode) -> Div
         );
 
     section_frame(
-        "Volunteer Controls & Status Pills",
-        "Zero broadcast jargon — every button reads in clear, calm English",
+        "Native Controls & Status Bar",
+        "Zero flat pastel bricks or translucent pills — tactile physical contrast with calm semantics",
     )
     .child(
         div()
             .w_full()
             .flex()
-            .gap(px(14.0))
+            .gap(px(24.0))
             .child(controls_col)
+            .child(div().w(px(1.0)).bg(TOKENS.hairline))
             .child(status_col),
     )
 }
 
+struct ProjectionCard<'a> {
+    family: &'a str,
+    role: &'a str,
+    sample: &'a str,
+    weight: FontWeight,
+    footer: &'a str,
+    bg_uri: Option<&'a str>,
+}
+
 pub(crate) fn render_projection_font_pack() -> Div {
-    let cards: &[(&str, &str, &str, FontWeight, &str, bool)] = &[
-        (
-            FONT_LYRIC_BOLD,
-            "Sanctuary Lyrics — Manrope",
-            "Amazing grace! How sweet the sound\nThat saved a wretch like me!",
-            FontWeight::EXTRA_BOLD,
-            "John Newton · CCLI #22025",
-            false,
-        ),
-        (
-            FONT_SCRIPTURE_SERIF,
-            "Editorial Scripture — Newsreader",
-            "Love is patient and is kind.\nLove doesn't envy. Love doesn't brag.",
-            FontWeight::NORMAL,
-            "1 Corinthians 13:4 · WEB",
-            false,
-        ),
-        (
-            FONT_DISPLAY,
-            "Clean Studio — Plus Jakarta Sans",
-            "When peace, like a river, attendeth my way,\nIt is well with my soul.",
-            FontWeight::SEMIBOLD,
-            "Horatio G. Spafford",
-            true,
-        ),
-        (
-            FONT_DISPLAY_PROJ,
-            "Announcement Titles — Syne",
-            "Sunday Worship\nGathering at 10:00 AM",
-            FontWeight::BOLD,
-            "Grace Fellowship",
-            false,
-        ),
+    let cards: &[ProjectionCard<'_>] = &[
+        ProjectionCard {
+            family: FONT_LYRIC_BOLD,
+            role: "Sanctuary Mountains · Photo + Manrope",
+            sample: "Amazing grace! How sweet the sound\nThat saved a wretch like me!",
+            weight: FontWeight::EXTRA_BOLD,
+            footer: "John Newton · CCLI #22025",
+            bg_uri: Some("backgrounds/sanctuary-mountains.jpg"),
+        },
+        ProjectionCard {
+            family: FONT_SCRIPTURE_SERIF,
+            role: "Still Waters · Photo + Newsreader",
+            sample: "He makes me lie down in green pastures.\nHe leads me beside still waters.",
+            weight: FontWeight::NORMAL,
+            footer: "Psalm 23:2 · WEB",
+            bg_uri: Some("backgrounds/still-waters.jpg"),
+        },
+        ProjectionCard {
+            family: FONT_DISPLAY,
+            role: "Golden Light Motion · Looping Video",
+            sample: "When peace, like a river, attendeth my way,\nIt is well with my soul.",
+            weight: FontWeight::SEMIBOLD,
+            footer: "Horatio G. Spafford",
+            bg_uri: Some("backgrounds/golden-loop-03.jpg"),
+        },
+        ProjectionCard {
+            family: FONT_DISPLAY_PROJ,
+            role: "Modern Display · Matte Obsidian + Syne",
+            sample: "Sunday Worship\nGathering at 10:00 AM",
+            weight: FontWeight::BOLD,
+            footer: "Grace Fellowship",
+            bg_uri: None,
+        },
     ];
 
-    let mut grid = div().w_full().flex().flex_wrap().gap(px(14.0));
-    for &(family, role, sample, weight, footer, warm_bg) in cards {
+    let mut grid = div().w_full().flex().flex_wrap().gap(px(16.0));
+    for card_spec in cards {
+        let mut card = div()
+            .relative()
+            .w(px(330.0))
+            .h(px(186.0)) // exact 16:9
+            .bg(TOKENS.slide_card)
+            .border_1()
+            .border_color(TOKENS.gridline)
+            .rounded(px(RADIUS_TILE))
+            .overflow_hidden()
+            .p(px(16.0))
+            .flex()
+            .flex_col()
+            .justify_between();
+
+        if let Some(uri) = card_spec.bg_uri
+            && let Some(render_img) = load_background_image(uri)
+        {
+            card = card
+                .child(
+                    img(render_img)
+                        .absolute()
+                        .inset_0()
+                        .size_full()
+                        .object_fit(ObjectFit::Cover),
+                )
+                .child(div().absolute().inset_0().bg(rgba(0x0B0C_0E88)));
+        }
+
         grid = grid.child(
-            div()
-                .w(px(332.0))
-                .h(px(187.0)) // exact 16:9
-                .bg(if warm_bg {
-                    rgb(0x1E1813)
-                } else {
-                    TOKENS.canvas
-                })
-                .border_1()
-                .border_color(TOKENS.gridline)
-                .rounded(px(RADIUS_TILE))
-                .p(px(16.0))
-                .flex()
-                .flex_col()
-                .justify_between()
-                .child(
-                    div()
-                        .font_family(FONT_BODY)
-                        .text_color(TOKENS.signal_preview)
-                        .text_size(px(11.0))
-                        .font_weight(FontWeight::MEDIUM)
-                        .child(role),
-                )
-                .child(
-                    div()
-                        .font_family(family)
-                        .font_weight(weight)
-                        .text_color(TOKENS.ink_primary)
-                        .text_size(px(19.0))
-                        .line_height(px(26.0))
-                        .child(sample),
-                )
-                .child(
-                    div()
-                        .font_family(FONT_BODY)
-                        .text_color(TOKENS.ink_secondary)
-                        .text_size(px(11.0))
-                        .child(footer),
-                ),
+            card.child(
+                div()
+                    .relative()
+                    .font_family(FONT_BODY)
+                    .text_color(TOKENS.ink_secondary)
+                    .text_size(px(11.0))
+                    .font_weight(FontWeight::MEDIUM)
+                    .child(card_spec.role),
+            )
+            .child(
+                div()
+                    .relative()
+                    .font_family(card_spec.family)
+                    .font_weight(card_spec.weight)
+                    .text_color(TOKENS.ink_primary)
+                    .text_size(px(18.5))
+                    .line_height(px(25.0))
+                    .child(card_spec.sample),
+            )
+            .child(
+                div()
+                    .relative()
+                    .font_family(FONT_BODY)
+                    .text_color(TOKENS.ink_secondary)
+                    .text_size(px(11.0))
+                    .child(card_spec.footer),
+            ),
         );
     }
 
     section_frame(
-        "Sanctuary Projection Font Pack",
-        "4 bundled SIL OFL typefaces ready offline out of the box",
+        "Sanctuary Projection Themes & Font Pack",
+        "Bundled SIL OFL typefaces over real Unsplash photography and looping motion video backgrounds",
     )
     .child(grid)
 }
@@ -236,10 +250,10 @@ pub(crate) fn render_icon_catalog() -> Div {
     let mut size_row = div()
         .flex()
         .items_center()
-        .gap(px(18.0))
-        .pb(px(10.0))
+        .gap(px(20.0))
+        .pb(px(12.0))
         .border_b_1()
-        .border_color(TOKENS.gridline);
+        .border_color(TOKENS.hairline);
 
     for (label, sz) in [
         ("Small 14px (Inline)", IconSize::Sm),
@@ -252,7 +266,11 @@ pub(crate) fn render_icon_catalog() -> Div {
                 .items_center()
                 .gap(px(6.0))
                 .child(deck_icon(DeckIcon::Waveform, sz, TOKENS.signal_voice))
-                .child(deck_icon(DeckIcon::BroadcastFill, sz, TOKENS.signal_live))
+                .child(deck_icon(
+                    DeckIcon::BroadcastFill,
+                    sz,
+                    TOKENS.signal_live_dot,
+                ))
                 .child(deck_icon(DeckIcon::BookOpenText, sz, TOKENS.signal_preview))
                 .child(
                     div()
@@ -273,12 +291,12 @@ pub(crate) fn render_icon_catalog() -> Div {
         };
         swatches = swatches.child(
             div()
-                .w(px(112.0))
+                .w(px(114.0))
                 .px(px(9.0))
                 .py(px(8.0))
-                .bg(TOKENS.canvas)
+                .bg(TOKENS.pane)
                 .border_1()
-                .border_color(TOKENS.gridline)
+                .border_color(TOKENS.hairline)
                 .rounded(px(RADIUS_CONTROL))
                 .flex()
                 .items_center()

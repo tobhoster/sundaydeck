@@ -2,19 +2,21 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, px, rgba,
+    StatefulInteractiveElement, Styled, div, px, rgb, rgba,
 };
-use sundaydeck_core::PresentationCommand;
+use sundaydeck_core::{BackgroundSpec, PresentationCommand};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
+use crate::design::primitives::status_dot_label;
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, TOKENS, rgba8_to_gpui,
 };
+use crate::media::apply_theme_background;
 use crate::views::operator_workspace::{LibraryTab, OperatorWorkspace};
 use crate::views::song_editor_modal::EditorTab;
 
 /// Bottom docked drawer of the Center Pane:
-/// Warm, approachable offline browser for Songs, Bible, and Themes in clean Sentence case.
+/// Offline browser for Songs, Bible, and Sanctuary Themes (with live Unsplash photo & motion video previews).
 pub fn render_library_section(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
@@ -28,28 +30,17 @@ pub fn render_library_section(
     let tab_button =
         |tab: LibraryTab, icon: DeckIcon, label: String, cx: &mut Context<OperatorWorkspace>| {
             let is_active = tab == active_tab;
-            let bg = if is_active {
-                TOKENS.elevated
-            } else {
-                rgba(0x0000_0000)
-            };
-            let ic_col = if is_active {
-                TOKENS.signal_preview
-            } else {
-                TOKENS.ink_muted
-            };
-            let fg = if is_active {
-                TOKENS.ink_primary
-            } else {
-                TOKENS.ink_secondary
-            };
             div()
                 .id(format!("lib-tab-{tab:?}"))
                 .h(px(30.0))
                 .px(px(12.0))
                 .rounded(px(RADIUS_CONTROL))
                 .cursor_pointer()
-                .bg(bg)
+                .bg(if is_active {
+                    TOKENS.elevated
+                } else {
+                    rgba(0x0000_0000)
+                })
                 .hover(|s| s.bg(TOKENS.elevated_hover))
                 .flex()
                 .items_center()
@@ -58,11 +49,23 @@ pub fn render_library_section(
                     this.active_library_tab = tab;
                     cx.notify();
                 }))
-                .child(deck_icon(icon, IconSize::Sm, ic_col))
+                .child(deck_icon(
+                    icon,
+                    IconSize::Sm,
+                    if is_active {
+                        TOKENS.ink_primary
+                    } else {
+                        TOKENS.ink_muted
+                    },
+                ))
                 .child(
                     div()
                         .font_family(FONT_BODY)
-                        .text_color(fg)
+                        .text_color(if is_active {
+                            TOKENS.ink_primary
+                        } else {
+                            TOKENS.ink_secondary
+                        })
                         .text_size(px(12.0))
                         .font_weight(FontWeight::MEDIUM)
                         .child(label),
@@ -75,7 +78,7 @@ pub fn render_library_section(
         .px(px(12.0))
         .bg(TOKENS.pane)
         .border_b_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
         .items_center()
         .justify_between()
@@ -111,8 +114,6 @@ pub fn render_library_section(
                 .child(drawer_icon_btn(
                     "btn-new-song",
                     DeckIcon::Plus,
-                    TOKENS.elevated,
-                    TOKENS.gridline,
                     TOKENS.ink_primary,
                     cx,
                     |t, cx| t.open_song_editor(None, EditorTab::Edit, cx),
@@ -120,8 +121,6 @@ pub fn render_library_section(
                 .child(drawer_icon_btn(
                     "btn-import-song",
                     DeckIcon::UploadSimple,
-                    TOKENS.elevated,
-                    TOKENS.gridline,
                     TOKENS.ink_secondary,
                     cx,
                     |t, cx| t.open_song_editor(None, EditorTab::Import, cx),
@@ -130,8 +129,6 @@ pub fn render_library_section(
                     "btn-import-plan-drawer",
                     DeckIcon::Stack,
                     "Import Plan",
-                    TOKENS.signal_preview_tint,
-                    TOKENS.signal_preview.alpha(0.5),
                     TOKENS.signal_preview,
                     cx,
                     |t, cx| t.open_plan_importer(cx),
@@ -167,7 +164,7 @@ fn render_songs_library(
         .p(px(10.0))
         .flex()
         .flex_col()
-        .gap(px(5.0));
+        .gap(px(4.0));
 
     for song in songs {
         let song_id = song.id;
@@ -191,8 +188,10 @@ fn render_songs_library(
                 .py(px(9.0))
                 .rounded(px(RADIUS_TILE))
                 .cursor_pointer()
-                .bg(TOKENS.elevated.alpha(0.55))
+                .bg(TOKENS.status_surface)
                 .hover(|s| s.bg(TOKENS.elevated_hover))
+                .border_1()
+                .border_color(TOKENS.hairline)
                 .flex()
                 .items_center()
                 .justify_between()
@@ -276,21 +275,17 @@ fn render_songs_library(
                                 .w(px(28.0))
                                 .h(px(28.0))
                                 .rounded(px(RADIUS_CONTROL))
-                                .bg(TOKENS.signal_preview_tint)
+                                .bg(TOKENS.elevated)
                                 .hover(|s| s.bg(TOKENS.elevated_hover))
                                 .border_1()
-                                .border_color(TOKENS.signal_preview.alpha(0.5))
+                                .border_color(TOKENS.key_border)
                                 .flex()
                                 .items_center()
                                 .justify_center()
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.add_song_to_schedule(song_id, cx);
                                 }))
-                                .child(deck_icon(
-                                    DeckIcon::Plus,
-                                    IconSize::Sm,
-                                    TOKENS.signal_preview,
-                                )),
+                                .child(deck_icon(DeckIcon::Plus, IconSize::Sm, TOKENS.ink_primary)),
                         ),
                 ),
         );
@@ -307,7 +302,7 @@ fn render_songs_library(
                 .px(px(12.0))
                 .py(px(8.0))
                 .border_b_1()
-                .border_color(TOKENS.gridline)
+                .border_color(TOKENS.hairline)
                 .flex()
                 .items_center()
                 .gap(px(8.0))
@@ -329,34 +324,67 @@ fn render_themes_library(
     let store = workspace.store.read(cx);
     let themes = store.themes.clone();
     let active_id = store.active_theme().id;
+    let now_ms = store.now_epoch_ms();
 
     let mut row = div()
         .id("themes-library-grid")
         .flex_1()
         .overflow_y_scroll()
-        .p(px(14.0))
+        .p(px(10.0))
         .flex()
         .flex_wrap()
         .items_start()
         .content_start()
-        .gap(px(12.0));
+        .gap(px(9.0));
 
     for theme in themes {
         let is_active = theme.id == active_id;
         let theme_click = Arc::clone(&theme);
-        let swatch_color = match &theme.background {
-            sundaydeck_core::BackgroundSpec::Solid { color } => rgba8_to_gpui(*color),
-            sundaydeck_core::BackgroundSpec::LinearGradient { start, .. } => rgba8_to_gpui(*start),
-            sundaydeck_core::BackgroundSpec::Image { .. } => TOKENS.canvas,
+        let (kind_label, kind_dot) = match &theme.background {
+            BackgroundSpec::VideoLoop { .. } => ("Motion", TOKENS.signal_preview),
+            BackgroundSpec::Image { .. } => ("Photo", rgb(0x6B9BF2)),
+            BackgroundSpec::LinearGradient { .. } => ("Gradient", TOKENS.ink_muted),
+            BackgroundSpec::Solid { .. } => ("Matte", TOKENS.ink_muted),
         };
-        let mut card = div()
+
+        let preview_thumb = apply_theme_background(
+            div()
+                .relative()
+                .w_full()
+                .h(px(52.0))
+                .rounded(px(RADIUS_CONTROL))
+                .overflow_hidden()
+                .border_1()
+                .border_color(TOKENS.gridline)
+                .flex()
+                .items_center()
+                .justify_center(),
+            &theme.background,
+            now_ms,
+        )
+        .child(
+            div()
+                .relative()
+                .font_family(theme.font_family.clone())
+                .text_color(rgba8_to_gpui(theme.text_color))
+                .text_size(px(15.0))
+                .font_weight(FontWeight::BOLD)
+                .child("Aa Bb"),
+        );
+
+        let card = div()
             .id(format!("lib-theme-{}", theme.id))
-            .w(px(200.0))
-            .p(px(10.0))
+            .w(px(184.0))
+            .p(px(7.0))
             .rounded(px(RADIUS_TILE))
             .cursor_pointer()
-            .bg(TOKENS.elevated)
+            .bg(if is_active {
+                TOKENS.elevated
+            } else {
+                TOKENS.status_surface
+            })
             .hover(|s| s.bg(TOKENS.elevated_hover))
+            .border(px(if is_active { 1.5 } else { 1.0 }))
             .border_color(if is_active {
                 TOKENS.signal_preview
             } else {
@@ -364,7 +392,7 @@ fn render_themes_library(
             })
             .flex()
             .flex_col()
-            .gap(px(8.0))
+            .gap(px(5.0))
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.store.update(cx, |s, cx| {
                     let _ = s.dispatch(
@@ -372,49 +400,32 @@ fn render_themes_library(
                         cx,
                     );
                 });
-            }));
-        card = if is_active {
-            card.border_2()
-        } else {
-            card.border_1()
-        };
-        row = row.child(
-            card.child(
-                div()
-                    .w_full()
-                    .h(px(58.0))
-                    .rounded(px(RADIUS_CONTROL))
-                    .bg(swatch_color)
-                    .border_1()
-                    .border_color(TOKENS.gridline)
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .font_family(theme.font_family.clone())
-                    .text_color(rgba8_to_gpui(theme.text_color))
-                    .text_size(px(16.0))
-                    .font_weight(FontWeight::BOLD)
-                    .child("Aa Bb"),
-            )
+            }))
+            .child(preview_thumb)
             .child(
                 div()
                     .font_family(FONT_DISPLAY)
                     .text_color(TOKENS.ink_primary)
-                    .text_size(px(12.5))
+                    .text_size(px(11.5))
                     .font_weight(FontWeight::SEMIBOLD)
                     .child(theme.name.clone()),
             )
             .child(
                 div()
-                    .font_family(FONT_BODY)
-                    .text_color(TOKENS.ink_muted)
-                    .text_size(px(11.0))
-                    .child(format!(
-                        "{} · {:.0}pt",
-                        theme.font_family, theme.font_size_pt
-                    )),
-            ),
-        );
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .child(status_dot_label(kind_label, kind_dot, TOKENS.ink_secondary))
+                    .child(
+                        div()
+                            .font_family(FONT_BODY)
+                            .text_color(TOKENS.ink_muted)
+                            .text_size(px(10.0))
+                            .child(theme.font_family.clone()),
+                    ),
+            );
+
+        row = row.child(card);
     }
     row.into_any_element()
 }
@@ -422,8 +433,6 @@ fn render_themes_library(
 fn drawer_icon_btn(
     id: &'static str,
     icon: DeckIcon,
-    bg: gpui::Rgba,
-    border: gpui::Rgba,
     fg: gpui::Rgba,
     cx: &mut Context<OperatorWorkspace>,
     on_click: impl Fn(&mut OperatorWorkspace, &mut Context<OperatorWorkspace>) + 'static,
@@ -434,10 +443,10 @@ fn drawer_icon_btn(
         .h(px(28.0))
         .rounded(px(RADIUS_CONTROL))
         .cursor_pointer()
-        .bg(bg)
+        .bg(TOKENS.status_surface)
         .hover(|s| s.bg(TOKENS.elevated_hover))
         .border_1()
-        .border_color(border)
+        .border_color(TOKENS.gridline)
         .flex()
         .items_center()
         .justify_center()
@@ -445,14 +454,11 @@ fn drawer_icon_btn(
         .child(deck_icon(icon, IconSize::Sm, fg))
 }
 
-#[allow(clippy::too_many_arguments)]
 fn drawer_btn(
     id: &'static str,
     icon: DeckIcon,
     label: &'static str,
-    bg: gpui::Rgba,
-    border: gpui::Rgba,
-    fg: gpui::Rgba,
+    icon_tint: gpui::Rgba,
     cx: &mut Context<OperatorWorkspace>,
     on_click: impl Fn(&mut OperatorWorkspace, &mut Context<OperatorWorkspace>) + 'static,
 ) -> gpui::Stateful<Div> {
@@ -462,19 +468,19 @@ fn drawer_btn(
         .px(px(10.0))
         .rounded(px(RADIUS_CONTROL))
         .cursor_pointer()
-        .bg(bg)
+        .bg(TOKENS.status_surface)
         .hover(|s| s.bg(TOKENS.elevated_hover))
         .border_1()
-        .border_color(border)
+        .border_color(TOKENS.key_border)
         .flex()
         .items_center()
-        .gap(px(5.0))
+        .gap(px(5.5))
         .on_click(cx.listener(move |this, _, _, cx| on_click(this, cx)))
-        .child(deck_icon(icon, IconSize::Sm, fg))
+        .child(deck_icon(icon, IconSize::Sm, icon_tint))
         .child(
             div()
                 .font_family(FONT_BODY)
-                .text_color(fg)
+                .text_color(rgb(0xEAE7E1))
                 .text_size(px(11.5))
                 .font_weight(FontWeight::MEDIUM)
                 .child(label),

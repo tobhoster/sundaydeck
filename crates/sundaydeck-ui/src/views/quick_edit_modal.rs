@@ -7,7 +7,9 @@ use sundaydeck_db::DbWorker;
 
 use crate::components::TextInput;
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::primitives::soft_pill;
+use crate::design::primitives::{
+    live_meta_indicator, primary_ivory_button_body, sculpted_secondary_button_body,
+};
 use crate::design::tokens::{FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_MODAL, TOKENS};
 use crate::store::PresentationStore;
 
@@ -82,7 +84,7 @@ impl Render for QuickEditModal {
                 div()
                     .pb(px(12.0))
                     .border_b_1()
-                    .border_color(TOKENS.gridline)
+                    .border_color(TOKENS.hairline)
                     .flex()
                     .items_center()
                     .justify_between()
@@ -91,7 +93,8 @@ impl Render for QuickEditModal {
                             .flex()
                             .items_center()
                             .gap(px(10.0))
-                            .child(soft_pill("Live", TOKENS.signal_live, TOKENS.ink_primary))
+                            .child(live_meta_indicator())
+                            .child(div().w(px(1.0)).h(px(14.0)).bg(TOKENS.hairline))
                             .child(
                                 div()
                                     .font_family(FONT_DISPLAY)
@@ -114,7 +117,7 @@ impl Render for QuickEditModal {
                 div()
                     .pt(px(12.0))
                     .border_t_1()
-                    .border_color(TOKENS.gridline)
+                    .border_color(TOKENS.hairline)
                     .flex()
                     .items_center()
                     .justify_between()
@@ -126,13 +129,14 @@ impl Render for QuickEditModal {
                             .rounded(px(RADIUS_CONTROL))
                             .cursor_pointer()
                             .bg(if self.persist_to_library {
-                                TOKENS.signal_preview_tint
-                            } else {
                                 TOKENS.elevated
+                            } else {
+                                TOKENS.status_surface
                             })
+                            .hover(|s| s.bg(TOKENS.elevated_hover))
                             .border_1()
                             .border_color(if self.persist_to_library {
-                                TOKENS.signal_preview.alpha(0.55)
+                                TOKENS.focus_border
                             } else {
                                 TOKENS.gridline
                             })
@@ -147,7 +151,7 @@ impl Render for QuickEditModal {
                                 DeckIcon::Check,
                                 IconSize::Sm,
                                 if self.persist_to_library {
-                                    TOKENS.signal_preview
+                                    TOKENS.signal_voice
                                 } else {
                                     TOKENS.ink_muted
                                 },
@@ -156,7 +160,7 @@ impl Render for QuickEditModal {
                                 div()
                                     .font_family(FONT_BODY)
                                     .text_color(if self.persist_to_library {
-                                        TOKENS.signal_preview
+                                        TOKENS.ink_primary
                                     } else {
                                         TOKENS.ink_secondary
                                     })
@@ -177,38 +181,24 @@ impl Render for QuickEditModal {
                             .child(
                                 div()
                                     .id("quick-edit-cancel")
-                                    .h(px(32.0))
-                                    .px(px(14.0))
-                                    .rounded(px(RADIUS_CONTROL))
                                     .cursor_pointer()
-                                    .bg(TOKENS.elevated)
-                                    .hover(|s| s.bg(TOKENS.elevated_hover))
-                                    .border_1()
-                                    .border_color(TOKENS.gridline)
-                                    .flex()
-                                    .items_center()
-                                    .font_family(FONT_BODY)
-                                    .text_color(TOKENS.ink_secondary)
-                                    .text_size(px(12.0))
                                     .on_click(cx.listener(|_, _, _, cx| cx.emit(ModalClosed)))
-                                    .child("Cancel"),
+                                    .child(sculpted_secondary_button_body(
+                                        None,
+                                        "Cancel",
+                                        TOKENS.ink_secondary,
+                                    )),
                             )
                             .child(
                                 div()
                                     .id("quick-edit-apply")
-                                    .h(px(32.0))
-                                    .px(px(16.0))
-                                    .rounded(px(RADIUS_CONTROL))
                                     .cursor_pointer()
-                                    .bg(TOKENS.signal_live)
-                                    .flex()
-                                    .items_center()
-                                    .font_family(FONT_BODY)
-                                    .text_color(TOKENS.ink_primary)
-                                    .text_size(px(12.0))
-                                    .font_weight(FontWeight::SEMIBOLD)
                                     .on_click(cx.listener(|this, _, _, cx| this.apply_patch(cx)))
-                                    .child("Update on Screen"),
+                                    .child(primary_ivory_button_body(
+                                        Some(DeckIcon::Check),
+                                        "Update on Screen",
+                                        true,
+                                    )),
                             ),
                     ),
             )

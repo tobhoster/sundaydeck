@@ -22,9 +22,9 @@ pub enum GalleryPage {
     ProjectionAndIcons,
 }
 
-/// Runnable Design Gallery (`sundaydeck --ui-gallery`) showcasing the Warm, Volunteer-First
-/// Studio palette, Sentence-case Plus Jakarta Sans typography, 16:9 slide cards, gentle screen
-/// controls, Auto-Follow pill, and vendored Phosphor SVG icons.
+/// Runnable Design Gallery (`sundaydeck --ui-gallery`) showcasing SundayDeck's bespoke native
+/// dark-linen palette, sculpted tactile controls, neutral status bar, typographic section labels,
+/// 16:9 sanctuary slide cards (with real Unsplash photo & motion video themes), and 49 Phosphor SVGs.
 pub struct DesignGalleryView {
     pub active_page: GalleryPage,
     pub motion_mode: MotionMode,
@@ -50,24 +50,32 @@ impl Render for DesignGalleryView {
         let page = self.active_page;
         let motion = self.motion_mode;
 
+        let divider = || div().w_full().h(px(1.0)).bg(TOKENS.hairline);
+
         let body: Div = match page {
             GalleryPage::ConsoleAndControls => div()
                 .w_full()
-                .p(px(20.0))
+                .px(px(28.0))
+                .py(px(24.0))
                 .flex()
                 .flex_col()
-                .gap(px(18.0))
+                .gap(px(24.0))
                 .child(render_color_swatches())
+                .child(divider())
                 .child(render_operator_typography())
+                .child(divider())
                 .child(render_slide_tile_showcase())
+                .child(divider())
                 .child(render_switcher_and_voice_showcase(motion)),
             GalleryPage::ProjectionAndIcons => div()
                 .w_full()
-                .p(px(20.0))
+                .px(px(28.0))
+                .py(px(24.0))
                 .flex()
                 .flex_col()
-                .gap(px(18.0))
+                .gap(px(24.0))
                 .child(render_projection_font_pack())
+                .child(divider())
                 .child(render_icon_catalog()),
         };
 
@@ -133,7 +141,7 @@ fn render_gallery_top_bar(
         .flex()
         .items_center()
         .p(px(2.0))
-        .bg(TOKENS.canvas)
+        .bg(TOKENS.recessed)
         .border_1()
         .border_color(TOKENS.gridline)
         .rounded(px(RADIUS_PILL));
@@ -176,10 +184,10 @@ fn render_gallery_top_bar(
     div()
         .w_full()
         .h(px(TOP_BAR_HEIGHT))
-        .px(px(16.0))
+        .px(px(20.0))
         .bg(TOKENS.pane)
         .border_b_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
         .items_center()
         .justify_between()
@@ -191,7 +199,7 @@ fn render_gallery_top_bar(
                 .child(deck_icon(
                     DeckIcon::Palette,
                     IconSize::Md,
-                    TOKENS.signal_preview,
+                    TOKENS.ink_primary,
                 ))
                 .child(
                     div()
@@ -208,7 +216,7 @@ fn render_gallery_top_bar(
                         .text_size(px(12.5))
                         .child("Design Gallery"),
                 )
-                .child(div().w(px(1.0)).h(px(18.0)).bg(TOKENS.gridline))
+                .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.hairline))
                 .child(page_tab(
                     "gal-tab-console",
                     "Studio & Controls",

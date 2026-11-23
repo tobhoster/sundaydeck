@@ -1,11 +1,14 @@
 use gpui::{
     Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgba,
+    Styled, div, px, rgb, rgba,
 };
 use sundaydeck_core::PlanApplyMode;
-use sundaydeck_planner::PlannerEngineKind;
+use sundaydeck_planner::{LocalLlmPreset, PlannerEngineKind};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
+use crate::design::primitives::{
+    neutral_option_chip, primary_ivory_button_body, sculpted_secondary_button_body,
+};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_MODAL, RADIUS_PILL, RADIUS_TILE, TOKENS,
 };
@@ -43,13 +46,26 @@ pub(crate) fn render_plan_import_modal(
                 .px(px(12.0))
                 .py(px(8.0))
                 .rounded(px(RADIUS_CONTROL))
-                .bg(TOKENS.signal_live_tint)
+                .bg(TOKENS.recessed)
                 .border_1()
-                .border_color(TOKENS.signal_live.alpha(0.55))
-                .font_family(FONT_BODY)
-                .text_color(TOKENS.signal_live)
-                .text_size(px(12.0))
-                .child(format!("Could not read file: {err}")),
+                .border_color(TOKENS.signal_live)
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .child(
+                    div()
+                        .w(px(6.0))
+                        .h(px(6.0))
+                        .rounded(px(RADIUS_PILL))
+                        .bg(TOKENS.signal_live_dot),
+                )
+                .child(
+                    div()
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(12.0))
+                        .child(format!("Could not read file: {err}")),
+                ),
         );
     }
 
@@ -105,7 +121,7 @@ fn render_modal_header(modal: &PlanImportModal, cx: &mut Context<PlanImportModal
     div()
         .pb(px(12.0))
         .border_b_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
         .items_center()
         .justify_between()
@@ -117,7 +133,7 @@ fn render_modal_header(modal: &PlanImportModal, cx: &mut Context<PlanImportModal
                 .child(deck_icon(
                     DeckIcon::StackFill,
                     IconSize::Md,
-                    TOKENS.signal_preview,
+                    TOKENS.ink_primary,
                 ))
                 .child(
                     div()
@@ -134,7 +150,7 @@ fn render_modal_header(modal: &PlanImportModal, cx: &mut Context<PlanImportModal
                         .text_size(px(12.0))
                         .child("PowerPoint, Word, or Outline"),
                 )
-                .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.gridline))
+                .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.hairline))
                 .child(tab_btn(
                     "plan-tab-file",
                     DeckIcon::UploadSimple,
@@ -158,40 +174,22 @@ fn render_modal_header(modal: &PlanImportModal, cx: &mut Context<PlanImportModal
                 .child(
                     div()
                         .id("plan-load-sample")
-                        .h(px(30.0))
-                        .px(px(11.0))
-                        .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
-                        .bg(TOKENS.elevated)
-                        .hover(|s| s.bg(TOKENS.elevated_hover))
-                        .border_1()
-                        .border_color(TOKENS.gridline)
-                        .flex()
-                        .items_center()
-                        .gap(px(6.0))
                         .on_click(cx.listener(|this, _, _, cx| this.load_sample_sermon(cx)))
-                        .child(deck_icon(
-                            DeckIcon::BookOpenText,
-                            IconSize::Sm,
+                        .child(sculpted_secondary_button_body(
+                            Some(DeckIcon::BookOpenText),
+                            "Sample",
                             TOKENS.signal_preview,
-                        ))
-                        .child(
-                            div()
-                                .font_family(FONT_BODY)
-                                .text_color(TOKENS.ink_secondary)
-                                .text_size(px(11.5))
-                                .font_weight(FontWeight::MEDIUM)
-                                .child("Sample"),
-                        ),
+                        )),
                 )
                 .child(
                     div()
                         .id("plan-modal-close")
-                        .w(px(30.0))
-                        .h(px(30.0))
+                        .w(px(32.0))
+                        .h(px(32.0))
                         .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
-                        .bg(TOKENS.elevated)
+                        .bg(TOKENS.status_surface)
                         .hover(|s| s.bg(TOKENS.elevated_hover))
                         .border_1()
                         .border_color(TOKENS.gridline)
@@ -213,7 +211,7 @@ fn render_engine_bar(modal: &PlanImportModal, cx: &mut Context<PlanImportModal>)
 
     for kind in PlannerEngineKind::ALL {
         let active = modal.engine == kind;
-        let (icon, label, accent) = match kind {
+        let (icon, label, dot) = match kind {
             PlannerEngineKind::Deterministic => {
                 (DeckIcon::Lightning, "Instant Rules", TOKENS.signal_voice)
             }
@@ -226,40 +224,59 @@ fn render_engine_bar(modal: &PlanImportModal, cx: &mut Context<PlanImportModal>)
                 (DeckIcon::Stack, "Built-in Model", TOKENS.signal_override)
             }
         };
-        let (bg, bd, fg) = if active {
-            (accent.alpha(0.16), accent.alpha(0.6), accent)
-        } else {
-            (TOKENS.elevated, TOKENS.gridline, TOKENS.ink_secondary)
-        };
         switches = switches.child(
             div()
                 .id(format!("plan-engine-{}", kind.short_badge()))
-                .h(px(26.0))
+                .h(px(28.0))
                 .px(px(10.0))
                 .rounded(px(RADIUS_PILL))
                 .cursor_pointer()
-                .bg(bg)
+                .bg(if active {
+                    TOKENS.elevated
+                } else {
+                    TOKENS.status_surface
+                })
+                .hover(|s| s.bg(TOKENS.elevated_hover))
                 .border_1()
-                .border_color(bd)
+                .border_color(if active {
+                    TOKENS.focus_border
+                } else {
+                    TOKENS.gridline
+                })
                 .flex()
                 .items_center()
-                .gap(px(5.0))
+                .gap(px(6.0))
                 .on_click(cx.listener(move |this, _, _, cx| this.select_engine(kind, cx)))
-                .child(deck_icon(icon, IconSize::Sm, fg))
+                .child(
+                    div()
+                        .w(px(6.0))
+                        .h(px(6.0))
+                        .rounded(px(RADIUS_PILL))
+                        .bg(if active { dot } else { rgb(0x565C6B) }),
+                )
+                .child(deck_icon(
+                    icon,
+                    IconSize::Sm,
+                    if active { dot } else { TOKENS.ink_muted },
+                ))
                 .child(
                     div()
                         .font_family(FONT_BODY)
-                        .text_color(fg)
+                        .text_color(if active {
+                            TOKENS.ink_primary
+                        } else {
+                            TOKENS.ink_secondary
+                        })
                         .text_size(px(11.0))
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .font_weight(FontWeight::MEDIUM)
                         .child(label),
                 ),
         );
     }
 
-    let (status_text, status_col) = match &modal.last_metrics {
+    let (status_text, status_dot) = match &modal.last_metrics {
         Some(m) if m.used_fallback => (
-            format!("Used Instant Rules fallback · {}ms", m.total_ms),
+            format!("Instant Rules fallback · {}ms", m.total_ms),
             TOKENS.signal_override,
         ),
         Some(m) if m.total_ms == 0 => (
@@ -273,27 +290,82 @@ fn render_engine_bar(modal: &PlanImportModal, cx: &mut Context<PlanImportModal>)
         None => (modal.engine.description().to_owned(), TOKENS.ink_muted),
     };
 
-    div()
+    let mut container = div()
         .w_full()
         .px(px(12.0))
         .py(px(7.0))
         .rounded(px(RADIUS_TILE))
         .bg(TOKENS.canvas)
         .border_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
-        .items_center()
-        .justify_between()
-        .gap(px(10.0))
-        .child(switches)
+        .flex_col()
+        .gap(px(7.0))
         .child(
             div()
-                .font_family(FONT_BODY)
-                .text_color(status_col)
-                .text_size(px(11.0))
-                .font_weight(FontWeight::MEDIUM)
-                .child(status_text),
-        )
+                .w_full()
+                .flex()
+                .items_center()
+                .justify_between()
+                .gap(px(10.0))
+                .child(switches)
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(6.0))
+                        .child(
+                            div()
+                                .w(px(6.0))
+                                .h(px(6.0))
+                                .rounded(px(RADIUS_PILL))
+                                .bg(status_dot),
+                        )
+                        .child(
+                            div()
+                                .font_family(FONT_BODY)
+                                .text_color(TOKENS.ink_secondary)
+                                .text_size(px(11.0))
+                                .font_weight(FontWeight::MEDIUM)
+                                .child(status_text),
+                        ),
+                ),
+        );
+
+    if modal.engine == PlannerEngineKind::LocalLlm {
+        let mut presets = div()
+            .pt(px(6.0))
+            .border_t_1()
+            .border_color(TOKENS.hairline)
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .child(
+                div()
+                    .font_family(FONT_BODY)
+                    .text_color(TOKENS.ink_muted)
+                    .text_size(px(11.0))
+                    .child("Local model:"),
+            );
+        for preset in LocalLlmPreset::ALL {
+            let selected = modal.local_model_preset == preset.model_name;
+            let model_name = preset.model_name.to_owned();
+            presets = presets.child(
+                neutral_option_chip(
+                    format!("plan-preset-{}", preset.id),
+                    format!("{} ({})", preset.label, preset.ram_requirement),
+                    selected,
+                    TOKENS.signal_preview,
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.select_local_model(model_name.clone(), cx);
+                })),
+            );
+        }
+        container = container.child(presets);
+    }
+
+    container
 }
 
 fn render_file_upload_bar(modal: &PlanImportModal, cx: &mut Context<PlanImportModal>) -> Div {
@@ -303,27 +375,27 @@ fn render_file_upload_bar(modal: &PlanImportModal, cx: &mut Context<PlanImportMo
         .items_center()
         .gap(px(8.0))
         .child(
-            action_btn(
-                "plan-browse-btn",
-                Some(DeckIcon::UploadSimple),
-                "Choose File",
-                TOKENS.signal_preview,
-                TOKENS.signal_preview,
-                TOKENS.canvas,
-            )
-            .on_click(cx.listener(|this, _, _, cx| this.browse_office_file(cx))),
+            div()
+                .id("plan-browse-btn")
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, _, cx| this.browse_office_file(cx)))
+                .child(primary_ivory_button_body(
+                    Some(DeckIcon::UploadSimple),
+                    "Choose File",
+                    true,
+                )),
         )
         .child(div().flex_1().child(modal.path_input.clone()))
         .child(
-            action_btn(
-                "plan-parse-path-btn",
-                Some(DeckIcon::PlayFill),
-                "Build Plan",
-                TOKENS.elevated,
-                TOKENS.focus_border,
-                TOKENS.ink_primary,
-            )
-            .on_click(cx.listener(|this, _, _, cx| this.parse_typed_path(cx))),
+            div()
+                .id("plan-parse-path-btn")
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, _, cx| this.parse_typed_path(cx)))
+                .child(sculpted_secondary_button_body(
+                    Some(DeckIcon::PlayFill),
+                    "Build Plan",
+                    TOKENS.ink_primary,
+                )),
         )
 }
 
@@ -335,49 +407,16 @@ fn render_paste_outline_bar(modal: &PlanImportModal, cx: &mut Context<PlanImport
         .gap(px(8.0))
         .child(div().flex_1().child(modal.outline_input.clone()))
         .child(
-            action_btn(
-                "plan-parse-outline-btn",
-                Some(DeckIcon::PlayFill),
-                "Build Plan",
-                TOKENS.signal_preview,
-                TOKENS.signal_preview,
-                TOKENS.canvas,
-            )
-            .on_click(cx.listener(|this, _, _, cx| this.parse_pasted_outline(cx))),
+            div()
+                .id("plan-parse-outline-btn")
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, _, cx| this.parse_pasted_outline(cx)))
+                .child(primary_ivory_button_body(
+                    Some(DeckIcon::PlayFill),
+                    "Build Plan",
+                    true,
+                )),
         )
-}
-
-fn action_btn(
-    id: &'static str,
-    icon: Option<DeckIcon>,
-    label: &'static str,
-    bg: gpui::Rgba,
-    border: gpui::Rgba,
-    fg: gpui::Rgba,
-) -> gpui::Stateful<Div> {
-    let mut el = div()
-        .id(id)
-        .h(px(32.0))
-        .px(px(14.0))
-        .rounded(px(RADIUS_CONTROL))
-        .cursor_pointer()
-        .bg(bg)
-        .border_1()
-        .border_color(border)
-        .flex()
-        .items_center()
-        .gap(px(6.0));
-    if let Some(ic) = icon {
-        el = el.child(deck_icon(ic, IconSize::Sm, fg));
-    }
-    el.child(
-        div()
-            .font_family(FONT_BODY)
-            .text_color(fg)
-            .text_size(px(12.0))
-            .font_weight(FontWeight::SEMIBOLD)
-            .child(label),
-    )
 }
 
 fn render_modal_footer(modal: &PlanImportModal, cx: &mut Context<PlanImportModal>) -> Div {
@@ -390,44 +429,18 @@ fn render_modal_footer(modal: &PlanImportModal, cx: &mut Context<PlanImportModal
                     label: &'static str,
                     target: PlanApplyMode,
                     cx: &mut Context<PlanImportModal>| {
-        let (bg, bd, fg) = if modal.apply_mode == target {
-            (
-                TOKENS.signal_preview_tint,
-                TOKENS.signal_preview.alpha(0.6),
-                TOKENS.signal_preview,
-            )
-        } else {
-            (TOKENS.elevated, TOKENS.gridline, TOKENS.ink_secondary)
-        };
-        div()
-            .id(id)
-            .px(px(11.0))
-            .py(px(5.5))
-            .rounded(px(RADIUS_PILL))
-            .cursor_pointer()
-            .bg(bg)
-            .border_1()
-            .border_color(bd)
-            .font_family(FONT_BODY)
-            .text_color(fg)
-            .text_size(px(11.5))
-            .font_weight(FontWeight::MEDIUM)
-            .on_click(cx.listener(move |this, _, _, cx| {
+        neutral_option_chip(id, label, modal.apply_mode == target, TOKENS.signal_preview).on_click(
+            cx.listener(move |this, _, _, cx| {
                 this.apply_mode = target;
                 cx.notify();
-            }))
-            .child(label)
-    };
-    let (apply_bg, apply_fg) = if has_plan {
-        (TOKENS.signal_voice, TOKENS.canvas)
-    } else {
-        (TOKENS.elevated, TOKENS.ink_muted)
+            }),
+        )
     };
 
     div()
         .pt(px(12.0))
         .border_t_1()
-        .border_color(TOKENS.gridline)
+        .border_color(TOKENS.hairline)
         .flex()
         .items_center()
         .justify_between()
@@ -455,26 +468,26 @@ fn render_modal_footer(modal: &PlanImportModal, cx: &mut Context<PlanImportModal
                 .items_center()
                 .gap(px(8.0))
                 .child(
-                    action_btn(
-                        "plan-cancel-btn",
-                        None,
-                        "Cancel",
-                        TOKENS.elevated,
-                        TOKENS.gridline,
-                        TOKENS.ink_secondary,
-                    )
-                    .on_click(cx.listener(|_, _, _, cx| cx.emit(ModalClosed))),
+                    div()
+                        .id("plan-cancel-btn")
+                        .cursor_pointer()
+                        .on_click(cx.listener(|_, _, _, cx| cx.emit(ModalClosed)))
+                        .child(sculpted_secondary_button_body(
+                            None,
+                            "Cancel",
+                            TOKENS.ink_secondary,
+                        )),
                 )
                 .child(
-                    action_btn(
-                        "plan-apply-btn",
-                        Some(DeckIcon::Check),
-                        "Add Plan to Service",
-                        apply_bg,
-                        apply_bg,
-                        apply_fg,
-                    )
-                    .on_click(cx.listener(|this, _, _, cx| this.apply_plan(cx))),
+                    div()
+                        .id("plan-apply-btn")
+                        .cursor_pointer()
+                        .on_click(cx.listener(|this, _, _, cx| this.apply_plan(cx)))
+                        .child(primary_ivory_button_body(
+                            Some(DeckIcon::Check),
+                            "Add Plan to Service",
+                            has_plan,
+                        )),
                 ),
         )
 }

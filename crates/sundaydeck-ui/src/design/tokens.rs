@@ -3,156 +3,230 @@ use sundaydeck_core::{Rgba8, SectionKind, ServiceItemPayload};
 
 use crate::design::icons::DeckIcon;
 
-/// Warm, Volunteer-First Studio token palette (Apple Keynote / Things 3 / Craft in dim charcoal).
-/// Depth comes from gentle tonal elevation rather than stark wireframes.
+/// Bespoke Native Studio palette in warm dark linen charcoal (reduced blue cast, zero flat pastel
+/// Tailwind bricks, zero translucent colored pill washes). Depth comes from sculpted graphite
+/// surfaces, `1px` specular highlights, and precision `6px` status dots.
 #[derive(Debug, Clone, Copy)]
 pub struct ThemeTokens {
     pub canvas: Rgba,
     pub pane: Rgba,
     pub elevated: Rgba,
     pub elevated_hover: Rgba,
+    pub recessed: Rgba,
+    pub status_surface: Rgba,
+    pub slide_card: Rgba,
+    pub key_top: Rgba,
+    pub key_bottom: Rgba,
+    pub key_border: Rgba,
+    pub specular_top: Rgba,
+    pub ivory_bg: Rgba,
+    pub ivory_hover: Rgba,
+    pub ivory_ink: Rgba,
     pub gridline: Rgba,
+    pub hairline: Rgba,
     pub focus_border: Rgba,
     pub ink_primary: Rgba,
     pub ink_secondary: Rgba,
     pub ink_muted: Rgba,
+    /// Deep crimson live slide ring (`#C94A44`).
     pub signal_live: Rgba,
-    pub signal_live_tint: Rgba,
+    /// Crisp `6px` Live dot (`#E04F47`).
+    pub signal_live_dot: Rgba,
+    /// Warm amber Next Up ring & attention dot (`#D9A036`).
     pub signal_preview: Rgba,
-    pub signal_preview_tint: Rgba,
+    /// Soft emerald listening / ready dot (`#38B780`).
     pub signal_voice: Rgba,
-    pub signal_voice_tint: Rgba,
+    /// Warm amber-terracotta latched override border & dot (`#D97736`).
     pub signal_override: Rgba,
-    pub signal_override_tint: Rgba,
 }
 
-pub const TOKENS: ThemeTokens = ThemeTokens::warm_studio();
+pub const TOKENS: ThemeTokens = ThemeTokens::warm_linen();
 
 impl ThemeTokens {
-    pub const fn warm_studio() -> Self {
+    pub const fn warm_linen() -> Self {
         Self {
-            // #131417 — App Canvas (Warm Obsidian)
+            // #141517 — Base Warm Dark Linen Canvas
             canvas: Rgba {
-                r: 19.0 / 255.0,
-                g: 20.0 / 255.0,
+                r: 20.0 / 255.0,
+                g: 21.0 / 255.0,
                 b: 23.0 / 255.0,
                 a: 1.0,
             },
-            // #181A1F — Sidebar / Schedule Surface
+            // #1A1C20 — Panel / Sidebar Surface
             pane: Rgba {
-                r: 24.0 / 255.0,
-                g: 26.0 / 255.0,
-                b: 31.0 / 255.0,
+                r: 26.0 / 255.0,
+                g: 28.0 / 255.0,
+                b: 32.0 / 255.0,
                 a: 1.0,
             },
-            // #20232A — Slide Card / Elevated Control Surface
+            // #22252B — Raised Surface
             elevated: Rgba {
-                r: 32.0 / 255.0,
-                g: 35.0 / 255.0,
-                b: 42.0 / 255.0,
+                r: 34.0 / 255.0,
+                g: 37.0 / 255.0,
+                b: 43.0 / 255.0,
                 a: 1.0,
             },
-            // #282C35 — Hover / Active Row Surface
+            // #2A2D34 — Hover / Active Row Surface
             elevated_hover: Rgba {
-                r: 40.0 / 255.0,
-                g: 44.0 / 255.0,
+                r: 42.0 / 255.0,
+                g: 45.0 / 255.0,
+                b: 52.0 / 255.0,
+                a: 1.0,
+            },
+            // #15171C — Latched / Pressed-In Surface
+            recessed: Rgba {
+                r: 21.0 / 255.0,
+                g: 23.0 / 255.0,
+                b: 28.0 / 255.0,
+                a: 1.0,
+            },
+            // #1C1F26 — Neutral Status Pill Surface
+            status_surface: Rgba {
+                r: 28.0 / 255.0,
+                g: 31.0 / 255.0,
+                b: 38.0 / 255.0,
+                a: 1.0,
+            },
+            // #1B1E25 — Soft Matte 16:9 Slide Card Surface
+            slide_card: Rgba {
+                r: 27.0 / 255.0,
+                g: 30.0 / 255.0,
+                b: 37.0 / 255.0,
+                a: 1.0,
+            },
+            // #22252D — Sculpted Graphite Key Top
+            key_top: Rgba {
+                r: 34.0 / 255.0,
+                g: 37.0 / 255.0,
+                b: 45.0 / 255.0,
+                a: 1.0,
+            },
+            // #1C1F26 — Sculpted Graphite Key Bottom
+            key_bottom: Rgba {
+                r: 28.0 / 255.0,
+                g: 31.0 / 255.0,
+                b: 38.0 / 255.0,
+                a: 1.0,
+            },
+            // #2E323D — Raised Key Rim
+            key_border: Rgba {
+                r: 46.0 / 255.0,
+                g: 50.0 / 255.0,
+                b: 61.0 / 255.0,
+                a: 1.0,
+            },
+            // rgba(255, 255, 255, 0.08) — Subtle Top Specular Edge
+            specular_top: Rgba {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 0.08,
+            },
+            // #F2EFE9 — Warm Paper-Ivory Primary Action
+            ivory_bg: Rgba {
+                r: 242.0 / 255.0,
+                g: 239.0 / 255.0,
+                b: 233.0 / 255.0,
+                a: 1.0,
+            },
+            // #FFFFFF — Primary Action Hover
+            ivory_hover: Rgba {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 1.0,
+            },
+            // #141518 — Deep Charcoal Ink on Ivory Primary Action
+            ivory_ink: Rgba {
+                r: 20.0 / 255.0,
+                g: 21.0 / 255.0,
+                b: 24.0 / 255.0,
+                a: 1.0,
+            },
+            // #2A2D35 — Structural Border
+            gridline: Rgba {
+                r: 42.0 / 255.0,
+                g: 45.0 / 255.0,
                 b: 53.0 / 255.0,
                 a: 1.0,
             },
-            // #2B2F3A — Soft Structural Separators
-            gridline: Rgba {
-                r: 43.0 / 255.0,
-                g: 47.0 / 255.0,
-                b: 58.0 / 255.0,
+            // #23262F — Quiet Hairline Divider
+            hairline: Rgba {
+                r: 35.0 / 255.0,
+                g: 38.0 / 255.0,
+                b: 47.0 / 255.0,
                 a: 1.0,
             },
-            // #444A59 — Gentle Active Outline
+            // #3E424D — Focused / Selected Border
             focus_border: Rgba {
-                r: 68.0 / 255.0,
-                g: 74.0 / 255.0,
-                b: 89.0 / 255.0,
+                r: 62.0 / 255.0,
+                g: 66.0 / 255.0,
+                b: 77.0 / 255.0,
                 a: 1.0,
             },
-            // #F5F3EF — Warm Paper White
+            // #F2EFE9 — Warm Paper Primary Text
             ink_primary: Rgba {
-                r: 245.0 / 255.0,
-                g: 243.0 / 255.0,
-                b: 239.0 / 255.0,
+                r: 242.0 / 255.0,
+                g: 239.0 / 255.0,
+                b: 233.0 / 255.0,
                 a: 1.0,
             },
-            // #A5AAB5 — Comfortable Secondary Ink
+            // #B4B8C2 — Clean Secondary Text & Metadata Labels
             ink_secondary: Rgba {
-                r: 165.0 / 255.0,
-                g: 170.0 / 255.0,
-                b: 181.0 / 255.0,
+                r: 180.0 / 255.0,
+                g: 184.0 / 255.0,
+                b: 194.0 / 255.0,
                 a: 1.0,
             },
-            // #6E7482 — Muted Helper Text
+            // #6E737E — Quiet Helper Ink
             ink_muted: Rgba {
                 r: 110.0 / 255.0,
-                g: 116.0 / 255.0,
-                b: 130.0 / 255.0,
+                g: 115.0 / 255.0,
+                b: 126.0 / 255.0,
                 a: 1.0,
             },
-            // #E04F47 — Warm Coral-Crimson (Live on Screen)
+            // #C94A44 — Deep Crimson Live Ring
             signal_live: Rgba {
+                r: 201.0 / 255.0,
+                g: 74.0 / 255.0,
+                b: 68.0 / 255.0,
+                a: 1.0,
+            },
+            // #E04F47 — Crisp Live Indicator Dot
+            signal_live_dot: Rgba {
                 r: 224.0 / 255.0,
                 g: 79.0 / 255.0,
                 b: 71.0 / 255.0,
                 a: 1.0,
             },
-            signal_live_tint: Rgba {
-                r: 224.0 / 255.0,
-                g: 79.0 / 255.0,
-                b: 71.0 / 255.0,
-                a: 0.16,
-            },
-            // #E5A93C — Warm Honey Amber (Selected / Next Up)
+            // #D9A036 — Warm Amber Next Up Ring & Attention Dot
             signal_preview: Rgba {
-                r: 229.0 / 255.0,
-                g: 169.0 / 255.0,
-                b: 60.0 / 255.0,
+                r: 217.0 / 255.0,
+                g: 160.0 / 255.0,
+                b: 54.0 / 255.0,
                 a: 1.0,
             },
-            signal_preview_tint: Rgba {
-                r: 229.0 / 255.0,
-                g: 169.0 / 255.0,
-                b: 60.0 / 255.0,
-                a: 0.15,
-            },
-            // #34B37E — Soft Sage Emerald (Auto-Follow Listening)
+            // #38B780 — Soft Emerald Listening / Ready Dot
             signal_voice: Rgba {
-                r: 52.0 / 255.0,
-                g: 179.0 / 255.0,
-                b: 126.0 / 255.0,
+                r: 56.0 / 255.0,
+                g: 183.0 / 255.0,
+                b: 128.0 / 255.0,
                 a: 1.0,
             },
-            signal_voice_tint: Rgba {
-                r: 52.0 / 255.0,
-                g: 179.0 / 255.0,
-                b: 126.0 / 255.0,
-                a: 0.16,
-            },
-            // #E07A3A — Warm Terracotta (Screen Override Active)
+            // #D97736 — Warm Amber-Terracotta Latched Override Border & Dot
             signal_override: Rgba {
-                r: 224.0 / 255.0,
-                g: 122.0 / 255.0,
-                b: 58.0 / 255.0,
+                r: 217.0 / 255.0,
+                g: 119.0 / 255.0,
+                b: 54.0 / 255.0,
                 a: 1.0,
-            },
-            signal_override_tint: Rgba {
-                r: 224.0 / 255.0,
-                g: 122.0 / 255.0,
-                b: 58.0 / 255.0,
-                a: 0.18,
             },
         }
     }
 }
 
-// Approachable studio geometry & breathing room.
 pub const RADIUS_PANE: f32 = 0.0;
 pub const RADIUS_CONTROL: f32 = 6.0;
+pub const RADIUS_BUTTON: f32 = 8.0;
 pub const RADIUS_TILE: f32 = 8.0;
 pub const RADIUS_MODAL: f32 = 12.0;
 pub const RADIUS_PILL: f32 = 999.0;
@@ -191,30 +265,29 @@ pub fn weight_from_u16(weight: u16) -> FontWeight {
     }
 }
 
-/// Subtle tinted pill colors `(bg_16pct, soft_text)` for human-readable section tags.
-pub fn section_pill_colors(label: &str, kind: Option<SectionKind>) -> (Rgba, Rgba) {
+/// Precision `6px` dot color for clean typographic section metadata (`Verse 1`, `Chorus`, `Romans 8:28`).
+pub fn section_dot_color(label: &str, kind: Option<SectionKind>) -> Rgba {
     match kind {
-        Some(SectionKind::Verse) => (rgba(0x3B82_F629), rgb(0x93C5FD)),
-        Some(SectionKind::Chorus) => (rgba(0xF59E_0B29), rgb(0xFCD34D)),
-        Some(SectionKind::PreChorus) => (rgba(0x14B8_A629), rgb(0x5EEAD4)),
-        Some(SectionKind::Bridge) => (rgba(0xA855_F729), rgb(0xD8B4FE)),
-        Some(SectionKind::Tag | SectionKind::Ending) => (rgba(0xEC48_9929), rgb(0xF9A8D4)),
-        Some(SectionKind::Intro | SectionKind::Interlude) => (rgba(0x6474_8B2E), rgb(0xCBD5E1)),
+        Some(SectionKind::Verse) => rgb(0x6B9BF2),
+        Some(SectionKind::Chorus) => rgb(0xE2A83B),
+        Some(SectionKind::PreChorus) => rgb(0x4DB8A8),
+        Some(SectionKind::Bridge) => rgb(0xB48AE8),
+        Some(SectionKind::Tag | SectionKind::Ending) => rgb(0xE07CA4),
+        Some(SectionKind::Intro | SectionKind::Interlude) => rgb(0x8B919E),
         Some(SectionKind::Other) | None => {
             if looks_like_scripture_label(label) {
-                (rgba(0x10B9_8129), rgb(0x6EE7B7))
+                rgb(0x4DB88A)
             } else {
-                (rgba(0x6474_8B2E), rgb(0xCBD5E1))
+                rgb(0x8B919E)
             }
         }
     }
 }
 
-/// Human-readable Sentence-case pill label (`Verse 1`, `Chorus`, `Bridge`, `Romans 8:28`, `Slide`).
+/// Human-readable Sentence-case section label (`Verse 1`, `Chorus`, `Bridge`, `Romans 8:28`, `Slide`).
 pub fn section_friendly_label(label: &str, kind: Option<SectionKind>) -> String {
     let trimmed = label.trim();
     if !trimmed.is_empty() {
-        // Shorten overly long sermon-point headers so the pill stays clean on 16:9 tiles.
         if trimmed.chars().count() > 26 {
             let mut clipped: String = trimmed.chars().take(24).collect();
             clipped.push('…');
