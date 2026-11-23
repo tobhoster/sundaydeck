@@ -4,6 +4,18 @@ use crate::error::ValidationError;
 use crate::ids::{ArrangementId, MediaAssetId, ServiceId, ServiceItemId, SongId, ThemeId};
 use crate::song::ReflowMode;
 
+/// Single text slide inside a multi-slide [`ServiceItemPayload::TextDeck`]
+/// (e.g., generated from a pastor's PowerPoint `.pptx` or Word `.docx` sermon outline).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TextDeckSlide {
+    pub label: String,
+    pub body: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub footer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker_note: Option<String>,
+}
+
 /// Tagged payload per service item kind so variant-specific data cannot be half-set.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -22,6 +34,9 @@ pub enum ServiceItemPayload {
     Presentation {
         slide_asset_ids: Vec<MediaAssetId>,
     },
+    TextDeck {
+        slides: Vec<TextDeckSlide>,
+    },
     AnnouncementLoop {
         slide_asset_ids: Vec<MediaAssetId>,
         interval_secs: u16,
@@ -37,7 +52,7 @@ impl ServiceItemPayload {
         match self {
             Self::Song { .. } => "song",
             Self::Scripture { .. } => "scripture",
-            Self::Presentation { .. } => "presentation",
+            Self::Presentation { .. } | Self::TextDeck { .. } => "presentation",
             Self::AnnouncementLoop { .. } => "announcement_loop",
             Self::CustomSlide { .. } => "custom_slide",
         }
@@ -48,6 +63,7 @@ impl ServiceItemPayload {
             Self::Song { .. } => "SONG",
             Self::Scripture { .. } => "BIBLE",
             Self::Presentation { .. } => "DECK",
+            Self::TextDeck { .. } => "SERMON",
             Self::AnnouncementLoop { .. } => "LOOP",
             Self::CustomSlide { .. } => "SLIDE",
         }

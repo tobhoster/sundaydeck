@@ -5,5 +5,6 @@ pub mod design;
 pub mod palette;
 pub mod renderer;
 pub mod store;
+pub mod store_plan;
 pub mod views;
 pub mod windows;

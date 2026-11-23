@@ -1,4 +1,4 @@
-use sundaydeck_core::{IdParseError, ValidationError};
+use sundaydeck_core::{IdParseError, ImportError, ValidationError};
 
 /// Typed persistence errors emitted by `sundaydeck-db`.
 #[derive(Debug, thiserror::Error)]
@@ -13,6 +13,8 @@ pub enum DbError {
     InvalidId(#[from] IdParseError),
     #[error("domain validation error: {0}")]
     Validation(#[from] ValidationError),
+    #[error("import error: {0}")]
+    Import(#[from] ImportError),
     #[error("{entity} '{id}' not found")]
     NotFound { entity: &'static str, id: String },
     #[error("migration v{version} failed: {reason}")]

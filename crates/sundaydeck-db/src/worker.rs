@@ -4,8 +4,8 @@ use std::thread;
 use async_channel::{Receiver, Sender, bounded};
 use sundaydeck_core::song::SongSummary;
 use sundaydeck_core::{
-    BibleTranslation, BibleVerse, ParsedBible, ScriptureRef, ServiceId, ServiceItemId,
-    ServiceSchedule, Song, SongId, Theme,
+    BibleTranslation, BibleVerse, GeneratedServicePlan, ParsedBible, ScriptureRef, ServiceId,
+    ServiceItemId, ServiceSchedule, Song, SongId, Theme,
 };
 
 use crate::bible_repo::{
@@ -14,6 +14,7 @@ use crate::bible_repo::{
 };
 use crate::connection::Database;
 use crate::error::DbError;
+use crate::plan_service::{build_plan_from_file_sync, build_plan_from_text_sync};
 use crate::seed::seed_defaults_if_empty;
 use crate::service_repo::{list_services, reorder_service_items, upsert_service};
 use crate::settings_repo::{AppSettings, load_settings, save_settings};
@@ -97,6 +98,17 @@ enum DbRequest {
         code: String,
         name: String,
         reply: Sender<Result<BibleTranslation, DbError>>,
+    },
+    GeneratePlanFromFile {
+        path: PathBuf,
+        translation_code: String,
+        reply: Sender<Result<GeneratedServicePlan, DbError>>,
+    },
+    GeneratePlanFromText {
+        source_name: String,
+        text: String,
+        translation_code: String,
+        reply: Sender<Result<GeneratedServicePlan, DbError>>,
     },
 }
 
@@ -263,6 +275,38 @@ impl DbWorker {
         .await
     }
 
+    pub async fn generate_plan_from_file(
+        &self,
+        path: PathBuf,
+        translation_code: &str,
+    ) -> Result<GeneratedServicePlan, DbError> {
+        let translation_code = translation_code.to_owned();
+        self.call(|reply| DbRequest::GeneratePlanFromFile {
+            path,
+            translation_code,
+            reply,
+        })
+        .await
+    }
+
+    pub async fn generate_plan_from_text(
+        &self,
+        source_name: &str,
+        text: &str,
+        translation_code: &str,
+    ) -> Result<GeneratedServicePlan, DbError> {
+        let source_name = source_name.to_owned();
+        let text = text.to_owned();
+        let translation_code = translation_code.to_owned();
+        self.call(|reply| DbRequest::GeneratePlanFromText {
+            source_name,
+            text,
+            translation_code,
+            reply,
+        })
+        .await
+    }
+
     async fn call<T>(
         &self,
         build: impl FnOnce(Sender<Result<T, DbError>>) -> DbRequest,
@@ -391,6 +435,30 @@ fn worker_loop(mut db: Database, rx: Receiver<DbRequest>) {
             } => {
                 let _ =
                     reply.send_blocking(import_sqlite_bible(db.conn_mut(), &path, &code, &name));
+            }
+            DbRequest::GeneratePlanFromFile {
+                path,
+                translation_code,
+                reply,
+            } => {
+                let _ = reply.send_blocking(build_plan_from_file_sync(
+                    db.conn(),
+                    &path,
+                    &translation_code,
+                ));
+            }
+            DbRequest::GeneratePlanFromText {
+                source_name,
+                text,
+                translation_code,
+                reply,
+            } => {
+                let _ = reply.send_blocking(build_plan_from_text_sync(
+                    db.conn(),
+                    &source_name,
+                    &text,
+                    &translation_code,
+                ));
             }
         }
     }

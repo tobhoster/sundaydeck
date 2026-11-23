@@ -66,6 +66,8 @@ pub enum ImportError {
     MalformedXml { detail: String },
     #[error("unsupported or unrecognized format: {detail}")]
     UnsupportedFormat { detail: String },
+    #[error("archive error: {detail}")]
+    InvalidArchive { detail: String },
     #[error("imported content contained no usable {kind}")]
     NoContent { kind: &'static str },
 }

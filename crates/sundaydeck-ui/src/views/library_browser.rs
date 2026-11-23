@@ -144,6 +144,36 @@ pub fn render_library_section(
                 )
                 .child(
                     div()
+                        .id("btn-import-plan-drawer")
+                        .h(px(23.0))
+                        .px(px(8.0))
+                        .rounded(px(RADIUS_CONTROL))
+                        .cursor_pointer()
+                        .bg(TOKENS.signal_preview_tint)
+                        .border_1()
+                        .border_color(TOKENS.signal_preview)
+                        .flex()
+                        .items_center()
+                        .gap(px(5.0))
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.open_plan_importer(cx);
+                        }))
+                        .child(deck_icon(
+                            DeckIcon::Stack,
+                            IconSize::Sm,
+                            TOKENS.signal_preview,
+                        ))
+                        .child(
+                            div()
+                                .font_family(FONT_MONO)
+                                .text_color(TOKENS.signal_preview)
+                                .text_size(px(10.0))
+                                .font_weight(FontWeight::BOLD)
+                                .child("PPTX / DOCX"),
+                        ),
+                )
+                .child(
+                    div()
                         .id("btn-import-song")
                         .h(px(23.0))
                         .px(px(8.0))

@@ -58,6 +58,34 @@ pub fn build_deck_for_service_item(
                 build_scripture_slides(item.id, translation_code, reference, cached_verses);
             DeckCursor::try_new(Some(item.id), item.title.clone(), slides, theme)
         }
+        ServiceItemPayload::TextDeck {
+            slides: deck_slides,
+        } => {
+            let theme = item
+                .theme_override_id
+                .and_then(find_theme)
+                .or_else(|| default_target(ThemeTarget::General))
+                .unwrap_or(fallback_theme);
+            let slides: Vec<Slide> = deck_slides
+                .iter()
+                .enumerate()
+                .map(|(idx, s)| Slide {
+                    id: SlideId::from_v5(
+                        &SUNDAYDECK_NAMESPACE,
+                        format!("item:{}:textdeck:{idx}", item.id).as_bytes(),
+                    ),
+                    source_section_id: None,
+                    label: s.label.clone(),
+                    content: SlideContent::Text {
+                        body: s.body.clone(),
+                        section_label: Some(s.label.clone()),
+                        section_kind: None,
+                        footer: s.footer.clone(),
+                    },
+                })
+                .collect();
+            DeckCursor::try_new(Some(item.id), item.title.clone(), slides, theme)
+        }
         ServiceItemPayload::CustomSlide { body, footer } => {
             let theme = item
                 .theme_override_id

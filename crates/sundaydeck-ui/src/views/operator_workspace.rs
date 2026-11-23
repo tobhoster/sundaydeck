@@ -5,7 +5,8 @@ use gpui::{
     IntoElement, ParentElement, Render, Styled, Subscription, Window, div, rgba,
 };
 use sundaydeck_core::{
-    OutputOverride, PresentationCommand, ServiceItemId, SlideContent, Song, SongId,
+    GeneratedServicePlan, OutputOverride, PresentationCommand, ServiceItemId, SlideContent, Song,
+    SongId,
 };
 use sundaydeck_db::DbWorker;
 
@@ -23,6 +24,7 @@ use crate::views::bible_browser::BibleBrowserView;
 use crate::views::library_preview_pane::render_library_preview_pane;
 use crate::views::live_pane::render_live_pane;
 use crate::views::operator_header::render_operator_header;
+use crate::views::plan_import_modal::PlanImportModal;
 use crate::views::quick_edit_modal::{ModalClosed, QuickEditModal};
 use crate::views::schedule_pane::render_schedule_pane;
 use crate::views::song_editor_modal::{EditorTab, SongEditorModal};
@@ -39,6 +41,7 @@ pub enum ActiveModal {
     SongEditor(Entity<SongEditorModal>),
     QuickEdit(Entity<QuickEditModal>),
     AlertsTimers(Entity<AlertsTimersModal>),
+    PlanImporter(Entity<PlanImportModal>),
 }
 
 /// Primary 3-Pane Operator Workspace composing Service Schedule (Left),
@@ -184,6 +187,32 @@ impl OperatorWorkspace {
             this.close_modal(cx);
         }));
         self.active_modal = Some(ActiveModal::AlertsTimers(modal));
+        cx.notify();
+    }
+
+    pub fn open_plan_importer(&mut self, cx: &mut Context<Self>) {
+        self.open_plan_importer_with_plan(None, cx);
+    }
+
+    pub fn open_plan_importer_with_plan(
+        &mut self,
+        initial_plan: Option<(GeneratedServicePlan, usize)>,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.clone();
+        let db = self.db.clone();
+        let modal = cx.new(|cx| {
+            let mut m = PlanImportModal::new(store, db, cx);
+            if let Some((plan, selected)) = initial_plan {
+                m.set_plan_for_preview(plan, cx);
+                m.selected_item_idx = selected;
+            }
+            m
+        });
+        self.modal_sub = Some(cx.subscribe(&modal, |this, _, _: &ModalClosed, cx| {
+            this.close_modal(cx);
+        }));
+        self.active_modal = Some(ActiveModal::PlanImporter(modal));
         cx.notify();
     }
 
@@ -408,6 +437,9 @@ impl Render for OperatorWorkspace {
                 ActiveModal::QuickEdit(m) => ("modal-quick-edit", m.clone().into_any_element()),
                 ActiveModal::AlertsTimers(m) => {
                     ("modal-alerts-timers", m.clone().into_any_element())
+                }
+                ActiveModal::PlanImporter(m) => {
+                    ("modal-plan-importer", m.clone().into_any_element())
                 }
             };
             root = root.child(

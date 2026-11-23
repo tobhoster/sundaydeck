@@ -94,3 +94,45 @@ fn imports_openlyrics_song_and_external_xml_and_sqlite_bibles() {
     assert_eq!(ylt_hits.len(), 1);
     assert_eq!(ylt_hits[0].book_name, "Genesis");
 }
+
+#[test]
+fn pastor_plan_service_resolves_songs_bibles_and_persists_text_decks_in_sqlite() {
+    use sundaydeck_core::{PlanItemKind, ServiceId, ServiceSchedule, sample_pastor_sermon_outline};
+    use sundaydeck_db::plan_service::build_plan_from_text_sync;
+    use sundaydeck_db::service_repo::{get_service, upsert_service};
+
+    let mut db = Database::open_in_memory().expect("open db");
+    seed_defaults_if_empty(db.conn_mut()).expect("seed");
+
+    let plan = build_plan_from_text_sync(
+        db.conn(),
+        "sunday-sermon.docx",
+        sample_pastor_sermon_outline(),
+        "WEB",
+    )
+    .expect("build service plan");
+
+    assert_eq!(plan.sermon_title, "Walking in Unshakable Peace");
+    assert_eq!(plan.stats.songs_matched, 2);
+    assert_eq!(plan.stats.scriptures_resolved, 3);
+    assert!(
+        plan.items
+            .iter()
+            .any(|i| i.kind == PlanItemKind::SermonPoint)
+    );
+
+    let schedule = ServiceSchedule {
+        id: ServiceId::new_v7(),
+        title: plan.sermon_title.clone(),
+        service_date: Some("2026-11-23".to_owned()),
+        notes: "Generated from pastor upload".to_owned(),
+        items: plan.enabled_items(),
+    };
+    upsert_service(db.conn_mut(), &schedule).expect("persist generated schedule");
+
+    let reloaded = get_service(db.conn(), schedule.id)
+        .expect("load schedule")
+        .expect("schedule exists");
+    assert_eq!(reloaded.items.len(), schedule.items.len());
+    assert_eq!(reloaded.title, "Walking in Unshakable Peace");
+}

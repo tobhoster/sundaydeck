@@ -2,6 +2,7 @@ pub mod bible_repo;
 pub mod connection;
 pub mod error;
 pub mod media_repo;
+pub mod plan_service;
 pub mod seed;
 pub mod service_repo;
 pub mod settings_repo;

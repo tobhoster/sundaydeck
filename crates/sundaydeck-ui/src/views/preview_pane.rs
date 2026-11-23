@@ -204,14 +204,26 @@ pub fn render_preview_section(
                         .flex()
                         .items_center()
                         .justify_between()
+                        .gap(px(6.0))
                         .child(
                             div()
+                                .flex_1()
+                                .min_w_0()
+                                .overflow_hidden()
                                 .flex()
                                 .items_center()
                                 .gap(px(6.0))
-                                .child(section_tag(&short_code, strip_color))
                                 .child(
                                     div()
+                                        .flex_shrink_0()
+                                        .child(section_tag(&short_code, strip_color)),
+                                )
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .overflow_hidden()
+                                        .whitespace_nowrap()
                                         .font_family(FONT_MONO)
                                         .text_color(TOKENS.ink_secondary)
                                         .text_size(px(9.5))
@@ -220,6 +232,7 @@ pub fn render_preview_section(
                         )
                         .child(
                             div()
+                                .flex_shrink_0()
                                 .font_family(FONT_MONO)
                                 .text_color(if is_selected {
                                     TOKENS.signal_preview

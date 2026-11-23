@@ -215,7 +215,11 @@ pub fn section_short_code(label: &str, kind: Option<SectionKind>) -> String {
         Some(SectionKind::Intro) => "IN".to_owned(),
         Some(SectionKind::Interlude) => "INT".to_owned(),
         Some(SectionKind::Other) | None => {
-            if trimmed.contains(':') {
+            let looks_like_scripture_ref = trimmed
+                .as_bytes()
+                .windows(3)
+                .any(|w| w[0].is_ascii_digit() && w[1] == b':' && w[2].is_ascii_digit());
+            if looks_like_scripture_ref {
                 "SCR".to_owned()
             } else {
                 "SLD".to_owned()
@@ -240,7 +244,9 @@ pub fn payload_icon(payload: &ServiceItemPayload, active: bool) -> DeckIcon {
                 DeckIcon::BookOpenText
             }
         }
-        ServiceItemPayload::Presentation { .. } | ServiceItemPayload::CustomSlide { .. } => {
+        ServiceItemPayload::Presentation { .. }
+        | ServiceItemPayload::TextDeck { .. }
+        | ServiceItemPayload::CustomSlide { .. } => {
             if active {
                 DeckIcon::StackFill
             } else {

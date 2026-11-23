@@ -109,6 +109,7 @@ pub fn upsert_service(conn: &mut Connection, schedule: &ServiceSchedule) -> Resu
             ),
             ServiceItemPayload::Scripture { .. }
             | ServiceItemPayload::Presentation { .. }
+            | ServiceItemPayload::TextDeck { .. }
             | ServiceItemPayload::AnnouncementLoop { .. }
             | ServiceItemPayload::CustomSlide { .. } => (None, None, None),
         };

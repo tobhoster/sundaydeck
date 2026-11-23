@@ -4,8 +4,9 @@ use std::sync::Arc;
 use gpui::{AppContext as _, px, size};
 use gpui_screenshot::ScreenshotApp;
 use sundaydeck_core::{
-    AlertPosition, AlertTimeout, AudienceAlert, OutputOverride, PresentationCommand, ReflowMode,
-    ServiceTimer, parse_scripture_ref,
+    AlertPosition, AlertTimeout, AudienceAlert, OutputOverride, PlanApplyMode, PlanItemKind,
+    PresentationCommand, ReflowMode, ServiceTimer, parse_scripture_ref,
+    sample_pastor_sermon_outline,
 };
 use sundaydeck_db::{Database, DbWorker};
 use sundaydeck_ui::design::gallery::{DesignGalleryView, GalleryPage};
@@ -355,6 +356,60 @@ fn render_all_design_gallery_and_console_windows_via_headless_vulkan() {
         .save(out_dir.join("12-phase2-stage-timer-overtime.png"))
         .expect("save 12");
 
+    // 9. Pastor PPTX/DOCX Plan Importer modal + Applied Layered Service Schedule
+    let generated_plan = sundaydeck_db::plan_service::build_plan_from_text_sync(
+        mem_db.conn(),
+        "walking-in-peace.docx",
+        sample_pastor_sermon_outline(),
+        "WEB",
+    )
+    .expect("generate sample pastor plan");
+    let sermon_idx = generated_plan
+        .items
+        .iter()
+        .position(|i| i.kind == PlanItemKind::SermonPoint)
+        .unwrap_or(0);
+    let plan_for_modal = generated_plan.clone();
+
+    app.update_window(op_win.into(), move |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.open_plan_importer_with_plan(Some((plan_for_modal, sermon_idx)), cx);
+            });
+        }
+    })
+    .expect("open pastor plan importer modal");
+
+    app.capture(op_win)
+        .expect("capture 14 pastor plan importer modal")
+        .image
+        .save(out_dir.join("14-pastor-plan-importer-modal.png"))
+        .expect("save 14");
+
+    // Apply the generated plan directly to the Service Schedule and stage the Sermon Point deck!
+    let sermon_item_id = generated_plan.items[sermon_idx].id;
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.close_modal(cx);
+            });
+        }
+    })
+    .expect("close plan modal");
+    app.update(|cx| {
+        store.update(cx, |s, cx| {
+            s.voice_sync_mode = VoiceSyncMode::Off;
+            let _ = s.apply_generated_plan(&generated_plan, PlanApplyMode::ReplaceSchedule, cx);
+            s.activate_service_item(sermon_item_id, cx);
+        });
+    });
+
+    app.capture(op_win)
+        .expect("capture 15 operator after plan applied")
+        .image
+        .save(out_dir.join("15-operator-after-plan-applied.png"))
+        .expect("save 15");
+
     for entry in [
         "00a-ui-gallery-console.png",
         "00b-ui-gallery-projection-icons.png",
@@ -371,6 +426,8 @@ fn render_all_design_gallery_and_console_windows_via_headless_vulkan() {
         "11-phase2-stage-timer-warning.png",
         "12-phase2-stage-timer-overtime.png",
         "13-operator-override-blackout.png",
+        "14-pastor-plan-importer-modal.png",
+        "15-operator-after-plan-applied.png",
     ] {
         let path = out_dir.join(entry);
         let meta = std::fs::metadata(&path).expect("screenshot exists");

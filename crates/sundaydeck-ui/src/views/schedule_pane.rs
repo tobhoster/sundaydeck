@@ -223,10 +223,47 @@ pub fn render_schedule_pane(
                 )
                 .child(
                     div()
-                        .font_family(FONT_MONO)
-                        .text_color(TOKENS.ink_muted)
-                        .text_size(px(10.0))
-                        .child(format!("{item_count:02}")),
+                        .flex()
+                        .items_center()
+                        .gap(px(6.0))
+                        .child(
+                            div()
+                                .font_family(FONT_MONO)
+                                .text_color(TOKENS.ink_muted)
+                                .text_size(px(10.0))
+                                .child(format!("{item_count:02}")),
+                        )
+                        .child(
+                            div()
+                                .id("btn-schedule-import-plan")
+                                .h(px(21.0))
+                                .px(px(6.0))
+                                .rounded(px(RADIUS_CONTROL))
+                                .cursor_pointer()
+                                .bg(TOKENS.elevated)
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
+                                .border_1()
+                                .border_color(TOKENS.focus_border)
+                                .flex()
+                                .items_center()
+                                .gap(px(4.0))
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.open_plan_importer(cx);
+                                }))
+                                .child(deck_icon(
+                                    DeckIcon::UploadSimple,
+                                    IconSize::Sm,
+                                    TOKENS.signal_preview,
+                                ))
+                                .child(
+                                    div()
+                                        .font_family(FONT_MONO)
+                                        .text_color(TOKENS.ink_primary)
+                                        .text_size(px(9.0))
+                                        .font_weight(FontWeight::BOLD)
+                                        .child("PLAN"),
+                                ),
+                        ),
                 ),
         )
         .child(list)
