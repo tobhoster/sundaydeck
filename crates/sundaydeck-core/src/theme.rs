@@ -107,10 +107,29 @@ pub enum BackgroundSpec {
     },
     Image {
         asset_id: MediaAssetId,
+        /// Embedded asset key (e.g. `"backgrounds/sanctuary-mountains.jpg"`) or local file path.
+        #[serde(default)]
+        uri: Option<String>,
         fit: ImageFit,
         /// Darkening overlay in `[0.0, 1.0]` to guarantee lyric contrast.
         scrim_opacity: f32,
     },
+    VideoLoop {
+        asset_id: MediaAssetId,
+        /// Embedded motion key (e.g. `"video/golden-light-loop.mp4"`) or local `.mp4`/`.webm` path.
+        uri: String,
+        /// Still poster fallback URI (shown immediately or when motion is set to Instant).
+        poster_uri: String,
+        /// Target loop keyframe rate for smooth GPU crossfade playback.
+        #[serde(default = "default_video_fps")]
+        fps: f32,
+        /// Darkening overlay in `[0.0, 1.0]` to guarantee lyric contrast over motion footage.
+        scrim_opacity: f32,
+    },
+}
+
+const fn default_video_fps() -> f32 {
+    1.0
 }
 
 impl BackgroundSpec {
@@ -119,6 +138,7 @@ impl BackgroundSpec {
             Self::Solid { .. } => "solid",
             Self::LinearGradient { .. } => "linear_gradient",
             Self::Image { .. } => "image",
+            Self::VideoLoop { .. } => "video_loop",
         }
     }
 }

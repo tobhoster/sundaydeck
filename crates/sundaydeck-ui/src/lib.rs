@@ -2,6 +2,7 @@ pub mod actions;
 pub mod components;
 pub mod deck_builder;
 pub mod design;
+pub mod media;
 pub mod palette;
 pub mod renderer;
 pub mod store;

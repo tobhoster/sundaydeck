@@ -94,15 +94,21 @@ impl OperatorWorkspace {
         let bible_db = db.clone();
         let bible_browser = cx.new(|cx| BibleBrowserView::new(bible_store, bible_db, cx));
 
-        // 1-second background heartbeat for live timer display updates & auto-dismissing alerts.
+        // Background heartbeat for live timers, expiring alerts, and looping motion-video frames.
         let tick_store = store.downgrade();
         cx.spawn(async move |_, cx| {
             loop {
-                cx.background_executor().timer(Duration::from_secs(1)).await;
+                cx.background_executor().timer(Duration::from_millis(250)).await;
                 let keep_going = tick_store
                     .update(cx, |s, cx| {
                         let snap = s.snapshot();
                         let now = s.now_epoch_ms();
+                        let video_active = s.motion_mode != crate::design::motion::MotionMode::Instant
+                            && matches!(
+                                &snap.audience,
+                                sundaydeck_core::AudienceRenderState::Slide { theme, .. }
+                                    if matches!(theme.background, sundaydeck_core::BackgroundSpec::VideoLoop { .. })
+                            );
                         if snap
                             .active_alert
                             .as_ref()
@@ -112,7 +118,8 @@ impl OperatorWorkspace {
                                 PresentationCommand::ExpireAlertIfDue { now_ms: now },
                                 cx,
                             );
-                        } else if snap.active_timer.as_ref().is_some_and(|t| t.running)
+                        } else if video_active
+                            || snap.active_timer.as_ref().is_some_and(|t| t.running)
                             || snap
                                 .active_alert
                                 .as_ref()

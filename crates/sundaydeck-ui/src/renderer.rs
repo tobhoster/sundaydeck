@@ -1,16 +1,17 @@
 use gpui::{
-    AnyElement, App, Background, Div, FontWeight, IntoElement, ParentElement, Pixels, SharedString,
-    Styled, div, linear_color_stop, linear_gradient, px, rgb, rgba,
+    AnyElement, App, Div, FontWeight, IntoElement, ParentElement, Pixels, SharedString, Styled,
+    div, px, rgb,
 };
 use sundaydeck_core::{
-    AlertPosition, AudienceAlert, AudienceRenderState, BackgroundSpec, HorizontalAlign,
-    ServiceTimer, Slide, SlideContent, Theme, TimerUrgency, VerticalAlign,
+    AlertPosition, AudienceAlert, AudienceRenderState, HorizontalAlign, ServiceTimer, Slide,
+    SlideContent, Theme, TimerUrgency, VerticalAlign,
 };
 
 use crate::design::fonts::resolve_font_family as resolve_bundled_font;
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, TOKENS, rgba8_to_gpui, weight_from_u16,
 };
+use crate::media::apply_theme_background;
 
 /// Renders the exact Audience Output canvas at any scale (both full-resolution projector
 /// and miniature 16:9 Operator Monitor preview) for pixel-faithful WYSIWYG.
@@ -174,7 +175,6 @@ fn render_slide_canvas(
     cx: &App,
 ) -> Div {
     let font_family = resolve_font_family(&theme.font_family, cx);
-    let bg = theme_background(&theme.background);
 
     let canvas_w = Theme::REFERENCE_WIDTH_PX * scale;
     let canvas_h = Theme::REFERENCE_HEIGHT_PX * scale;
@@ -183,23 +183,15 @@ fn render_slide_canvas(
     let pad_b = px(canvas_h * theme.margins.bottom_pct);
     let pad_l = px(canvas_w * theme.margins.left_pct);
 
-    let mut root = div()
-        .relative()
-        .size_full()
-        .overflow_hidden()
-        .bg(bg)
-        .font_family(font_family);
-
-    if let BackgroundSpec::Image { scrim_opacity, .. } = &theme.background
-        && *scrim_opacity > 0.0
-    {
-        root = root.child(
-            div()
-                .absolute()
-                .inset_0()
-                .bg(rgba(0x0000_00FF).alpha(scrim_opacity.clamp(0.0, 1.0))),
-        );
-    }
+    let mut root = apply_theme_background(
+        div()
+            .relative()
+            .size_full()
+            .overflow_hidden()
+            .font_family(font_family),
+        &theme.background,
+        now_ms,
+    );
 
     if show_text {
         root = root.child(render_slide_foreground(
@@ -411,21 +403,5 @@ fn render_audience_alert_banner(alert: &AudienceAlert, scale: f32) -> Div {
             .right(px(0.0))
             .flex()
             .justify_center(),
-    }
-}
-
-fn theme_background(spec: &BackgroundSpec) -> Background {
-    match spec {
-        BackgroundSpec::Solid { color } => rgba8_to_gpui(*color).into(),
-        BackgroundSpec::LinearGradient {
-            start,
-            end,
-            angle_deg,
-        } => linear_gradient(
-            *angle_deg,
-            linear_color_stop(rgba8_to_gpui(*start), 0.0),
-            linear_color_stop(rgba8_to_gpui(*end), 1.0),
-        ),
-        BackgroundSpec::Image { .. } => TOKENS.canvas.into(),
     }
 }
