@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgb, rgba,
+    Context, Div, FontWeight, InteractiveElement, ObjectFit, ParentElement,
+    StatefulInteractiveElement, Styled, StyledImage, div, img, px, rgb, rgba,
 };
 use sundaydeck_core::{BackgroundSpec, PresentationCommand, ReflowMode, SlideContent};
 
@@ -14,7 +14,7 @@ use crate::design::primitives::{
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
 };
-use crate::media::apply_theme_background;
+use crate::media::{apply_theme_background, load_background_image};
 use crate::views::operator_workspace::OperatorWorkspace;
 
 const TILE_W_PX: f32 = 256.0;
@@ -54,6 +54,8 @@ pub fn render_preview_section(
             active_theme.background.clone(),
         ),
     };
+
+    let preview_loop_secs = preview.as_ref().and_then(|c| c.loop_interval_secs);
 
     let mut reflow_bar = div()
         .flex()
@@ -221,34 +223,57 @@ pub fn render_preview_section(
             .flex()
             .flex_col();
 
-        let mut styled_tile = if has_media_bg {
+        let slide_image = match &slide.content {
+            SlideContent::Image { uri, .. } => uri.as_deref().and_then(load_background_image),
+            _ => None,
+        };
+
+        let mut styled_tile = if let Some(render_img) = slide_image.clone() {
+            base_tile
+                .bg(rgb(0x0B0C0E))
+                .child(
+                    img(render_img)
+                        .absolute()
+                        .inset_0()
+                        .size_full()
+                        .object_fit(ObjectFit::Cover),
+                )
+                .child(div().absolute().inset_0().bg(rgba(0x0B0C_0E66)))
+        } else if has_media_bg {
             apply_theme_background(base_tile, &preview_bg_spec, now_ms)
         } else {
             base_tile.bg(TOKENS.slide_card)
         };
 
-        styled_tile = styled_tile
-            .child(
-                div()
-                    .relative()
-                    .w_full()
-                    .px(px(11.0))
-                    .pt(px(8.0))
-                    .pb(px(3.0))
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .gap(px(6.0))
-                    .child(section_meta_label(&slide.label, sec_kind))
-                    .child(
-                        div()
-                            .font_family(FONT_BODY)
-                            .text_color(TOKENS.ink_muted)
-                            .text_size(px(10.5))
-                            .child(format!("{}", idx + 1)),
-                    ),
-            )
-            .child(
+        styled_tile = styled_tile.child(
+            div()
+                .relative()
+                .w_full()
+                .px(px(11.0))
+                .pt(px(8.0))
+                .pb(px(3.0))
+                .flex()
+                .items_center()
+                .justify_between()
+                .gap(px(6.0))
+                .child(section_meta_label(&slide.label, sec_kind))
+                .child(
+                    div()
+                        .font_family(FONT_BODY)
+                        .text_color(if slide_image.is_some() {
+                            TOKENS.ink_primary
+                        } else {
+                            TOKENS.ink_muted
+                        })
+                        .text_size(px(10.5))
+                        .child(format!("{}", idx + 1)),
+                ),
+        );
+
+        if slide_image.is_some() {
+            styled_tile = styled_tile.child(div().flex_1());
+        } else {
+            styled_tile = styled_tile.child(
                 div()
                     .relative()
                     .flex_1()
@@ -272,6 +297,7 @@ pub fn render_preview_section(
                             .child(raw_text.to_owned()),
                     ),
             );
+        }
 
         if is_selected {
             styled_tile = styled_tile
@@ -309,10 +335,10 @@ pub fn render_preview_section(
         );
     }
 
-    let count_copy = if slide_count == 1 {
-        "1 slide".to_owned()
-    } else {
-        format!("{slide_count} slides")
+    let count_copy = match preview_loop_secs {
+        Some(secs) => format!("{slide_count} slides · Loop {secs}s"),
+        None if slide_count == 1 => "1 slide".to_owned(),
+        None => format!("{slide_count} slides"),
     };
 
     div()

@@ -181,9 +181,13 @@ fn media_assets_deduplicate_by_sha256_and_settings_roundtrip() {
     let settings = AppSettings {
         church_name: "River Valley Church".to_owned(),
         logo_asset_id: Some(saved_a.id),
+        logo_uri: Some("/tmp/river-valley-logo.png".to_owned()),
         direct_click_live: true,
         audience_display_uuid: Some("display-2".to_owned()),
         stage_display_uuid: None,
+        motion_mode: "crossfade".to_owned(),
+        voice_advance_threshold_pct: 75,
+        ..AppSettings::default()
     };
     save_settings(db.conn(), &settings).expect("save settings");
     let loaded = load_settings(db.conn()).expect("load settings");

@@ -1,6 +1,6 @@
 use gpui::{
-    AnyElement, App, Div, FontWeight, IntoElement, ParentElement, Pixels, SharedString, Styled,
-    div, px, rgb,
+    AnyElement, App, Div, FontWeight, IntoElement, ObjectFit, ParentElement, Pixels, SharedString,
+    Styled, StyledImage, div, img, px, rgb,
 };
 use sundaydeck_core::{
     AlertPosition, AudienceAlert, AudienceRenderState, HorizontalAlign, ServiceTimer, Slide,
@@ -11,7 +11,7 @@ use crate::design::fonts::resolve_font_family as resolve_bundled_font;
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, TOKENS, rgba8_to_gpui, weight_from_u16,
 };
-use crate::media::apply_theme_background;
+use crate::media::{apply_theme_background, load_background_image};
 
 /// Renders the exact Audience Output canvas at any scale (both full-resolution projector
 /// and miniature 16:9 Operator Monitor preview) for pixel-faithful WYSIWYG.
@@ -25,11 +25,18 @@ pub fn render_audience_canvas(
     match state {
         AudienceRenderState::Black { .. } => div().size_full().bg(rgb(0x000000)).into_any_element(),
         AudienceRenderState::Logo {
+            logo_uri,
             fallback_title,
             audience_timer,
             ..
-        } => render_logo_splash(fallback_title, audience_timer.as_ref(), now_ms, scale)
-            .into_any_element(),
+        } => render_logo_splash(
+            logo_uri.as_deref(),
+            fallback_title,
+            audience_timer.as_ref(),
+            now_ms,
+            scale,
+        )
+        .into_any_element(),
         AudienceRenderState::Slide {
             slide,
             theme,
@@ -57,6 +64,7 @@ pub fn resolve_font_family(requested: &str, cx: &App) -> SharedString {
 }
 
 fn render_logo_splash(
+    logo_uri: Option<&str>,
     church_name: &str,
     timer: Option<&ServiceTimer>,
     now_ms: i64,
@@ -74,6 +82,48 @@ fn render_logo_splash(
     let sub_px = px((20.0 * scale).max(6.0));
     let gap = px((22.0 * scale).max(4.0));
 
+    let logo_mark = if let Some(render_img) = logo_uri.and_then(load_background_image) {
+        div()
+            .w(px((360.0 * scale).max(44.0)))
+            .h(px((200.0 * scale).max(26.0)))
+            .rounded(px((12.0 * scale).max(3.0)))
+            .overflow_hidden()
+            .border(border_w)
+            .border_color(TOKENS.gridline)
+            .bg(TOKENS.pane)
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(img(render_img).size_full().object_fit(ObjectFit::Contain))
+    } else {
+        div()
+            .w(mark_size)
+            .h(mark_size)
+            .rounded(px((4.0 * scale).max(2.0)))
+            .border(border_w)
+            .border_color(TOKENS.gridline)
+            .bg(TOKENS.pane)
+            .flex()
+            .flex_col()
+            .items_center()
+            .justify_center()
+            .gap(px((6.0 * scale).max(1.0)))
+            .child(
+                div()
+                    .w(px((40.0 * scale).max(6.0)))
+                    .h(px((3.0 * scale).max(1.0)))
+                    .bg(TOKENS.signal_preview),
+            )
+            .child(
+                div()
+                    .font_family(FONT_DISPLAY)
+                    .text_color(TOKENS.ink_primary)
+                    .text_size(px((44.0 * scale).max(9.0)))
+                    .font_weight(FontWeight::BOLD)
+                    .child("SD"),
+            )
+    };
+
     let mut root = div()
         .size_full()
         .bg(TOKENS.canvas)
@@ -82,34 +132,7 @@ fn render_logo_splash(
         .items_center()
         .justify_center()
         .gap(gap)
-        .child(
-            div()
-                .w(mark_size)
-                .h(mark_size)
-                .rounded(px((4.0 * scale).max(2.0)))
-                .border(border_w)
-                .border_color(TOKENS.gridline)
-                .bg(TOKENS.pane)
-                .flex()
-                .flex_col()
-                .items_center()
-                .justify_center()
-                .gap(px((6.0 * scale).max(1.0)))
-                .child(
-                    div()
-                        .w(px((40.0 * scale).max(6.0)))
-                        .h(px((3.0 * scale).max(1.0)))
-                        .bg(TOKENS.signal_preview),
-                )
-                .child(
-                    div()
-                        .font_family(FONT_DISPLAY)
-                        .text_color(TOKENS.ink_primary)
-                        .text_size(px((44.0 * scale).max(9.0)))
-                        .font_weight(FontWeight::BOLD)
-                        .child("SD"),
-                ),
-        )
+        .child(logo_mark)
         .child(
             div()
                 .font_family(FONT_DISPLAY)
@@ -295,7 +318,18 @@ fn render_slide_foreground(
                 );
             }
         }
-        SlideContent::Image { caption, .. } => {
+        SlideContent::Image { uri, caption, .. } => {
+            if let Some(render_img) = uri.as_deref().and_then(load_background_image) {
+                return div()
+                    .absolute()
+                    .inset_0()
+                    .size_full()
+                    .bg(rgb(0x0B0C0E))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .child(img(render_img).size_full().object_fit(ObjectFit::Contain));
+            }
             container = container.child(
                 div()
                     .px(px((24.0 * scale).max(6.0)))

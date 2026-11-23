@@ -30,6 +30,8 @@ pub struct DeckCursor {
     pub slides: Arc<[Slide]>,
     pub active_index: usize,
     pub theme: Arc<Theme>,
+    /// Auto-advance interval in seconds for timed Pre-Service Announcement Loops.
+    pub loop_interval_secs: Option<u16>,
 }
 
 impl DeckCursor {
@@ -50,7 +52,14 @@ impl DeckCursor {
             slides: Arc::from(slides),
             active_index: 0,
             theme,
+            loop_interval_secs: None,
         })
+    }
+
+    /// Attaches a timed auto-loop interval in seconds (clamped to >= 2s when present).
+    pub fn with_loop_interval(mut self, interval_secs: Option<u16>) -> Self {
+        self.loop_interval_secs = interval_secs.map(|s| s.max(2));
+        self
     }
 
     pub fn active_slide(&self) -> Option<&Slide> {
@@ -90,6 +99,7 @@ pub enum AudienceRenderState {
     },
     Logo {
         asset_id: Option<MediaAssetId>,
+        logo_uri: Option<String>,
         fallback_title: String,
         audience_timer: Option<ServiceTimer>,
         transition_ms: u16,

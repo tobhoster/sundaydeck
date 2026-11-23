@@ -13,6 +13,7 @@ pub mod plan_builder;
 pub mod plan_matchers;
 pub mod reflow;
 pub mod scripture;
+pub mod sdeck_bundle;
 pub mod service;
 pub mod slide;
 pub mod snapshot;
@@ -47,6 +48,9 @@ pub use reflow::reflow_song;
 pub use scripture::{
     BibleTranslation, BibleVerse, PaginationBudget, ScriptureRef, paginate_scripture,
     parse_scripture_ref,
+};
+pub use sdeck_bundle::{
+    SdeckBundle, SdeckExportReport, SdeckManifest, export_sdeck_bundle, import_sdeck_bundle,
 };
 pub use service::{ServiceItem, ServiceItemPayload, ServiceSchedule, TextDeckSlide};
 pub use slide::{Slide, SlideContent};

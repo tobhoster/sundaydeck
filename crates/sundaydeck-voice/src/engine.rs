@@ -38,6 +38,12 @@ pub enum VoiceCommand {
     /// Runs a live timed rehearsal of the active deck so volunteers can verify Auto-Follow offline.
     StartRehearsalDemo,
     StopRehearsalDemo,
+    /// Applies updated endpoint URL, advance confidence threshold, and override-lock settings live.
+    UpdateConfig {
+        asr_endpoint_url: String,
+        advance_confidence_threshold: f32,
+        lock_during_override: bool,
+    },
     Shutdown,
 }
 
@@ -238,6 +244,24 @@ fn handle_command(state: &mut WorkerState, cmd: VoiceCommand, event_tx: &Sender<
         VoiceCommand::StopRehearsalDemo => {
             state.rehearsal_queue.clear();
             state.telemetry.rehearsal_running = false;
+            emit_telemetry(&state.telemetry, event_tx);
+        }
+        VoiceCommand::UpdateConfig {
+            asr_endpoint_url,
+            advance_confidence_threshold,
+            lock_during_override,
+        } => {
+            state.config.asr_endpoint_url = asr_endpoint_url.clone();
+            state.config.advance_confidence_threshold =
+                advance_confidence_threshold.clamp(0.45, 0.95);
+            state.config.lock_during_override = lock_during_override;
+            state.whisper = WhisperHttpClient::new(asr_endpoint_url);
+            state.whisper_online = state.whisper.is_server_reachable();
+            state.telemetry.backend_label = if state.whisper_online {
+                "Local Whisper Server (Ready)".to_owned()
+            } else {
+                "Offline Aligner · Rehearsal Ready".to_owned()
+            };
             emit_telemetry(&state.telemetry, event_tx);
         }
         VoiceCommand::Shutdown => {}

@@ -20,18 +20,31 @@ pub enum PresentationCommand {
     SelectLiveSlide(usize),
     NextLiveSlide,
     PrevLiveSlide,
+    /// Advances a timed Pre-Service Announcement Loop (wrapping back to slide 0).
+    /// No-ops safely while a screen override (`Black`, `Logo`, `ClearText`) is latched.
+    AdvanceLiveLoop,
     ToggleOverride(OutputOverride),
     SetOverride(OutputOverride),
-    PatchLiveSlideText { slide_id: SlideId, new_body: String },
+    PatchLiveSlideText {
+        slide_id: SlideId,
+        new_body: String,
+    },
     ApplyLiveTheme(Arc<Theme>),
     SetLogoAsset(Option<MediaAssetId>),
+    SetLogoUri(Option<String>),
     SetChurchName(String),
     SetStageMessage(Option<String>),
     SetAudienceAlert(Option<AudienceAlert>),
-    ExpireAlertIfDue { now_ms: i64 },
+    ExpireAlertIfDue {
+        now_ms: i64,
+    },
     SetTimer(Option<ServiceTimer>),
-    StartTimer { now_ms: i64 },
-    PauseTimer { now_ms: i64 },
+    StartTimer {
+        now_ms: i64,
+    },
+    PauseTimer {
+        now_ms: i64,
+    },
     ResetTimer,
     SetDirectClickLive(bool),
     SetNextItemFirstSlide(Option<Slide>),
@@ -61,6 +74,7 @@ pub struct PresentationEngine {
     output_override: OutputOverride,
     direct_click_live: bool,
     logo_asset_id: Option<MediaAssetId>,
+    logo_uri: Option<String>,
     church_name: String,
     stage_message: Option<String>,
     audience_alert: Option<AudienceAlert>,
@@ -78,6 +92,7 @@ impl PresentationEngine {
             output_override: OutputOverride::None,
             direct_click_live: false,
             logo_asset_id,
+            logo_uri: None,
             church_name: church_name.into(),
             stage_message: None,
             audience_alert: None,
@@ -142,6 +157,28 @@ impl PresentationEngine {
             }
             PresentationCommand::NextLiveSlide => self.step_live(1)?,
             PresentationCommand::PrevLiveSlide => self.step_live(-1)?,
+            PresentationCommand::AdvanceLiveLoop => {
+                if self.output_override != OutputOverride::None {
+                    return Ok(EngineTransition {
+                        kind: TransitionKind::StageOnly,
+                        snapshot: Arc::clone(&self.cached_snapshot),
+                    });
+                }
+                let Some(live) = self.live.as_mut() else {
+                    return Ok(EngineTransition {
+                        kind: TransitionKind::StageOnly,
+                        snapshot: Arc::clone(&self.cached_snapshot),
+                    });
+                };
+                if live.loop_interval_secs.is_none() || live.slides.len() <= 1 {
+                    return Ok(EngineTransition {
+                        kind: TransitionKind::StageOnly,
+                        snapshot: Arc::clone(&self.cached_snapshot),
+                    });
+                }
+                live.active_index = (live.active_index + 1) % live.slides.len();
+                TransitionKind::LiveCrossfade
+            }
             PresentationCommand::ToggleOverride(target) => {
                 self.output_override = if self.output_override == target {
                     OutputOverride::None
@@ -160,6 +197,10 @@ impl PresentationEngine {
             PresentationCommand::ApplyLiveTheme(theme) => self.apply_live_theme(theme)?,
             PresentationCommand::SetLogoAsset(asset_id) => {
                 self.logo_asset_id = asset_id;
+                TransitionKind::OverrideChanged
+            }
+            PresentationCommand::SetLogoUri(uri) => {
+                self.logo_uri = uri.filter(|u| !u.trim().is_empty());
                 TransitionKind::OverrideChanged
             }
             PresentationCommand::SetChurchName(name) => {
@@ -348,6 +389,7 @@ impl PresentationEngine {
             },
             OutputOverride::Logo => AudienceRenderState::Logo {
                 asset_id: self.logo_asset_id,
+                logo_uri: self.logo_uri.clone(),
                 fallback_title: self.church_name.clone(),
                 audience_timer: self.audience_visible_timer(),
                 transition_ms: default_ms,

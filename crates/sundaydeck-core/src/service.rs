@@ -33,12 +33,16 @@ pub enum ServiceItemPayload {
     },
     Presentation {
         slide_asset_ids: Vec<MediaAssetId>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        slide_uris: Vec<String>,
     },
     TextDeck {
         slides: Vec<TextDeckSlide>,
     },
     AnnouncementLoop {
         slide_asset_ids: Vec<MediaAssetId>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        slide_uris: Vec<String>,
         interval_secs: u16,
     },
     CustomSlide {

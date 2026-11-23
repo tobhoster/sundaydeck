@@ -28,7 +28,15 @@ fn main() -> anyhow::Result<()> {
             }
             register_keybindings(cx);
 
-            let voice_handle = VoiceEngineHandle::spawn(VoiceConfig::default());
+            let voice_cfg = VoiceConfig {
+                asr_endpoint_url: bootstrap.settings.whisper_url.clone(),
+                advance_confidence_threshold: f32::from(
+                    bootstrap.settings.voice_advance_threshold_pct,
+                ) / 100.0,
+                lock_during_override: bootstrap.settings.voice_lock_during_override,
+                ..VoiceConfig::default()
+            };
+            let voice_handle = VoiceEngineHandle::spawn(voice_cfg);
             let voice_for_close = voice_handle.clone();
             let store = cx.new(|_| {
                 let mut s = PresentationStore::from_bootstrap(bootstrap);

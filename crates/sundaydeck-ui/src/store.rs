@@ -46,6 +46,7 @@ pub struct PresentationStore {
     pub songs: Vec<Song>,
     pub filtered_song_ids: Option<Vec<SongId>>,
     pub song_search_query: String,
+    pub services: Vec<ServiceSchedule>,
     pub service: ServiceSchedule,
     pub selected_service_item_id: Option<ServiceItemId>,
     pub preview_reflow_mode: ReflowMode,
@@ -62,6 +63,7 @@ pub struct PresentationStore {
     pub voice_telemetry: VoiceTelemetry,
     pub voice_devices: Vec<AudioInputDevice>,
     pub(crate) voice_engine: Option<VoiceEngineHandle>,
+    pub(crate) last_loop_advance_ms: i64,
 }
 
 impl EventEmitter<StoreEvent> for PresentationStore {}
@@ -72,16 +74,24 @@ impl PresentationStore {
             data.settings.logo_asset_id,
             data.settings.church_name.clone(),
         );
+        let _ = engine.dispatch(PresentationCommand::SetLogoUri(
+            data.settings.logo_uri.clone(),
+        ));
         let _ = engine.dispatch(PresentationCommand::SetDirectClickLive(
             data.settings.direct_click_live,
         ));
 
+        let motion_mode = match data.settings.motion_mode.as_str() {
+            "crossfade" => MotionMode::CrossfadeOnly,
+            "instant" => MotionMode::Instant,
+            _ => MotionMode::Full,
+        };
         let themes: Vec<Arc<Theme>> = data.themes.into_iter().map(Arc::new).collect();
-        let service = data
-            .services
-            .into_iter()
-            .next()
-            .unwrap_or_else(sundaydeck_core::defaults::default_sample_service);
+        let mut services = data.services;
+        if services.is_empty() {
+            services.push(sundaydeck_core::defaults::default_sample_service());
+        }
+        let service = services[0].clone();
         let active_translation_code = data
             .bible_translations
             .iter()
@@ -97,6 +107,7 @@ impl PresentationStore {
             songs: data.loaded_songs,
             filtered_song_ids: None,
             song_search_query: String::new(),
+            services,
             service,
             selected_service_item_id: None,
             preview_reflow_mode: ReflowMode::ByStanza,
@@ -111,11 +122,12 @@ impl PresentationStore {
             status_banner: None,
             clock_override_ms: None,
             fixed_clock_label: None,
-            motion_mode: MotionMode::Full,
+            motion_mode,
             voice_sync_mode: VoiceSyncMode::Off,
             voice_telemetry: VoiceTelemetry::default(),
             voice_devices: Vec::new(),
             voice_engine: None,
+            last_loop_advance_ms: 0,
         };
 
         if let Some(first_item) = store.service.items.first().cloned() {
@@ -181,6 +193,7 @@ impl PresentationStore {
             sundaydeck_core::TransitionKind::LiveCrossfade
                 | sundaydeck_core::TransitionKind::OverrideChanged
         ) {
+            self.last_loop_advance_ms = self.now_epoch_ms();
             self.voice_telemetry.suggested_slide_index = None;
             self.voice_telemetry.active_slide_progress = 0.0;
             self.sync_voice_engine_state();

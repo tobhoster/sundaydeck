@@ -5,8 +5,7 @@ use gpui::{
     IntoElement, ParentElement, Render, Styled, Subscription, Window, div, rgba,
 };
 use sundaydeck_core::{
-    GeneratedServicePlan, OutputOverride, PresentationCommand, ServiceItemId, SlideContent, Song,
-    SongId,
+    GeneratedServicePlan, OutputOverride, PresentationCommand, SlideContent, Song,
 };
 use sundaydeck_db::DbWorker;
 
@@ -15,7 +14,7 @@ use crate::actions::{
     PrevLiveSlide, QuitApp, ToggleAudienceWindow, ToggleBlack, ToggleClearText,
     ToggleDirectClickLive, ToggleLogo, ToggleQuickEdit, ToggleStageWindow,
 };
-use crate::components::{TextInput, TextInputEvent};
+use crate::components::TextInput;
 use crate::design::motion::modal_enter;
 use crate::design::tokens::{FONT_BODY, TOKENS};
 use crate::store::PresentationStore;
@@ -29,6 +28,7 @@ use crate::views::operator_header::render_operator_header;
 use crate::views::plan_import_modal::PlanImportModal;
 use crate::views::quick_edit_modal::{ModalClosed, QuickEditModal};
 use crate::views::schedule_pane::render_schedule_pane;
+use crate::views::settings_modal::SettingsModal;
 use crate::views::song_editor_modal::{EditorTab, SongEditorModal};
 use crate::windows::WindowManager;
 
@@ -51,11 +51,12 @@ pub enum ActiveModal {
     AlertsTimers(Entity<AlertsTimersModal>),
     PlanImporter(Entity<PlanImportModal>),
     BackgroundPicker(Entity<BackgroundPickerModal>),
+    Settings(Entity<SettingsModal>),
 }
 
 /// Primary 3-Pane Operator Workspace composing Service Schedule (Left),
 /// Preview Grid & Library/Bible (Center), Live Control & Overrides (Right),
-/// and non-blocking overlay modals for Song Editing, Quick Live Edit, and Alerts/Timers.
+/// and non-blocking overlay modals for Song Editing, Quick Live Edit, Alerts/Timers, and Settings.
 pub struct OperatorWorkspace {
     pub store: Entity<PresentationStore>,
     pub windows: Entity<WindowManager>,
@@ -65,7 +66,7 @@ pub struct OperatorWorkspace {
     pub bible_browser: Entity<BibleBrowserView>,
     pub active_modal: Option<ActiveModal>,
     pub active_popover: Option<HeaderPopover>,
-    modal_sub: Option<Subscription>,
+    pub(crate) modal_sub: Option<Subscription>,
     focus_handle: FocusHandle,
     _store_sub: Subscription,
     _windows_sub: Subscription,
@@ -104,8 +105,9 @@ impl OperatorWorkspace {
                 let keep_going = tick_store
                     .update(cx, |s, cx| {
                         let _ = s.poll_voice_events(cx);
-                        let snap = s.snapshot();
                         let now = s.now_epoch_ms();
+                        let _ = s.tick_announcement_loop(now, cx);
+                        let snap = s.snapshot();
                         let video_active = s.motion_mode != crate::design::motion::MotionMode::Instant
                             && matches!(
                                 &snap.audience,
@@ -255,90 +257,6 @@ impl OperatorWorkspace {
         cx.notify();
     }
 
-    pub fn add_song_to_schedule(&mut self, song_id: SongId, cx: &mut Context<Self>) {
-        let updated = self
-            .store
-            .update(cx, |s, cx| s.add_song_to_service(song_id, cx));
-        if let (Some(schedule), Some(db)) = (updated, self.db.clone()) {
-            cx.spawn(async move |_, _| {
-                let _ = db.save_service(schedule).await;
-            })
-            .detach();
-        }
-    }
-
-    pub fn reorder_service_item(
-        &mut self,
-        item_id: ServiceItemId,
-        delta: isize,
-        cx: &mut Context<Self>,
-    ) {
-        let reordered = self
-            .store
-            .update(cx, |s, cx| s.move_service_item(item_id, delta, cx));
-        if let (Some((service_id, ordered_ids)), Some(db)) = (reordered, self.db.clone()) {
-            cx.spawn(async move |_, _| {
-                let _ = db.reorder_service_items(service_id, ordered_ids).await;
-            })
-            .detach();
-        }
-    }
-
-    fn on_song_search(
-        &mut self,
-        _: Entity<TextInput>,
-        event: &TextInputEvent,
-        cx: &mut Context<Self>,
-    ) {
-        let query = match event {
-            TextInputEvent::Changed(q) | TextInputEvent::Submitted(q) => q.trim().to_owned(),
-        };
-        if query.is_empty() {
-            self.store.update(cx, |s, cx| {
-                s.song_search_query.clear();
-                s.filtered_song_ids = None;
-                cx.notify();
-            });
-            return;
-        }
-
-        if let Some(db) = self.db.clone() {
-            let store = self.store.clone();
-            cx.spawn(async move |_, cx| {
-                if let Ok(hits) = db.search_songs(&query).await {
-                    let ids: Vec<SongId> = hits.into_iter().map(|h| h.id).collect();
-                    store.update(cx, |s, cx| {
-                        s.song_search_query = query;
-                        s.filtered_song_ids = Some(ids);
-                        cx.notify();
-                    });
-                }
-            })
-            .detach();
-        } else {
-            let needle = query.to_ascii_lowercase();
-            self.store.update(cx, |s, cx| {
-                let ids: Vec<SongId> = s
-                    .songs
-                    .iter()
-                    .filter(|song| {
-                        song.title.to_ascii_lowercase().contains(&needle)
-                            || song.author.to_ascii_lowercase().contains(&needle)
-                            || song.ccli_number.contains(&needle)
-                            || song
-                                .lyrics_search_text()
-                                .to_ascii_lowercase()
-                                .contains(&needle)
-                    })
-                    .map(|song| song.id)
-                    .collect();
-                s.song_search_query = query;
-                s.filtered_song_ids = Some(ids);
-                cx.notify();
-            });
-        }
-    }
-
     fn dispatch_cmd(&mut self, cmd: PresentationCommand, cx: &mut Context<Self>) {
         self.dispatch_cmd_cut(cmd, false, cx);
     }
@@ -477,6 +395,7 @@ impl Render for OperatorWorkspace {
                 ActiveModal::AlertsTimers(m) => ("modal-alerts", m.clone().into_any_element()),
                 ActiveModal::PlanImporter(m) => ("modal-plan", m.clone().into_any_element()),
                 ActiveModal::BackgroundPicker(m) => ("modal-bg", m.clone().into_any_element()),
+                ActiveModal::Settings(m) => ("modal-settings", m.clone().into_any_element()),
             };
             root = root.child(
                 div()

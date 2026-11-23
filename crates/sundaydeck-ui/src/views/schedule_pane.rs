@@ -10,6 +10,7 @@ use crate::design::tokens::{
     TOKENS, payload_icon,
 };
 use crate::views::operator_workspace::OperatorWorkspace;
+use crate::views::settings_modal::SettingsTab;
 
 /// Left Pane (Service Order):
 /// Quiet warm dark-linen list with subtle neutral elevated rows and precision `6px` status dots
@@ -100,6 +101,23 @@ pub fn render_schedule_pane(
                         IconSize::Sm,
                         TOKENS.ink_muted,
                     )),
+            );
+        }
+        if !is_live {
+            reorder = reorder.child(
+                div()
+                    .id(format!("sched-rm-{item_id}"))
+                    .w(px(22.0))
+                    .h(px(22.0))
+                    .rounded(px(RADIUS_CONTROL))
+                    .hover(|s| s.bg(TOKENS.elevated_hover))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.remove_service_item(item_id, cx);
+                    }))
+                    .child(deck_icon(DeckIcon::Trash, IconSize::Sm, TOKENS.ink_muted)),
             );
         }
 
@@ -248,26 +266,55 @@ pub fn render_schedule_pane(
                 )
                 .child(
                     div()
-                        .id("btn-schedule-import-plan")
-                        .w(px(28.0))
-                        .h(px(28.0))
-                        .rounded(px(RADIUS_CONTROL))
-                        .cursor_pointer()
-                        .bg(TOKENS.status_surface)
-                        .hover(|s| s.bg(TOKENS.elevated_hover))
-                        .border_1()
-                        .border_color(TOKENS.gridline)
                         .flex()
                         .items_center()
-                        .justify_center()
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.open_plan_importer(cx);
-                        }))
-                        .child(deck_icon(
-                            DeckIcon::UploadSimple,
-                            IconSize::Sm,
-                            TOKENS.ink_primary,
-                        )),
+                        .gap(px(6.0))
+                        .child(
+                            div()
+                                .id("btn-schedule-packs-loops")
+                                .w(px(28.0))
+                                .h(px(28.0))
+                                .rounded(px(RADIUS_CONTROL))
+                                .cursor_pointer()
+                                .bg(TOKENS.status_surface)
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
+                                .border_1()
+                                .border_color(TOKENS.gridline)
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.open_settings_on_tab(SettingsTab::BiblesBundles, cx);
+                                }))
+                                .child(deck_icon(
+                                    DeckIcon::Stack,
+                                    IconSize::Sm,
+                                    TOKENS.ink_secondary,
+                                )),
+                        )
+                        .child(
+                            div()
+                                .id("btn-schedule-import-plan")
+                                .w(px(28.0))
+                                .h(px(28.0))
+                                .rounded(px(RADIUS_CONTROL))
+                                .cursor_pointer()
+                                .bg(TOKENS.status_surface)
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
+                                .border_1()
+                                .border_color(TOKENS.gridline)
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.open_plan_importer(cx);
+                                }))
+                                .child(deck_icon(
+                                    DeckIcon::UploadSimple,
+                                    IconSize::Sm,
+                                    TOKENS.ink_primary,
+                                )),
+                        ),
                 ),
         )
         .child(list)

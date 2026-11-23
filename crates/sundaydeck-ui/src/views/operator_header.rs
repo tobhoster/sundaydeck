@@ -5,7 +5,6 @@ use gpui::{
 };
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::motion::MotionMode;
 use crate::design::primitives::{VoiceSyncMode, display_status_pill, render_auto_follow_pill};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, RADIUS_PILL, TOKENS, TOP_BAR_HEIGHT,
@@ -255,7 +254,7 @@ pub fn render_operator_header(
                 )
                 .child(
                     div()
-                        .id("btn-cycle-motion")
+                        .id("btn-open-settings")
                         .w(px(30.0))
                         .h(px(30.0))
                         .rounded(px(RADIUS_CONTROL))
@@ -267,16 +266,8 @@ pub fn render_operator_header(
                         .flex()
                         .items_center()
                         .justify_center()
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            let next = match motion_mode {
-                                MotionMode::Full => MotionMode::CrossfadeOnly,
-                                MotionMode::CrossfadeOnly => MotionMode::Instant,
-                                MotionMode::Instant => MotionMode::Full,
-                            };
-                            this.store.update(cx, |s, cx| {
-                                s.motion_mode = next;
-                                s.set_status(format!("Animation style: {}", next.label()), cx);
-                            });
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.open_settings(cx);
                         }))
                         .child(deck_icon(
                             DeckIcon::GearSix,

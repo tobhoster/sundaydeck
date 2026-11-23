@@ -1,12 +1,14 @@
 pub mod actions;
 pub mod components;
 pub mod deck_builder;
+pub mod deck_import;
 pub mod design;
 pub mod media;
 pub mod palette;
 pub mod renderer;
 pub mod store;
 pub mod store_plan;
+pub mod store_services;
 pub mod store_voice;
 pub mod views;
 pub mod windows;

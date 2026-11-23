@@ -7,13 +7,46 @@ use crate::error::DbError;
 
 const KEY_APP_SETTINGS: &str = "app_settings_v1";
 
+fn default_motion_mode() -> String {
+    "full".to_owned()
+}
+fn default_local_llm_url() -> String {
+    "http://127.0.0.1:8080/v1/chat/completions".to_owned()
+}
+fn default_local_llm_model() -> String {
+    "qwen3-4b".to_owned()
+}
+fn default_whisper_url() -> String {
+    "http://127.0.0.1:8081/inference".to_owned()
+}
+const fn default_voice_threshold_pct() -> u8 {
+    70
+}
+const fn default_voice_lock_during_override() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppSettings {
     pub church_name: String,
     pub logo_asset_id: Option<MediaAssetId>,
+    #[serde(default)]
+    pub logo_uri: Option<String>,
     pub direct_click_live: bool,
     pub audience_display_uuid: Option<String>,
     pub stage_display_uuid: Option<String>,
+    #[serde(default = "default_motion_mode")]
+    pub motion_mode: String,
+    #[serde(default = "default_local_llm_url")]
+    pub local_llm_url: String,
+    #[serde(default = "default_local_llm_model")]
+    pub local_llm_model: String,
+    #[serde(default = "default_whisper_url")]
+    pub whisper_url: String,
+    #[serde(default = "default_voice_threshold_pct")]
+    pub voice_advance_threshold_pct: u8,
+    #[serde(default = "default_voice_lock_during_override")]
+    pub voice_lock_during_override: bool,
 }
 
 impl Default for AppSettings {
@@ -21,9 +54,16 @@ impl Default for AppSettings {
         Self {
             church_name: "Grace Fellowship".to_owned(),
             logo_asset_id: None,
+            logo_uri: None,
             direct_click_live: false,
             audience_display_uuid: None,
             stage_display_uuid: None,
+            motion_mode: default_motion_mode(),
+            local_llm_url: default_local_llm_url(),
+            local_llm_model: default_local_llm_model(),
+            whisper_url: default_whisper_url(),
+            voice_advance_threshold_pct: default_voice_threshold_pct(),
+            voice_lock_during_override: default_voice_lock_during_override(),
         }
     }
 }

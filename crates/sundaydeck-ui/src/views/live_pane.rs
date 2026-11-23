@@ -1,6 +1,6 @@
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgb, rgba,
+    Context, Div, FontWeight, InteractiveElement, ObjectFit, ParentElement,
+    StatefulInteractiveElement, Styled, StyledImage, div, img, px, rgb, rgba,
 };
 use sundaydeck_core::{OutputOverride, PresentationCommand, SlideContent};
 
@@ -13,6 +13,7 @@ use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, LIVE_DECK_WIDTH, MONITOR_HEIGHT_PX, MONITOR_WIDTH_PX,
     PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
 };
+use crate::media::load_background_image;
 use crate::renderer::render_audience_canvas;
 use crate::views::operator_workspace::OperatorWorkspace;
 use crate::views::override_controls::{render_override_buttons, render_stage_cue_strip};
@@ -34,12 +35,23 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
     let has_live = live.is_some();
 
     let (live_title, pos_label, active_idx, live_slides) = match &live {
-        Some(cursor) => (
-            cursor.title.clone(),
-            format!("{} of {}", cursor.active_index + 1, cursor.len()),
-            cursor.active_index,
-            cursor.slides.to_vec(),
-        ),
+        Some(cursor) => {
+            let pos = match cursor.loop_interval_secs {
+                Some(secs) => format!(
+                    "{} of {} · {}s",
+                    cursor.active_index + 1,
+                    cursor.len(),
+                    secs
+                ),
+                None => format!("{} of {}", cursor.active_index + 1, cursor.len()),
+            };
+            (
+                cursor.title.clone(),
+                pos,
+                cursor.active_index,
+                cursor.slides.to_vec(),
+            )
+        }
         None => ("Nothing on screen".to_owned(), String::new(), 0, Vec::new()),
     };
 
@@ -123,6 +135,10 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             SlideContent::Text { section_kind, .. } => *section_kind,
             _ => None,
         };
+        let slide_thumb = match &slide.content {
+            SlideContent::Image { uri, .. } => uri.as_deref().and_then(load_background_image),
+            _ => None,
+        };
         let excerpt: String = slide
             .content
             .primary_text()
@@ -130,6 +146,53 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             .take(2)
             .collect::<Vec<_>>()
             .join("\n");
+
+        let body_row = if let Some(render_img) = slide_thumb {
+            div()
+                .w_full()
+                .flex()
+                .items_center()
+                .gap(px(9.0))
+                .child(
+                    div()
+                        .w(px(64.0))
+                        .h(px(36.0))
+                        .flex_shrink_0()
+                        .rounded(px(4.0))
+                        .overflow_hidden()
+                        .border_1()
+                        .border_color(TOKENS.gridline)
+                        .bg(rgb(0x0B0C0E))
+                        .child(img(render_img).size_full().object_fit(ObjectFit::Cover)),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .font_family(FONT_BODY)
+                        .text_color(if is_current || is_suggested {
+                            TOKENS.ink_primary
+                        } else {
+                            TOKENS.ink_secondary
+                        })
+                        .text_size(px(11.5))
+                        .line_height(px(16.0))
+                        .child(excerpt),
+                )
+        } else {
+            div()
+                .w_full()
+                .min_w_0()
+                .font_family(FONT_BODY)
+                .text_color(if is_current || is_suggested {
+                    TOKENS.ink_primary
+                } else {
+                    TOKENS.ink_secondary
+                })
+                .text_size(px(12.0))
+                .line_height(px(17.0))
+                .child(excerpt)
+        };
 
         let mut card = div()
             .id(format!("live-slide-{idx}"))
@@ -187,20 +250,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                                     .child(format!("{}", idx + 1))
                             }),
                     )
-                    .child(
-                        div()
-                            .w_full()
-                            .min_w_0()
-                            .font_family(FONT_BODY)
-                            .text_color(if is_current || is_suggested {
-                                TOKENS.ink_primary
-                            } else {
-                                TOKENS.ink_secondary
-                            })
-                            .text_size(px(12.0))
-                            .line_height(px(17.0))
-                            .child(excerpt),
-                    ),
+                    .child(body_row),
             );
 
         if is_current {

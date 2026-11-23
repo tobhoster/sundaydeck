@@ -108,34 +108,66 @@ pub fn build_deck_for_service_item(
             };
             DeckCursor::try_new(Some(item.id), item.title.clone(), vec![slide], theme)
         }
-        ServiceItemPayload::Presentation { slide_asset_ids }
-        | ServiceItemPayload::AnnouncementLoop {
-            slide_asset_ids, ..
+        ServiceItemPayload::Presentation {
+            slide_asset_ids,
+            slide_uris,
         } => {
             let theme = item
                 .theme_override_id
                 .and_then(find_theme)
                 .or_else(|| default_target(ThemeTarget::Announcement))
                 .unwrap_or(fallback_theme);
-            let slides: Vec<Slide> = slide_asset_ids
-                .iter()
-                .enumerate()
-                .map(|(idx, asset_id)| Slide {
-                    id: SlideId::from_v5(
-                        &SUNDAYDECK_NAMESPACE,
-                        format!("item:{}:img:{idx}", item.id).as_bytes(),
-                    ),
-                    source_section_id: None,
-                    label: format!("Slide {}", idx + 1),
-                    content: SlideContent::Image {
-                        asset_id: *asset_id,
-                        caption: Some(format!("{} — Slide {}", item.title, idx + 1)),
-                    },
-                })
-                .collect();
+            let slides = build_image_slides(item.id, &item.title, slide_asset_ids, slide_uris);
             DeckCursor::try_new(Some(item.id), item.title.clone(), slides, theme)
         }
+        ServiceItemPayload::AnnouncementLoop {
+            slide_asset_ids,
+            slide_uris,
+            interval_secs,
+        } => {
+            let theme = item
+                .theme_override_id
+                .and_then(find_theme)
+                .or_else(|| default_target(ThemeTarget::Announcement))
+                .unwrap_or(fallback_theme);
+            let slides = build_image_slides(item.id, &item.title, slide_asset_ids, slide_uris);
+            DeckCursor::try_new(Some(item.id), item.title.clone(), slides, theme)
+                .map(|cursor| cursor.with_loop_interval(Some(*interval_secs)))
+        }
     }
+}
+
+fn build_image_slides(
+    item_id: ServiceItemId,
+    title: &str,
+    slide_asset_ids: &[sundaydeck_core::MediaAssetId],
+    slide_uris: &[String],
+) -> Vec<Slide> {
+    let count = slide_uris.len().max(slide_asset_ids.len());
+    (0..count)
+        .map(|idx| {
+            let asset_id = slide_asset_ids.get(idx).copied().unwrap_or_else(|| {
+                sundaydeck_core::MediaAssetId::from_v5(
+                    &SUNDAYDECK_NAMESPACE,
+                    format!("item:{item_id}:media:{idx}").as_bytes(),
+                )
+            });
+            let uri = slide_uris.get(idx).cloned();
+            Slide {
+                id: SlideId::from_v5(
+                    &SUNDAYDECK_NAMESPACE,
+                    format!("item:{item_id}:img:{idx}").as_bytes(),
+                ),
+                source_section_id: None,
+                label: format!("Slide {}", idx + 1),
+                content: SlideContent::Image {
+                    asset_id,
+                    uri,
+                    caption: Some(format!("{title} — Slide {}", idx + 1)),
+                },
+            }
+        })
+        .collect()
 }
 
 fn build_scripture_slides(
