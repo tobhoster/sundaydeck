@@ -1,12 +1,10 @@
 use gpui::{
     App, ClipboardItem, Context, EventEmitter, FocusHandle, Focusable, InteractiveElement,
     IntoElement, KeyDownEvent, MouseButton, MouseDownEvent, ParentElement, Render,
-    StatefulInteractiveElement, Styled, Window, div, px, rgb, rgba,
+    StatefulInteractiveElement, Styled, Window, div, px,
 };
 
-use crate::palette::{
-    BG_APP, BORDER_STRONG, BORDER_SUBTLE, PREVIEW_ACCENT, TEXT_MUTED, TEXT_PRIMARY, color,
-};
+use crate::design::tokens::{FONT_BODY, RADIUS_CONTROL, TOKENS};
 
 #[derive(Debug, Clone)]
 pub enum TextInputEvent {
@@ -227,41 +225,39 @@ impl Render for TextInput {
             .key_context("TextInput")
             .track_focus(&self.focus_handle)
             .w_full()
-            .px(px(10.0))
-            .py(px(if self.multiline { 8.0 } else { 6.0 }))
-            .rounded(px(6.0))
+            .px(px(9.0))
+            .py(px(if self.multiline { 7.0 } else { 5.0 }))
+            .rounded(px(RADIUS_CONTROL))
             .cursor_text()
-            .bg(color(BG_APP))
+            .bg(TOKENS.canvas)
             .border_1()
             .border_color(if focused {
-                color(PREVIEW_ACCENT)
+                TOKENS.focus_border
             } else {
-                color(BORDER_STRONG)
+                TOKENS.gridline
             })
             .hover(|s| {
                 if focused {
                     s
                 } else {
-                    s.border_color(color(BORDER_SUBTLE))
+                    s.border_color(TOKENS.focus_border)
                 }
             })
-            .text_size(px(12.5))
-            .line_height(px(18.0))
+            .font_family(FONT_BODY)
+            .text_size(px(12.0))
+            .line_height(px(17.0))
             .text_color(if is_empty && !focused {
-                color(TEXT_MUTED)
+                TOKENS.ink_muted
             } else if is_empty && focused {
-                rgb(0xF59E0B)
+                TOKENS.signal_preview
             } else {
-                color(TEXT_PRIMARY)
+                TOKENS.ink_primary
             })
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
             .on_key_down(cx.listener(Self::on_key_down));
 
         if self.multiline {
-            box_el = box_el
-                .min_h(px(96.0))
-                .overflow_y_scroll()
-                .bg(rgba(0x090D_15FF));
+            box_el = box_el.min_h(px(96.0)).overflow_y_scroll();
         }
 
         box_el.child(display_text)

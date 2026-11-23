@@ -1,151 +1,152 @@
 use gpui::{
     Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgb, rgba,
+    Styled, div, px,
 };
 use sundaydeck_core::{OutputOverride, PresentationCommand};
 
-use crate::palette::{
-    BG_CARD_HOVER, BG_ELEVATED, BORDER_STRONG, BORDER_SUBTLE, OVERRIDE_BLACK, OVERRIDE_CLEAR,
-    OVERRIDE_LOGO, STAGE_NEXT_ACCENT, TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, color,
-};
+use crate::design::icons::{DeckIcon, IconSize, deck_icon};
+use crate::design::primitives::hardware_switcher_key_body;
+use crate::design::tokens::{FONT_MONO, RADIUS_CONTROL, TOKENS};
 use crate::views::operator_workspace::OperatorWorkspace;
 
-/// Pinned instant recovery override controls (`Clear Text`, `Black`, `Logo`).
-pub fn render_override_buttons(active: OutputOverride, cx: &mut Context<OperatorWorkspace>) -> Div {
-    let make_btn = |id: &'static str,
-                    label: &'static str,
-                    hotkey: &'static str,
-                    target: OutputOverride,
-                    active_hex: u32,
-                    cx: &mut Context<OperatorWorkspace>| {
+/// Tactile Broadcast Switcher Override Strip (`GO LIVE`, `CLEAR`, `BLACK`, `LOGO`):
+/// Physical ATEM-style keys with embossed top highlights, Phosphor icons, monospace `F1-F5`
+/// keycaps, Tally Red `GO LIVE`, and high-vis Warning Orange (`#F97316`) for active overrides.
+pub fn render_override_buttons(
+    active: OutputOverride,
+    has_live: bool,
+    cx: &mut Context<OperatorWorkspace>,
+) -> Div {
+    let make_override_key = |id: &'static str,
+                             icon: DeckIcon,
+                             label: &'static str,
+                             hotkey: &'static str,
+                             target: OutputOverride,
+                             cx: &mut Context<OperatorWorkspace>| {
         let is_on = active == target;
         div()
             .id(id)
             .flex_1()
-            .py(px(8.0))
-            .px(px(8.0))
-            .rounded(px(7.0))
             .cursor_pointer()
-            .bg(if is_on {
-                color(active_hex)
-            } else {
-                color(BG_ELEVATED)
-            })
-            .hover(|s| if is_on { s } else { s.bg(color(BG_CARD_HOVER)) })
-            .border_1()
-            .border_color(if is_on {
-                color(active_hex)
-            } else {
-                color(BORDER_STRONG)
-            })
-            .flex()
-            .flex_col()
-            .items_center()
-            .gap(px(2.0))
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.store.update(cx, |s, cx| {
                     let _ = s.dispatch(PresentationCommand::ToggleOverride(target), cx);
                 });
             }))
-            .child(
-                div()
-                    .text_color(if is_on {
-                        rgb(0x0B0F17)
-                    } else {
-                        color(TEXT_PRIMARY)
-                    })
-                    .text_size(px(12.0))
-                    .font_weight(FontWeight::BOLD)
-                    .child(label),
-            )
-            .child(
-                div()
-                    .text_color(if is_on {
-                        rgba(0x0B0F_17BB)
-                    } else {
-                        color(TEXT_MUTED)
-                    })
-                    .text_size(px(10.0))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(hotkey),
-            )
+            .child(hardware_switcher_key_body(
+                icon,
+                label,
+                hotkey,
+                is_on,
+                TOKENS.signal_override,
+            ))
     };
 
     div()
         .w_full()
         .flex()
         .items_center()
-        .gap(px(8.0))
-        .child(make_btn(
+        .gap(px(6.0))
+        .child(
+            div()
+                .id("deck-go-live")
+                .flex_1()
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.store.update(cx, |s, cx| {
+                        let _ = s.dispatch(PresentationCommand::GoLive, cx);
+                    });
+                }))
+                .child(hardware_switcher_key_body(
+                    DeckIcon::PlayFill,
+                    "LIVE",
+                    "F5",
+                    has_live && active == OutputOverride::None,
+                    TOKENS.signal_live,
+                )),
+        )
+        .child(make_override_key(
             "override-clear-text",
-            "Clear Text",
+            DeckIcon::TextTSlash,
+            "CLEAR",
             "F1",
             OutputOverride::ClearText,
-            OVERRIDE_CLEAR,
             cx,
         ))
-        .child(make_btn(
+        .child(make_override_key(
             "override-black",
-            "Black",
+            DeckIcon::EyeSlash,
+            "BLACK",
             "F2",
             OutputOverride::Black,
-            OVERRIDE_BLACK,
             cx,
         ))
-        .child(make_btn(
+        .child(make_override_key(
             "override-logo",
-            "Logo",
+            DeckIcon::Image,
+            "LOGO",
             "F3",
             OutputOverride::Logo,
-            OVERRIDE_LOGO,
             cx,
         ))
 }
 
-/// Quick private Stage Monitor cue toggles (never shown on Audience output).
+/// Compact private Stage Monitor cue toggles docked beneath the live slide queue.
 pub fn render_stage_cue_strip(
     active_note: Option<&str>,
     cx: &mut Context<OperatorWorkspace>,
 ) -> Div {
     let presets = [
-        ("stage-cue-repeat", "Repeat Chorus"),
-        ("stage-cue-2min", "2 Min Left"),
+        ("stage-cue-repeat", "REPEAT CH"),
+        ("stage-cue-2min", "2 MIN"),
     ];
 
-    let mut row = div().flex().items_center().gap(px(6.0));
-    for (id, text) in presets {
-        let is_on = active_note == Some(text);
+    let mut row = div().flex().items_center().gap(px(4.0));
+    for (id, label) in presets {
+        let full_text = if label == "REPEAT CH" {
+            "Repeat Chorus"
+        } else {
+            "2 Min Left"
+        };
+        let is_on = active_note == Some(full_text);
         row = row.child(
             div()
                 .id(id)
-                .px(px(8.0))
-                .py(px(4.0))
-                .rounded(px(5.0))
+                .px(px(6.0))
+                .py(px(3.0))
+                .rounded(px(RADIUS_CONTROL))
                 .cursor_pointer()
                 .bg(if is_on {
-                    rgba(0xF59E_0B30)
+                    TOKENS.signal_preview_tint
                 } else {
-                    color(BG_ELEVATED)
+                    TOKENS.elevated
                 })
+                .hover(|s| s.bg(TOKENS.elevated_hover))
                 .border_1()
                 .border_color(if is_on {
-                    color(STAGE_NEXT_ACCENT)
+                    TOKENS.signal_preview
                 } else {
-                    color(BORDER_STRONG)
+                    TOKENS.gridline
                 })
+                .font_family(FONT_MONO)
                 .text_color(if is_on {
-                    rgb(0xFEF3C7)
+                    TOKENS.signal_preview
                 } else {
-                    color(TEXT_SECONDARY)
+                    TOKENS.ink_secondary
                 })
-                .text_size(px(11.0))
+                .text_size(px(9.5))
+                .font_weight(FontWeight::BOLD)
                 .on_click(cx.listener(move |this, _, _, cx| {
-                    let next = if is_on { None } else { Some(text.to_owned()) };
+                    let next = if is_on {
+                        None
+                    } else {
+                        Some(full_text.to_owned())
+                    };
                     this.store.update(cx, |s, cx| {
                         let _ = s.dispatch(PresentationCommand::SetStageMessage(next), cx);
                     });
                 }))
-                .child(text),
+                .child(label),
         );
     }
 
@@ -153,37 +154,51 @@ pub fn render_stage_cue_strip(
         row = row.child(
             div()
                 .id("stage-cue-clear")
-                .px(px(8.0))
-                .py(px(4.0))
-                .rounded(px(5.0))
+                .px(px(5.0))
+                .py(px(3.0))
+                .rounded(px(RADIUS_CONTROL))
                 .cursor_pointer()
-                .bg(rgba(0xEF44_4422))
-                .text_color(rgb(0xFCA5A5))
-                .text_size(px(11.0))
+                .bg(TOKENS.signal_live_tint)
+                .border_1()
+                .border_color(TOKENS.signal_live)
+                .flex()
+                .items_center()
                 .on_click(cx.listener(|this, _, _, cx| {
                     this.store.update(cx, |s, cx| {
                         let _ = s.dispatch(PresentationCommand::SetStageMessage(None), cx);
                     });
                 }))
-                .child("Clear"),
+                .child(deck_icon(DeckIcon::X, IconSize::Sm, TOKENS.signal_live)),
         );
     }
 
     div()
-        .px(px(14.0))
-        .py(px(10.0))
+        .px(px(12.0))
+        .py(px(8.0))
         .border_t_1()
-        .border_color(color(BORDER_SUBTLE))
+        .border_color(TOKENS.gridline)
         .flex()
         .items_center()
         .justify_between()
-        .gap(px(8.0))
+        .gap(px(6.0))
         .child(
             div()
-                .text_color(color(TEXT_MUTED))
-                .text_size(px(10.5))
-                .font_weight(FontWeight::BOLD)
-                .child("STAGE NOTE"),
+                .flex()
+                .items_center()
+                .gap(px(5.0))
+                .child(deck_icon(
+                    DeckIcon::ChatCenteredText,
+                    IconSize::Sm,
+                    TOKENS.ink_muted,
+                ))
+                .child(
+                    div()
+                        .font_family(FONT_MONO)
+                        .text_color(TOKENS.ink_muted)
+                        .text_size(px(9.5))
+                        .font_weight(FontWeight::BOLD)
+                        .child("STAGE CUE"),
+                ),
         )
         .child(row)
 }

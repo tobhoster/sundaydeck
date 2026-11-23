@@ -4,50 +4,94 @@ use anyhow::Context as _;
 use gpui::{App, AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use sundaydeck_db::{BootstrapData, Database, DbWorker};
 use sundaydeck_ui::actions::register_keybindings;
+use sundaydeck_ui::design::{DeckAssetSource, DesignGalleryView, register_fonts};
 use sundaydeck_ui::store::{AppServices, PresentationStore};
 use sundaydeck_ui::views::OperatorWorkspace;
 use sundaydeck_ui::windows::WindowManager;
 
 fn main() -> anyhow::Result<()> {
+    let ui_gallery = std::env::args().any(|arg| arg == "--ui-gallery");
+    if ui_gallery {
+        return run_ui_gallery();
+    }
+
     let db_path = resolve_db_path();
     let bootstrap = load_initial_bootstrap(&db_path)?;
     let db_worker = DbWorker::spawn_file(db_path).context("failed to start SQLite worker")?;
 
-    gpui_platform::application().run(move |cx: &mut App| {
-        register_keybindings(cx);
+    gpui_platform::application()
+        .with_assets(DeckAssetSource)
+        .run(move |cx: &mut App| {
+            if let Err(err) = register_fonts(cx) {
+                eprintln!("SundayDeck font registration warning: {err}");
+            }
+            register_keybindings(cx);
 
-        let store = cx.new(|_| PresentationStore::from_bootstrap(bootstrap));
-        let windows = cx.new(|_| WindowManager::new());
+            let store = cx.new(|_| PresentationStore::from_bootstrap(bootstrap));
+            let windows = cx.new(|_| WindowManager::new());
 
-        cx.set_global(AppServices {
-            store: store.clone(),
-            windows: windows.clone(),
-            db: Some(db_worker.clone()),
+            cx.set_global(AppServices {
+                store: store.clone(),
+                windows: windows.clone(),
+                db: Some(db_worker.clone()),
+            });
+
+            let bounds = Bounds::centered(None, size(px(1440.0), px(900.0)), cx);
+            let options = WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some("SundayDeck".into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+
+            let windows_on_close = windows.clone();
+            if let Err(err) = cx.open_window(options, |window, cx| {
+                window.on_window_should_close(cx, move |_, cx| {
+                    windows_on_close.update(cx, |wm, cx| wm.close_all_outputs(cx));
+                    cx.quit();
+                    true
+                });
+                cx.new(|cx| OperatorWorkspace::new(store, windows, Some(db_worker), cx))
+            }) {
+                eprintln!("SundayDeck failed to open operator window: {err}");
+                cx.quit();
+            }
         });
 
-        let bounds = Bounds::centered(None, size(px(1440.0), px(900.0)), cx);
-        let options = WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(bounds)),
-            titlebar: Some(TitlebarOptions {
-                title: Some("SundayDeck — Worship Presentation".into()),
-                ..Default::default()
-            }),
-            ..Default::default()
-        };
+    Ok(())
+}
 
-        let windows_on_close = windows.clone();
-        if let Err(err) = cx.open_window(options, |window, cx| {
-            window.on_window_should_close(cx, move |_, cx| {
-                windows_on_close.update(cx, |wm, cx| wm.close_all_outputs(cx));
+fn run_ui_gallery() -> anyhow::Result<()> {
+    gpui_platform::application()
+        .with_assets(DeckAssetSource)
+        .run(move |cx: &mut App| {
+            if let Err(err) = register_fonts(cx) {
+                eprintln!("SundayDeck font registration warning: {err}");
+            }
+
+            let bounds = Bounds::centered(None, size(px(1440.0), px(920.0)), cx);
+            let options = WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some("SundayDeck — UI Design Gallery".into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+
+            if let Err(err) = cx.open_window(options, |window, cx| {
+                window.on_window_should_close(cx, move |_, cx| {
+                    cx.quit();
+                    true
+                });
+                cx.new(|_| DesignGalleryView::new())
+            }) {
+                eprintln!("SundayDeck failed to open UI gallery window: {err}");
                 cx.quit();
-                true
-            });
-            cx.new(|cx| OperatorWorkspace::new(store, windows, Some(db_worker), cx))
-        }) {
-            eprintln!("SundayDeck failed to open operator window: {err}");
-            cx.quit();
-        }
-    });
+            }
+        });
 
     Ok(())
 }

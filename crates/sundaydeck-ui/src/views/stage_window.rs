@@ -1,19 +1,19 @@
 use chrono::Local;
 use gpui::{
     Context, Div, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Subscription,
-    Window, div, px, rgb, rgba,
+    Window, div, px, rgb,
 };
 use sundaydeck_core::{OutputOverride, StageRenderState, TimerUrgency};
 
-use crate::palette::{
-    BORDER_SUBTLE, LIVE_ACCENT, OVERRIDE_BLACK, OVERRIDE_CLEAR, OVERRIDE_LOGO, STAGE_BG,
-    STAGE_NEXT_ACCENT, STAGE_PANEL, TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, color,
+use crate::design::icons::{DeckIcon, IconSize, deck_icon};
+use crate::design::tokens::{
+    FONT_BODY, FONT_DISPLAY, FONT_LYRIC_BOLD, FONT_MONO, RADIUS_CONTROL, TOKENS,
 };
 use crate::store::PresentationStore;
 
-/// High-contrast dark confidence monitor for worship leaders and speakers.
-/// Displays current slide large, dimmed next-slide preview, clock, active countdown/elapsed timer,
-/// audience override state, and private stage-only operator messages.
+/// Stage Confidence Monitor (Output Window 2):
+/// Pure `#000000` background, oversized warm-white current slide text, muted 40% opacity
+/// next-slide preview below a thin horizontal rule, and top-right tabular mono clock + timer.
 pub struct StageMonitorView {
     store: Entity<PresentationStore>,
     clock_override: Option<String>,
@@ -51,17 +51,15 @@ impl Render for StageMonitorView {
         let width_px = f32::from(window.viewport_size().width).max(640.0);
         let scale = (width_px / 1280.0).clamp(0.55, 2.0);
 
+        let has_banner = stage.stage_message.is_some();
         let mut root = div()
             .size_full()
-            .bg(color(STAGE_BG))
-            .font_family(".SystemUIFont")
+            .bg(rgb(0x000000))
+            .font_family(FONT_BODY)
             .flex()
             .flex_col()
-            .overflow_hidden()
-            .p(px(18.0 * scale))
-            .gap(px(12.0 * scale));
+            .overflow_hidden();
 
-        let has_banner = stage.stage_message.is_some();
         root = root.child(render_stage_top_bar(
             stage,
             &self.formatted_clock(),
@@ -74,68 +72,66 @@ impl Render for StageMonitorView {
         }
 
         root = root
-            .child(render_current_slide_panel(stage, has_banner, scale))
-            .child(render_next_slide_panel(stage, scale));
+            .child(render_current_slide_section(stage, has_banner, scale))
+            .child(div().w_full().h(px(1.0)).bg(TOKENS.gridline))
+            .child(render_next_slide_section(stage, scale));
 
         root
     }
 }
 
 fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scale: f32) -> Div {
-    let title = stage
-        .live_title
-        .as_deref()
-        .unwrap_or("Standby — Waiting for Live Slide");
+    let title = stage.live_title.as_deref().unwrap_or("STANDBY");
     let pos_text = stage
         .slide_position
-        .map(|(cur, total)| format!("Slide {cur} of {total}"))
-        .unwrap_or_else(|| "No Active Deck".to_owned());
+        .map(|(cur, total)| format!("{cur:02} / {total:02}"))
+        .unwrap_or_else(|| "-- / --".to_owned());
 
-    let (status_label, status_bg, status_fg) = match stage.active_override {
-        OutputOverride::None => ("AUDIENCE: LIVE", rgb(0x064E3B), rgb(0x6EE7B7)),
-        OutputOverride::ClearText => (
-            "AUDIENCE: TEXT CLEARED",
-            color(OVERRIDE_CLEAR).alpha(0.24),
-            rgb(0x7DD3FC),
-        ),
-        OutputOverride::Black => (
-            "AUDIENCE: BLACKED OUT",
-            color(OVERRIDE_BLACK).alpha(0.28),
-            rgb(0xFDBA74),
-        ),
-        OutputOverride::Logo => (
-            "AUDIENCE: LOGO SPLASH",
-            color(OVERRIDE_LOGO).alpha(0.28),
-            rgb(0xE9D5FF),
-        ),
+    let (status_label, status_col) = match stage.active_override {
+        OutputOverride::None => ("ON AIR", TOKENS.signal_live),
+        OutputOverride::ClearText => ("OVERRIDE: CLEAR TEXT", TOKENS.signal_override),
+        OutputOverride::Black => ("OVERRIDE: BLACKOUT", TOKENS.signal_override),
+        OutputOverride::Logo => ("OVERRIDE: LOGO", TOKENS.signal_override),
     };
 
-    let mut right_cluster = div().flex().items_center().gap(px(16.0 * scale));
+    let mut right_cluster = div().flex().items_center().gap(px(18.0 * scale));
     if let Some(timer) = &stage.active_timer {
         let disp = timer.display(now_ms);
-        let (t_bg, t_fg) = match disp.urgency {
-            TimerUrgency::Normal => (rgb(0x064E3B), rgb(0x6EE7B7)),
-            TimerUrgency::Warning => (rgb(0x78350F), rgb(0xFDE68A)),
-            TimerUrgency::Overtime => (rgb(0xDC2626), rgb(0xFFFFFF)),
+        let (t_bg, t_fg, t_border) = match disp.urgency {
+            TimerUrgency::Normal => (
+                TOKENS.signal_voice_tint,
+                TOKENS.signal_voice,
+                TOKENS.signal_voice,
+            ),
+            TimerUrgency::Warning => (
+                TOKENS.signal_preview_tint,
+                TOKENS.signal_preview,
+                TOKENS.signal_preview,
+            ),
+            TimerUrgency::Overtime => (TOKENS.signal_live, TOKENS.ink_primary, TOKENS.signal_live),
         };
         right_cluster = right_cluster.child(
             div()
-                .px(px(14.0 * scale))
-                .py(px(6.0 * scale))
-                .rounded(px(8.0 * scale))
+                .px(px(12.0 * scale))
+                .py(px(5.0 * scale))
+                .rounded(px(RADIUS_CONTROL))
                 .bg(t_bg)
+                .border_1()
+                .border_color(t_border)
                 .flex()
                 .items_center()
                 .gap(px(10.0 * scale))
                 .child(
                     div()
+                        .font_family(FONT_MONO)
                         .text_color(t_fg.alpha(0.85))
-                        .text_size(px(12.5 * scale))
+                        .text_size(px(12.0 * scale))
                         .font_weight(FontWeight::SEMIBOLD)
                         .child(timer.label.to_ascii_uppercase()),
                 )
                 .child(
                     div()
+                        .font_family(FONT_MONO)
                         .text_color(t_fg)
                         .text_size(px(26.0 * scale))
                         .font_weight(FontWeight::BOLD)
@@ -146,20 +142,26 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
 
     right_cluster = right_cluster.child(
         div()
-            .text_color(color(TEXT_PRIMARY))
-            .text_size(px(26.0 * scale))
-            .font_weight(FontWeight::BOLD)
-            .child(clock.to_owned()),
+            .flex()
+            .items_center()
+            .gap(px(8.0 * scale))
+            .child(deck_icon(DeckIcon::Clock, IconSize::Lg, TOKENS.ink_muted))
+            .child(
+                div()
+                    .font_family(FONT_MONO)
+                    .text_color(TOKENS.ink_primary)
+                    .text_size(px(26.0 * scale))
+                    .font_weight(FontWeight::BOLD)
+                    .child(clock.to_owned()),
+            ),
     );
 
     div()
         .w_full()
-        .px(px(20.0 * scale))
-        .py(px(12.0 * scale))
-        .rounded(px(12.0 * scale))
-        .bg(color(STAGE_PANEL))
-        .border_1()
-        .border_color(color(BORDER_SUBTLE))
+        .px(px(28.0 * scale))
+        .py(px(14.0 * scale))
+        .border_b_1()
+        .border_color(TOKENS.gridline)
         .flex()
         .items_center()
         .justify_between()
@@ -167,36 +169,37 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
             div()
                 .flex()
                 .items_center()
-                .gap(px(12.0 * scale))
+                .gap(px(14.0 * scale))
                 .child(
                     div()
-                        .text_color(color(TEXT_PRIMARY))
-                        .text_size(px(19.0 * scale))
+                        .px(px(8.0 * scale))
+                        .py(px(3.0 * scale))
+                        .rounded(px(RADIUS_CONTROL))
+                        .bg(status_col.alpha(0.20))
+                        .border_1()
+                        .border_color(status_col)
+                        .font_family(FONT_MONO)
+                        .text_color(status_col)
+                        .text_size(px(12.5 * scale))
+                        .font_weight(FontWeight::BOLD)
+                        .child(status_label),
+                )
+                .child(
+                    div()
+                        .font_family(FONT_DISPLAY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(20.0 * scale))
                         .font_weight(FontWeight::BOLD)
                         .child(title.to_owned()),
                 )
                 .child(
                     div()
-                        .px(px(10.0 * scale))
-                        .py(px(4.0 * scale))
-                        .rounded(px(6.0 * scale))
-                        .bg(rgba(0xFFFFFF12))
-                        .text_color(color(TEXT_SECONDARY))
-                        .text_size(px(13.5 * scale))
+                        .font_family(FONT_MONO)
+                        .text_color(TOKENS.ink_secondary)
+                        .text_size(px(14.0 * scale))
                         .font_weight(FontWeight::MEDIUM)
                         .child(pos_text),
                 ),
-        )
-        .child(
-            div()
-                .px(px(14.0 * scale))
-                .py(px(6.0 * scale))
-                .rounded(px(999.0))
-                .bg(status_bg)
-                .text_color(status_fg)
-                .text_size(px(13.5 * scale))
-                .font_weight(FontWeight::BOLD)
-                .child(status_label),
         )
         .child(right_cluster)
 }
@@ -204,12 +207,12 @@ fn render_stage_top_bar(stage: &StageRenderState, clock: &str, now_ms: i64, scal
 fn render_private_stage_banner(note: &str, scale: f32) -> Div {
     div()
         .w_full()
-        .px(px(20.0 * scale))
-        .py(px(11.0 * scale))
-        .rounded(px(10.0 * scale))
-        .bg(rgba(0xF59E_0B26))
-        .border_2()
-        .border_color(color(STAGE_NEXT_ACCENT))
+        .px(px(28.0 * scale))
+        .py(px(10.0 * scale))
+        .bg(TOKENS.signal_preview_tint)
+        .border_b_1()
+        .border_color(TOKENS.signal_preview)
+        .border_l_4()
         .flex()
         .items_center()
         .justify_between()
@@ -221,18 +224,20 @@ fn render_private_stage_banner(note: &str, scale: f32) -> Div {
                 .gap(px(12.0 * scale))
                 .child(
                     div()
-                        .px(px(10.0 * scale))
-                        .py(px(4.0 * scale))
-                        .rounded(px(6.0 * scale))
-                        .bg(color(STAGE_NEXT_ACCENT))
-                        .text_color(rgb(0x0B0F17))
-                        .text_size(px(13.0 * scale))
+                        .px(px(8.0 * scale))
+                        .py(px(3.0 * scale))
+                        .rounded(px(RADIUS_CONTROL))
+                        .bg(TOKENS.signal_preview)
+                        .font_family(FONT_MONO)
+                        .text_color(TOKENS.canvas)
+                        .text_size(px(12.0 * scale))
                         .font_weight(FontWeight::BOLD)
                         .child("STAGE ONLY"),
                 )
                 .child(
                     div()
-                        .text_color(rgb(0xFEF3C7))
+                        .font_family(FONT_DISPLAY)
+                        .text_color(TOKENS.ink_primary)
                         .text_size(px(21.0 * scale))
                         .font_weight(FontWeight::BOLD)
                         .child(note.to_owned()),
@@ -240,29 +245,29 @@ fn render_private_stage_banner(note: &str, scale: f32) -> Div {
         )
         .child(
             div()
-                .text_color(rgb(0xFDE68A))
-                .text_size(px(13.0 * scale))
-                .font_weight(FontWeight::MEDIUM)
-                .child("Hidden from Audience"),
+                .font_family(FONT_MONO)
+                .text_color(TOKENS.signal_preview)
+                .text_size(px(12.0 * scale))
+                .child("HIDDEN FROM AUDIENCE"),
         )
 }
 
-fn render_current_slide_panel(stage: &StageRenderState, has_banner: bool, scale: f32) -> Div {
+fn render_current_slide_section(stage: &StageRenderState, has_banner: bool, scale: f32) -> Div {
     let (label, body) = match &stage.current_slide {
         Some(slide) => (slide.label.clone(), slide.content.primary_text().to_owned()),
         None => (
             "STANDBY".to_owned(),
-            "No slide is live yet.\nSelect an item and press F5 (Go Live).".to_owned(),
+            "Waiting for active slide.\nPress F5 to take preview live.".to_owned(),
         ),
     };
 
     let line_count = body.lines().count();
     let base_font = if has_banner && line_count >= 4 {
-        40.0
-    } else if line_count >= 4 {
         44.0
+    } else if line_count >= 4 {
+        50.0
     } else {
-        48.0
+        56.0
     };
     let line_h = base_font * 1.24;
 
@@ -273,15 +278,16 @@ fn render_current_slide_panel(stage: &StageRenderState, has_banner: bool, scale:
         .flex()
         .flex_col()
         .justify_center()
-        .gap(px(6.0 * scale));
+        .gap(px(8.0 * scale));
 
     for line in body.lines() {
         lines_box = lines_box.child(
             div()
-                .text_color(color(TEXT_PRIMARY))
+                .font_family(FONT_LYRIC_BOLD)
+                .text_color(TOKENS.ink_primary)
                 .text_size(px(base_font * scale))
                 .line_height(px(line_h * scale))
-                .font_weight(FontWeight::BOLD)
+                .font_weight(FontWeight::EXTRA_BOLD)
                 .child(line.to_owned()),
         );
     }
@@ -290,11 +296,8 @@ fn render_current_slide_panel(stage: &StageRenderState, has_banner: bool, scale:
         .flex_1()
         .w_full()
         .overflow_hidden()
-        .p(px(22.0 * scale))
-        .rounded(px(14.0 * scale))
-        .bg(color(STAGE_PANEL))
-        .border_l_4()
-        .border_color(color(LIVE_ACCENT))
+        .px(px(36.0 * scale))
+        .py(px(22.0 * scale))
         .flex()
         .flex_col()
         .gap(px(10.0 * scale))
@@ -305,33 +308,27 @@ fn render_current_slide_panel(stage: &StageRenderState, has_banner: bool, scale:
                 .gap(px(10.0 * scale))
                 .child(
                     div()
-                        .px(px(10.0 * scale))
-                        .py(px(3.0 * scale))
-                        .rounded(px(6.0 * scale))
-                        .bg(rgba(0xEF44_4433))
-                        .text_color(rgb(0xFCA5A5))
-                        .text_size(px(13.0 * scale))
-                        .font_weight(FontWeight::BOLD)
-                        .child("CURRENT SLIDE"),
+                        .w(px(6.0 * scale))
+                        .h(px(6.0 * scale))
+                        .rounded(px(99.0))
+                        .bg(TOKENS.signal_live),
                 )
                 .child(
                     div()
-                        .text_color(color(TEXT_SECONDARY))
-                        .text_size(px(15.0 * scale))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child(label),
+                        .font_family(FONT_MONO)
+                        .text_color(TOKENS.ink_secondary)
+                        .text_size(px(13.0 * scale))
+                        .font_weight(FontWeight::BOLD)
+                        .child(format!("CURRENT // {}", label.to_ascii_uppercase())),
                 ),
         )
         .child(lines_box)
 }
 
-fn render_next_slide_panel(stage: &StageRenderState, scale: f32) -> Div {
+fn render_next_slide_section(stage: &StageRenderState, scale: f32) -> Div {
     let (next_label, next_body) = match &stage.next_slide {
         Some(slide) => (slide.label.clone(), slide.content.primary_text().to_owned()),
-        None => (
-            "END OF DECK".to_owned(),
-            "No upcoming slide queued.".to_owned(),
-        ),
+        None => ("END OF DECK".to_owned(), "No next slide queued.".to_owned()),
     };
 
     let mut preview_lines = div()
@@ -339,18 +336,16 @@ fn render_next_slide_panel(stage: &StageRenderState, scale: f32) -> Div {
         .overflow_hidden()
         .flex()
         .flex_col()
-        .gap(px(3.0 * scale));
+        .gap(px(4.0 * scale));
 
     for line in next_body.lines().take(3) {
         preview_lines = preview_lines.child(
             div()
-                .text_color(if stage.next_slide.is_some() {
-                    rgb(0xCBD5E1)
-                } else {
-                    color(TEXT_MUTED)
-                })
-                .text_size(px(22.0 * scale))
-                .line_height(px(28.0 * scale))
+                .font_family(FONT_BODY)
+                .text_color(TOKENS.ink_primary)
+                .opacity(0.40)
+                .text_size(px(24.0 * scale))
+                .line_height(px(31.0 * scale))
                 .font_weight(FontWeight::MEDIUM)
                 .child(line.to_owned()),
         );
@@ -358,39 +353,21 @@ fn render_next_slide_panel(stage: &StageRenderState, scale: f32) -> Div {
 
     div()
         .w_full()
-        .h(px(164.0 * scale))
+        .h(px(172.0 * scale))
         .overflow_hidden()
-        .p(px(18.0 * scale))
-        .rounded(px(14.0 * scale))
-        .bg(rgba(0x0F14_1FCC))
-        .border_l_4()
-        .border_color(color(STAGE_NEXT_ACCENT))
+        .px(px(36.0 * scale))
+        .py(px(18.0 * scale))
         .flex()
         .flex_col()
         .gap(px(8.0 * scale))
         .child(
             div()
-                .flex()
-                .items_center()
-                .gap(px(10.0 * scale))
-                .child(
-                    div()
-                        .px(px(10.0 * scale))
-                        .py(px(3.0 * scale))
-                        .rounded(px(6.0 * scale))
-                        .bg(rgba(0xF59E_0B2B))
-                        .text_color(rgb(0xFDE68A))
-                        .text_size(px(13.0 * scale))
-                        .font_weight(FontWeight::BOLD)
-                        .child("NEXT SLIDE"),
-                )
-                .child(
-                    div()
-                        .text_color(color(TEXT_SECONDARY))
-                        .text_size(px(14.0 * scale))
-                        .font_weight(FontWeight::MEDIUM)
-                        .child(next_label),
-                ),
+                .font_family(FONT_MONO)
+                .text_color(TOKENS.signal_preview)
+                .opacity(0.85)
+                .text_size(px(12.5 * scale))
+                .font_weight(FontWeight::BOLD)
+                .child(format!("NEXT // {}", next_label.to_ascii_uppercase())),
         )
         .child(preview_lines)
 }

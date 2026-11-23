@@ -1,20 +1,24 @@
-use std::sync::Arc;
-
+use chrono::Local;
 use gpui::{
     Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgb, rgba,
+    Styled, div, px, rgba,
 };
 use sundaydeck_core::PresentationCommand;
 
-use crate::palette::{
-    BG_ELEVATED, BG_HEADER, BORDER_STRONG, BORDER_SUBTLE, GO_LIVE_BG, OVERRIDE_CLEAR,
-    PREVIEW_ACCENT, TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, color,
+use crate::design::icons::{DeckIcon, IconSize, deck_icon};
+use crate::design::motion::{MotionMode, tally_pulse_dot};
+use crate::design::primitives::{VoiceSyncMode, display_status_badge, voice_level_meter};
+use crate::design::tokens::{
+    FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, RADIUS_TILE, TOKENS, TOP_BAR_HEIGHT,
 };
 use crate::views::operator_workspace::OperatorWorkspace;
 use crate::windows::WindowManager;
 
-/// Renders the top command bar with brand identity, 1-click theme switching,
-/// direct-click toggle, and multi-window Audience / Stage display controls.
+/// Top Hardware Status Bar (`36px` height):
+/// Left: tracked geometric wordmark `SUNDAYDECK` + `.sdeck` service filename.
+/// Center: compact Voice-Sync Pill (`6` vertical `2px` ticks, `OFF | SUGGEST | AUTO`, mono mic).
+/// Right: Alerts/Timers, Preview Gate toggle, Display connection badges (`AUD`, `STG`),
+/// tabular mono clock, and Settings/Motion toggle.
 pub fn render_operator_header(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
@@ -22,17 +26,21 @@ pub fn render_operator_header(
     let store_ref = workspace.store.read(cx);
     let snapshot = store_ref.snapshot();
     let now_ms = store_ref.now_epoch_ms();
-    let service_title = store_ref.service.title.clone();
-    let service_date = store_ref.service.service_date.clone();
-    let themes = store_ref.themes.clone();
-    let active_theme_id = store_ref.active_theme().id;
+    let filename = store_ref.service_filename();
     let status_banner = store_ref.status_banner.clone();
+    let motion_mode = store_ref.motion_mode;
+    let voice_mode = store_ref.voice_sync_mode;
+    let direct_click = snapshot.direct_click_live;
+    let clock_text = store_ref
+        .fixed_clock_label
+        .clone()
+        .unwrap_or_else(|| Local::now().format("%H:%M").to_string());
 
     let alerts_timer_active = snapshot.active_alert.is_some() || snapshot.active_timer.is_some();
     let alerts_timer_label = match (&snapshot.active_timer, &snapshot.active_alert) {
-        (Some(timer), _) => format!("● {}", timer.display(now_ms).formatted),
-        (None, Some(_)) => "● Alert Live".to_owned(),
-        (None, None) => "Alerts & Timers".to_owned(),
+        (Some(timer), _) => timer.display(now_ms).formatted,
+        (None, Some(_)) => "ALERT".to_owned(),
+        (None, None) => "TIMERS".to_owned(),
     };
 
     let wm = workspace.windows.read(cx);
@@ -41,186 +49,151 @@ pub fn render_operator_header(
     let notice = status_banner.or_else(|| wm.last_notice.clone());
     let display_count = WindowManager::display_count(cx);
 
+    let aud_detail = if audience_open {
+        "1920x1080".to_owned()
+    } else if display_count > 1 {
+        "READY".to_owned()
+    } else {
+        "OFF".to_owned()
+    };
+    let stg_detail = if stage_open {
+        "1920x1080".to_owned()
+    } else {
+        "OFF".to_owned()
+    };
+
     let mut wrapper = div().w_full().flex().flex_col();
 
-    let mut theme_pills = div().flex().items_center().gap(px(6.0));
-    for theme in themes {
-        let is_active = theme.id == active_theme_id;
-        let theme_for_click = Arc::clone(&theme);
-        let id = format!("header-theme-{}", theme.id);
-        theme_pills = theme_pills.child(
-            div()
-                .id(id)
-                .px(px(10.0))
-                .py(px(5.0))
-                .rounded(px(6.0))
-                .cursor_pointer()
-                .border_1()
-                .border_color(if is_active {
-                    color(PREVIEW_ACCENT)
-                } else {
-                    color(BORDER_STRONG)
-                })
-                .bg(if is_active {
-                    rgba(0xF59E_0B26)
-                } else {
-                    color(BG_ELEVATED)
-                })
-                .text_color(if is_active {
-                    rgb(0xFEF3C7)
-                } else {
-                    color(TEXT_SECONDARY)
-                })
-                .text_size(px(12.0))
-                .font_weight(if is_active {
-                    FontWeight::SEMIBOLD
-                } else {
-                    FontWeight::MEDIUM
-                })
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.store.update(cx, |s, cx| {
-                        let _ = s.dispatch(
-                            PresentationCommand::ApplyLiveTheme(Arc::clone(&theme_for_click)),
-                            cx,
-                        );
-                    });
-                }))
-                .child(theme.name.clone()),
-        );
-    }
-
-    let direct_click = snapshot.direct_click_live;
     let bar = div()
         .w_full()
-        .h(px(54.0))
-        .px(px(16.0))
-        .bg(color(BG_HEADER))
+        .h(px(TOP_BAR_HEIGHT))
+        .px(px(10.0))
+        .bg(TOKENS.pane)
         .border_b_1()
-        .border_color(color(BORDER_SUBTLE))
+        .border_color(TOKENS.gridline)
         .flex()
         .items_center()
         .justify_between()
-        .gap(px(16.0))
-        // Left: Brand + Active Service
+        .gap(px(10.0))
+        // Left: Minimal geometric wordmark + .sdeck filename
         .child(
             div()
                 .flex()
                 .items_center()
-                .gap(px(12.0))
+                .gap(px(8.0))
                 .child(
                     div()
-                        .w(px(30.0))
-                        .h(px(30.0))
-                        .rounded(px(7.0))
-                        .bg(rgba(0xF59E_0B24))
+                        .w(px(16.0))
+                        .h(px(16.0))
+                        .rounded(px(RADIUS_CONTROL))
+                        .bg(TOKENS.elevated)
                         .border_1()
-                        .border_color(color(PREVIEW_ACCENT))
+                        .border_color(TOKENS.gridline)
                         .flex()
                         .items_center()
                         .justify_center()
-                        .text_color(rgb(0xFCD34D))
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::BOLD)
-                        .child("SD"),
+                        .child(div().w(px(6.0)).h(px(6.0)).bg(TOKENS.signal_preview)),
                 )
                 .child(
                     div()
-                        .flex()
-                        .flex_col()
-                        .child(
-                            div()
-                                .text_color(color(TEXT_PRIMARY))
-                                .text_size(px(14.0))
-                                .font_weight(FontWeight::BOLD)
-                                .child("SundayDeck"),
-                        )
-                        .child(
-                            div()
-                                .text_color(color(TEXT_MUTED))
-                                .text_size(px(11.0))
-                                .child(match service_date {
-                                    Some(date) => format!("{service_title}  •  {date}"),
-                                    None => service_title,
-                                }),
-                        ),
+                        .font_family(FONT_DISPLAY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(12.5))
+                        .font_weight(FontWeight::BOLD)
+                        .child("SUNDAYDECK"),
+                )
+                .child(div().w(px(1.0)).h(px(14.0)).bg(TOKENS.gridline))
+                .child(
+                    div()
+                        .font_family(FONT_MONO)
+                        .text_color(TOKENS.ink_secondary)
+                        .text_size(px(10.5))
+                        .child(filename),
                 ),
         )
-        // Center: Instant Theme Switcher
+        // Center: Compact Voice-Sync Hardware Pill
+        .child(render_interactive_voice_pill(voice_mode, motion_mode, cx))
+        // Right: Timers, Direct-Click, Display Badges, Mono Clock, Settings
         .child(
             div()
                 .flex()
                 .items_center()
-                .gap(px(8.0))
-                .child(
-                    div()
-                        .text_color(color(TEXT_MUTED))
-                        .text_size(px(11.0))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child("THEME"),
-                )
-                .child(theme_pills),
-        )
-        // Right: Direct-Click & Output Window Controls
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .gap(px(8.0))
+                .gap(px(6.0))
                 .child(
                     div()
                         .id("open-alerts-timers")
-                        .px(px(10.0))
-                        .py(px(5.0))
-                        .rounded(px(6.0))
+                        .h(px(24.0))
+                        .px(px(7.0))
+                        .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
+                        .bg(if alerts_timer_active {
+                            TOKENS.signal_preview_tint
+                        } else {
+                            TOKENS.elevated
+                        })
+                        .hover(|s| s.bg(TOKENS.elevated_hover))
                         .border_1()
                         .border_color(if alerts_timer_active {
-                            color(PREVIEW_ACCENT)
+                            TOKENS.signal_preview
                         } else {
-                            color(BORDER_STRONG)
+                            TOKENS.gridline
                         })
-                        .bg(if alerts_timer_active {
-                            rgba(0xF59E_0B28)
-                        } else {
-                            color(BG_ELEVATED)
-                        })
-                        .text_color(if alerts_timer_active {
-                            rgb(0xFDE68A)
-                        } else {
-                            color(TEXT_SECONDARY)
-                        })
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .flex()
+                        .items_center()
+                        .gap(px(5.0))
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.open_alerts_timers(cx);
                         }))
-                        .child(alerts_timer_label),
+                        .child(deck_icon(
+                            if snapshot.active_alert.is_some() {
+                                DeckIcon::BellRingingFill
+                            } else if snapshot.active_timer.is_some() {
+                                DeckIcon::TimerFill
+                            } else {
+                                DeckIcon::Timer
+                            },
+                            IconSize::Sm,
+                            if alerts_timer_active {
+                                TOKENS.signal_preview
+                            } else {
+                                TOKENS.ink_secondary
+                            },
+                        ))
+                        .child(
+                            div()
+                                .font_family(FONT_MONO)
+                                .text_color(if alerts_timer_active {
+                                    TOKENS.signal_preview
+                                } else {
+                                    TOKENS.ink_secondary
+                                })
+                                .text_size(px(10.0))
+                                .font_weight(FontWeight::BOLD)
+                                .child(alerts_timer_label),
+                        ),
                 )
                 .child(
                     div()
                         .id("toggle-direct-click")
-                        .px(px(10.0))
-                        .py(px(5.0))
-                        .rounded(px(6.0))
+                        .h(px(24.0))
+                        .px(px(7.0))
+                        .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
+                        .bg(if direct_click {
+                            TOKENS.signal_override_tint
+                        } else {
+                            TOKENS.elevated
+                        })
+                        .hover(|s| s.bg(TOKENS.elevated_hover))
                         .border_1()
                         .border_color(if direct_click {
-                            color(PREVIEW_ACCENT)
+                            TOKENS.signal_override
                         } else {
-                            color(BORDER_STRONG)
+                            TOKENS.gridline
                         })
-                        .bg(if direct_click {
-                            rgba(0xF59E_0B24)
-                        } else {
-                            color(BG_ELEVATED)
-                        })
-                        .text_color(if direct_click {
-                            rgb(0xFDE68A)
-                        } else {
-                            color(TEXT_SECONDARY)
-                        })
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::MEDIUM)
+                        .flex()
+                        .items_center()
+                        .gap(px(4.0))
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.store.update(cx, |s, cx| {
                                 let _ = s.dispatch(
@@ -229,98 +202,114 @@ pub fn render_operator_header(
                                 );
                             });
                         }))
-                        .child(if direct_click {
-                            "Direct Live: ON"
-                        } else {
-                            "Preview Gate"
-                        }),
+                        .child(deck_icon(
+                            if direct_click {
+                                DeckIcon::Lightning
+                            } else {
+                                DeckIcon::LockSimple
+                            },
+                            IconSize::Sm,
+                            if direct_click {
+                                TOKENS.signal_override
+                            } else {
+                                TOKENS.ink_secondary
+                            },
+                        ))
+                        .child(
+                            div()
+                                .font_family(FONT_MONO)
+                                .text_color(if direct_click {
+                                    TOKENS.signal_override
+                                } else {
+                                    TOKENS.ink_secondary
+                                })
+                                .text_size(px(10.0))
+                                .font_weight(FontWeight::BOLD)
+                                .child(if direct_click { "DIRECT" } else { "GATE" }),
+                        ),
                 )
                 .child(
                     div()
                         .id("toggle-audience-window")
-                        .px(px(11.0))
-                        .py(px(5.0))
-                        .rounded(px(6.0))
                         .cursor_pointer()
-                        .border_1()
-                        .border_color(if audience_open {
-                            color(GO_LIVE_BG)
-                        } else {
-                            color(BORDER_STRONG)
-                        })
-                        .bg(if audience_open {
-                            rgba(0x10B9_8128)
-                        } else {
-                            color(BG_ELEVATED)
-                        })
-                        .text_color(if audience_open {
-                            rgb(0x6EE7B7)
-                        } else {
-                            color(TEXT_SECONDARY)
-                        })
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::SEMIBOLD)
                         .on_click(cx.listener(|this, _, _, cx| {
                             let store = this.store.clone();
                             this.windows
                                 .update(cx, |wm, cx| wm.toggle_audience(store, cx));
                         }))
-                        .child(if audience_open {
-                            "● Audience ON"
-                        } else {
-                            "○ Audience"
-                        }),
+                        .child(display_status_badge(
+                            if audience_open {
+                                DeckIcon::MonitorFill
+                            } else {
+                                DeckIcon::Monitor
+                            },
+                            "AUD",
+                            &aud_detail,
+                            audience_open,
+                            TOKENS.signal_live,
+                        )),
                 )
                 .child(
                     div()
                         .id("toggle-stage-window")
-                        .px(px(11.0))
-                        .py(px(5.0))
-                        .rounded(px(6.0))
                         .cursor_pointer()
-                        .border_1()
-                        .border_color(if stage_open {
-                            color(OVERRIDE_CLEAR)
-                        } else {
-                            color(BORDER_STRONG)
-                        })
-                        .bg(if stage_open {
-                            rgba(0x0EA5_E928)
-                        } else {
-                            color(BG_ELEVATED)
-                        })
-                        .text_color(if stage_open {
-                            rgb(0x7DD3FC)
-                        } else {
-                            color(TEXT_SECONDARY)
-                        })
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::SEMIBOLD)
                         .on_click(cx.listener(|this, _, _, cx| {
                             let store = this.store.clone();
                             this.windows.update(cx, |wm, cx| wm.toggle_stage(store, cx));
                         }))
-                        .child(if stage_open {
-                            "● Stage ON"
-                        } else {
-                            "○ Stage"
-                        }),
+                        .child(display_status_badge(
+                            DeckIcon::ChalkboardSimple,
+                            "STG",
+                            &stg_detail,
+                            stage_open,
+                            TOKENS.signal_preview,
+                        )),
+                )
+                .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.gridline))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(5.0))
+                        .child(deck_icon(DeckIcon::Clock, IconSize::Sm, TOKENS.ink_muted))
+                        .child(
+                            div()
+                                .font_family(FONT_MONO)
+                                .text_color(TOKENS.ink_primary)
+                                .text_size(px(11.0))
+                                .font_weight(FontWeight::BOLD)
+                                .child(clock_text),
+                        ),
                 )
                 .child(
                     div()
-                        .px(px(8.0))
-                        .py(px(4.0))
-                        .rounded(px(6.0))
-                        .bg(rgba(0xFFFFFF0A))
-                        .text_color(color(TEXT_MUTED))
-                        .text_size(px(11.0))
-                        .child(format!(
-                            "{display_count} {}",
-                            if display_count == 1 {
-                                "Display"
-                            } else {
-                                "Displays"
-                            }
+                        .id("btn-cycle-motion")
+                        .w(px(24.0))
+                        .h(px(24.0))
+                        .rounded(px(RADIUS_CONTROL))
+                        .cursor_pointer()
+                        .bg(TOKENS.elevated)
+                        .hover(|s| s.bg(TOKENS.elevated_hover))
+                        .border_1()
+                        .border_color(TOKENS.gridline)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            let next = match motion_mode {
+                                MotionMode::Full => MotionMode::CrossfadeOnly,
+                                MotionMode::CrossfadeOnly => MotionMode::Instant,
+                                MotionMode::Instant => MotionMode::Full,
+                            };
+                            this.store.update(cx, |s, cx| {
+                                s.motion_mode = next;
+                                s.set_status(format!("Motion mode: {}", next.label()), cx);
+                            });
+                        }))
+                        .child(deck_icon(
+                            DeckIcon::GearSix,
+                            IconSize::Sm,
+                            TOKENS.ink_secondary,
                         )),
                 ),
         );
@@ -331,26 +320,31 @@ pub fn render_operator_header(
         wrapper = wrapper.child(
             div()
                 .w_full()
-                .px(px(16.0))
-                .py(px(5.0))
-                .bg(rgba(0xF59E_0B1C))
+                .h(px(26.0))
+                .px(px(12.0))
+                .bg(TOKENS.signal_preview_tint)
                 .border_b_1()
-                .border_color(rgba(0xF59E_0B44))
+                .border_color(TOKENS.signal_preview)
                 .flex()
                 .items_center()
                 .justify_between()
                 .child(
                     div()
-                        .text_color(rgb(0xFDE68A))
-                        .text_size(px(12.0))
+                        .font_family(FONT_MONO)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(10.5))
                         .child(msg),
                 )
                 .child(
                     div()
                         .id("dismiss-status")
                         .cursor_pointer()
-                        .text_color(color(TEXT_MUTED))
-                        .text_size(px(11.0))
+                        .flex()
+                        .items_center()
+                        .gap(px(4.0))
+                        .text_color(TOKENS.ink_secondary)
+                        .font_family(FONT_MONO)
+                        .text_size(px(10.0))
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.store.update(cx, |s, cx| s.clear_status(cx));
                             this.windows.update(cx, |w, cx| {
@@ -358,10 +352,119 @@ pub fn render_operator_header(
                                 cx.notify();
                             });
                         }))
-                        .child("Dismiss"),
+                        .child(deck_icon(DeckIcon::X, IconSize::Sm, TOKENS.ink_secondary)),
                 ),
         );
     }
 
     wrapper
+}
+
+fn render_interactive_voice_pill(
+    mode: VoiceSyncMode,
+    motion_mode: MotionMode,
+    cx: &mut Context<OperatorWorkspace>,
+) -> Div {
+    let listening = mode != VoiceSyncMode::Off;
+    let signal = match mode {
+        VoiceSyncMode::Off => TOKENS.ink_muted,
+        VoiceSyncMode::Suggest => TOKENS.signal_preview,
+        VoiceSyncMode::Auto => TOKENS.signal_voice,
+    };
+
+    let mut segs = div()
+        .flex()
+        .items_center()
+        .bg(TOKENS.canvas)
+        .border_1()
+        .border_color(TOKENS.gridline)
+        .rounded(px(RADIUS_CONTROL));
+
+    for opt in VoiceSyncMode::ALL {
+        let active = opt == mode;
+        let seg_bg = if !active {
+            rgba(0x0000_0000)
+        } else {
+            match opt {
+                VoiceSyncMode::Off => TOKENS.elevated,
+                VoiceSyncMode::Suggest => TOKENS.signal_preview_tint,
+                VoiceSyncMode::Auto => TOKENS.signal_voice_tint,
+            }
+        };
+        let seg_fg = if !active {
+            TOKENS.ink_muted
+        } else {
+            match opt {
+                VoiceSyncMode::Off => TOKENS.ink_primary,
+                VoiceSyncMode::Suggest => TOKENS.signal_preview,
+                VoiceSyncMode::Auto => TOKENS.signal_voice,
+            }
+        };
+        segs = segs.child(
+            div()
+                .id(format!("hdr-voice-{}", opt.label()))
+                .px(px(6.0))
+                .py(px(2.0))
+                .cursor_pointer()
+                .bg(seg_bg)
+                .font_family(FONT_MONO)
+                .text_color(seg_fg)
+                .text_size(px(9.5))
+                .font_weight(FontWeight::BOLD)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.store.update(cx, |s, cx| {
+                        s.voice_sync_mode = opt;
+                        cx.notify();
+                    });
+                }))
+                .child(opt.label()),
+        );
+    }
+
+    div()
+        .h(px(24.0))
+        .px(px(8.0))
+        .rounded(px(RADIUS_TILE))
+        .bg(TOKENS.elevated)
+        .border_1()
+        .border_color(if listening {
+            signal.alpha(0.55)
+        } else {
+            TOKENS.gridline
+        })
+        .flex()
+        .items_center()
+        .gap(px(7.0))
+        .child(tally_pulse_dot(
+            "hdr-voice-tally",
+            signal,
+            listening,
+            motion_mode,
+        ))
+        .child(deck_icon(
+            if listening {
+                DeckIcon::Waveform
+            } else {
+                DeckIcon::MicrophoneSlash
+            },
+            IconSize::Sm,
+            signal,
+        ))
+        .child(voice_level_meter(if listening { 4 } else { 0 }, listening))
+        .child(segs)
+        .child(
+            div()
+                .font_family(FONT_MONO)
+                .text_color(if listening {
+                    TOKENS.ink_secondary
+                } else {
+                    TOKENS.ink_muted
+                })
+                .text_size(px(9.5))
+                .child(if listening {
+                    "MIC STANDBY"
+                } else {
+                    "AUDIO OFF"
+                }),
+        )
 }

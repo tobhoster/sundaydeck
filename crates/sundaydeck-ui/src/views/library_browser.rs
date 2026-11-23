@@ -2,18 +2,20 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, px, rgb, rgba,
+    StatefulInteractiveElement, Styled, div, px, rgba,
 };
 use sundaydeck_core::PresentationCommand;
 
-use crate::palette::{
-    BG_CARD, BG_CARD_HOVER, BG_ELEVATED, BG_SURFACE, BORDER_STRONG, BORDER_SUBTLE, PREVIEW_ACCENT,
-    TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, color, rgba8_to_gpui,
+use crate::design::icons::{DeckIcon, IconSize, deck_icon};
+use crate::design::tokens::{
+    FONT_BODY, FONT_DISPLAY, FONT_MONO, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, TOKENS,
+    rgba8_to_gpui,
 };
 use crate::views::operator_workspace::{LibraryTab, OperatorWorkspace};
 use crate::views::song_editor_modal::EditorTab;
 
-/// Bottom half of the Center Pane: Tabbed offline library browser (Songs with FTS5, Bible, Themes).
+/// Bottom docked tab drawer of the Center Pane:
+/// Tabbed offline browser for Songs (FTS5), Bible (multi-translation), and Themes.
 pub fn render_library_section(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
@@ -24,45 +26,63 @@ pub fn render_library_section(
     let theme_count = store.themes.len();
     let bible_count = store.bible_translations.len();
 
-    let tab_button = |tab: LibraryTab, label: String, cx: &mut Context<OperatorWorkspace>| {
-        let is_active = tab == active_tab;
-        div()
-            .id(format!("lib-tab-{tab:?}"))
-            .px(px(12.0))
-            .py(px(5.0))
-            .rounded(px(6.0))
-            .cursor_pointer()
-            .bg(if is_active {
-                color(BG_ELEVATED)
-            } else {
-                rgba(0x0000_0000)
-            })
-            .border_1()
-            .border_color(if is_active {
-                color(BORDER_STRONG)
-            } else {
-                rgba(0x0000_0000)
-            })
-            .text_color(if is_active {
-                color(TEXT_PRIMARY)
-            } else {
-                color(TEXT_SECONDARY)
-            })
-            .text_size(px(12.0))
-            .font_weight(FontWeight::SEMIBOLD)
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.active_library_tab = tab;
-                cx.notify();
-            }))
-            .child(label)
-    };
+    let tab_button =
+        |tab: LibraryTab, icon: DeckIcon, label: String, cx: &mut Context<OperatorWorkspace>| {
+            let is_active = tab == active_tab;
+            div()
+                .id(format!("lib-tab-{tab:?}"))
+                .h(px(PANE_HEADER_HEIGHT))
+                .px(px(12.0))
+                .cursor_pointer()
+                .bg(if is_active {
+                    TOKENS.canvas
+                } else {
+                    rgba(0x0000_0000)
+                })
+                .border_r_1()
+                .border_color(TOKENS.gridline)
+                .border_t_2()
+                .border_color(if is_active {
+                    TOKENS.signal_preview
+                } else {
+                    TOKENS.gridline
+                })
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.active_library_tab = tab;
+                    cx.notify();
+                }))
+                .child(deck_icon(
+                    icon,
+                    IconSize::Sm,
+                    if is_active {
+                        TOKENS.signal_preview
+                    } else {
+                        TOKENS.ink_muted
+                    },
+                ))
+                .child(
+                    div()
+                        .font_family(FONT_MONO)
+                        .text_color(if is_active {
+                            TOKENS.ink_primary
+                        } else {
+                            TOKENS.ink_secondary
+                        })
+                        .text_size(px(10.5))
+                        .font_weight(FontWeight::BOLD)
+                        .child(label),
+                )
+        };
 
     let tabs = div()
-        .px(px(14.0))
-        .py(px(7.0))
-        .bg(color(BG_SURFACE))
+        .h(px(PANE_HEADER_HEIGHT))
+        .w_full()
+        .bg(TOKENS.pane)
         .border_b_1()
-        .border_color(color(BORDER_SUBTLE))
+        .border_color(TOKENS.gridline)
         .flex()
         .items_center()
         .justify_between()
@@ -70,62 +90,88 @@ pub fn render_library_section(
             div()
                 .flex()
                 .items_center()
-                .gap(px(6.0))
                 .child(tab_button(
                     LibraryTab::Songs,
-                    format!("Songs ({song_count})"),
+                    DeckIcon::MusicNotes,
+                    format!("SONGS ({song_count})"),
                     cx,
                 ))
                 .child(tab_button(
                     LibraryTab::Bible,
-                    format!("Bible ({bible_count})"),
+                    DeckIcon::BookOpenText,
+                    format!("BIBLE ({bible_count})"),
                     cx,
                 ))
                 .child(tab_button(
                     LibraryTab::Themes,
-                    format!("Themes ({theme_count})"),
+                    DeckIcon::Palette,
+                    format!("THEMES ({theme_count})"),
                     cx,
                 )),
         )
         .child(
             div()
+                .pr(px(10.0))
                 .flex()
                 .items_center()
                 .gap(px(6.0))
                 .child(
                     div()
                         .id("btn-new-song")
-                        .px(px(9.0))
-                        .py(px(4.0))
-                        .rounded(px(5.0))
+                        .h(px(23.0))
+                        .px(px(8.0))
+                        .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
-                        .bg(rgba(0x10B9_8122))
-                        .hover(|s| s.bg(rgba(0x10B9_813A)))
-                        .text_color(rgb(0x6EE7B7))
-                        .text_size(px(11.0))
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .bg(TOKENS.elevated)
+                        .hover(|s| s.bg(TOKENS.elevated_hover))
+                        .border_1()
+                        .border_color(TOKENS.focus_border)
+                        .flex()
+                        .items_center()
+                        .gap(px(5.0))
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.open_song_editor(None, EditorTab::Edit, cx);
                         }))
-                        .child("+ New Song"),
+                        .child(deck_icon(DeckIcon::Plus, IconSize::Sm, TOKENS.ink_primary))
+                        .child(
+                            div()
+                                .font_family(FONT_MONO)
+                                .text_color(TOKENS.ink_primary)
+                                .text_size(px(10.0))
+                                .font_weight(FontWeight::BOLD)
+                                .child("NEW SONG"),
+                        ),
                 )
                 .child(
                     div()
                         .id("btn-import-song")
-                        .px(px(9.0))
-                        .py(px(4.0))
-                        .rounded(px(5.0))
+                        .h(px(23.0))
+                        .px(px(8.0))
+                        .rounded(px(RADIUS_CONTROL))
                         .cursor_pointer()
-                        .bg(color(BG_ELEVATED))
-                        .hover(|s| s.bg(color(BG_CARD_HOVER)))
+                        .bg(TOKENS.elevated)
+                        .hover(|s| s.bg(TOKENS.elevated_hover))
                         .border_1()
-                        .border_color(color(BORDER_STRONG))
-                        .text_color(color(TEXT_SECONDARY))
-                        .text_size(px(11.0))
+                        .border_color(TOKENS.gridline)
+                        .flex()
+                        .items_center()
+                        .gap(px(5.0))
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.open_song_editor(None, EditorTab::Import, cx);
                         }))
-                        .child("Import"),
+                        .child(deck_icon(
+                            DeckIcon::UploadSimple,
+                            IconSize::Sm,
+                            TOKENS.ink_secondary,
+                        ))
+                        .child(
+                            div()
+                                .font_family(FONT_MONO)
+                                .text_color(TOKENS.ink_secondary)
+                                .text_size(px(10.0))
+                                .font_weight(FontWeight::BOLD)
+                                .child("IMPORT"),
+                        ),
                 ),
         );
 
@@ -136,9 +182,9 @@ pub fn render_library_section(
     };
 
     div()
-        .h(px(310.0))
+        .h(px(300.0))
         .w_full()
-        .bg(color(BG_SURFACE))
+        .bg(TOKENS.pane)
         .flex()
         .flex_col()
         .overflow_hidden()
@@ -155,11 +201,8 @@ fn render_songs_library(
         .id("songs-library-list")
         .flex_1()
         .overflow_y_scroll()
-        .px(px(10.0))
-        .py(px(8.0))
         .flex()
-        .flex_col()
-        .gap(px(6.0));
+        .flex_col();
 
     for song in songs {
         let song_id = song.id;
@@ -167,10 +210,10 @@ fn render_songs_library(
         let meta = if song.ccli_number.is_empty() {
             song.author.clone()
         } else {
-            format!("{}  •  CCLI #{}", song.author, song.ccli_number)
+            format!("{}  //  CCLI {}", song.author, song.ccli_number)
         };
         let section_summary = format!(
-            "{} sec  •  {} arr",
+            "{:02} SEC / {:02} ARR",
             song.sections.len(),
             song.arrangements.len()
         );
@@ -181,12 +224,11 @@ fn render_songs_library(
                 .w_full()
                 .px(px(12.0))
                 .py(px(7.0))
-                .rounded(px(7.0))
                 .cursor_pointer()
-                .bg(color(BG_CARD))
-                .hover(|s| s.bg(color(BG_CARD_HOVER)))
-                .border_1()
-                .border_color(color(BORDER_SUBTLE))
+                .bg(TOKENS.pane)
+                .hover(|s| s.bg(TOKENS.elevated_hover))
+                .border_b_1()
+                .border_color(TOKENS.gridline)
                 .flex()
                 .items_center()
                 .justify_between()
@@ -197,20 +239,33 @@ fn render_songs_library(
                 .child(
                     div()
                         .flex()
-                        .flex_col()
-                        .gap(px(2.0))
+                        .items_center()
+                        .gap(px(9.0))
+                        .child(deck_icon(
+                            DeckIcon::MusicNotes,
+                            IconSize::Sm,
+                            TOKENS.ink_muted,
+                        ))
                         .child(
                             div()
-                                .text_color(color(TEXT_PRIMARY))
-                                .text_size(px(13.0))
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child(song.title),
-                        )
-                        .child(
-                            div()
-                                .text_color(color(TEXT_MUTED))
-                                .text_size(px(11.0))
-                                .child(meta),
+                                .flex()
+                                .flex_col()
+                                .gap(px(1.5))
+                                .child(
+                                    div()
+                                        .font_family(FONT_BODY)
+                                        .text_color(TOKENS.ink_primary)
+                                        .text_size(px(12.5))
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .child(song.title),
+                                )
+                                .child(
+                                    div()
+                                        .font_family(FONT_MONO)
+                                        .text_color(TOKENS.ink_muted)
+                                        .text_size(px(10.0))
+                                        .child(meta),
+                                ),
                         ),
                 )
                 .child(
@@ -220,22 +275,24 @@ fn render_songs_library(
                         .gap(px(6.0))
                         .child(
                             div()
-                                .text_color(color(TEXT_SECONDARY))
-                                .text_size(px(10.5))
+                                .font_family(FONT_MONO)
+                                .text_color(TOKENS.ink_muted)
+                                .text_size(px(9.5))
                                 .child(section_summary),
                         )
                         .child(
                             div()
                                 .id(format!("edit-song-{song_id}"))
-                                .px(px(8.0))
-                                .py(px(4.0))
-                                .rounded(px(5.0))
-                                .bg(color(BG_ELEVATED))
-                                .hover(|s| s.bg(color(BG_CARD_HOVER)))
+                                .h(px(22.0))
+                                .px(px(7.0))
+                                .rounded(px(RADIUS_CONTROL))
+                                .bg(TOKENS.elevated)
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
                                 .border_1()
-                                .border_color(color(BORDER_STRONG))
-                                .text_color(color(TEXT_SECONDARY))
-                                .text_size(px(11.0))
+                                .border_color(TOKENS.gridline)
+                                .flex()
+                                .items_center()
+                                .gap(px(4.0))
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.open_song_editor(
                                         Some(song_for_edit.clone()),
@@ -243,23 +300,48 @@ fn render_songs_library(
                                         cx,
                                     );
                                 }))
-                                .child("Edit"),
+                                .child(deck_icon(
+                                    DeckIcon::PencilSimple,
+                                    IconSize::Sm,
+                                    TOKENS.ink_secondary,
+                                ))
+                                .child(
+                                    div()
+                                        .font_family(FONT_MONO)
+                                        .text_color(TOKENS.ink_secondary)
+                                        .text_size(px(9.5))
+                                        .child("EDIT"),
+                                ),
                         )
                         .child(
                             div()
                                 .id(format!("add-song-sched-{song_id}"))
-                                .px(px(8.0))
-                                .py(px(4.0))
-                                .rounded(px(5.0))
-                                .bg(rgba(0x10B9_8122))
-                                .hover(|s| s.bg(rgba(0x10B9_813A)))
-                                .text_color(rgb(0x6EE7B7))
-                                .text_size(px(11.0))
-                                .font_weight(FontWeight::SEMIBOLD)
+                                .h(px(22.0))
+                                .px(px(7.0))
+                                .rounded(px(RADIUS_CONTROL))
+                                .bg(TOKENS.elevated)
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
+                                .border_1()
+                                .border_color(TOKENS.focus_border)
+                                .flex()
+                                .items_center()
+                                .gap(px(4.0))
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.add_song_to_schedule(song_id, cx);
                                 }))
-                                .child("+ Schedule"),
+                                .child(deck_icon(
+                                    DeckIcon::Plus,
+                                    IconSize::Sm,
+                                    TOKENS.signal_preview,
+                                ))
+                                .child(
+                                    div()
+                                        .font_family(FONT_MONO)
+                                        .text_color(TOKENS.ink_primary)
+                                        .text_size(px(9.5))
+                                        .font_weight(FontWeight::BOLD)
+                                        .child("QUEUE"),
+                                ),
                         ),
                 ),
         );
@@ -274,8 +356,18 @@ fn render_songs_library(
         .child(
             div()
                 .px(px(10.0))
-                .pt(px(8.0))
-                .child(workspace.song_search_input.clone()),
+                .py(px(7.0))
+                .border_b_1()
+                .border_color(TOKENS.gridline)
+                .flex()
+                .items_center()
+                .gap(px(7.0))
+                .child(deck_icon(
+                    DeckIcon::MagnifyingGlass,
+                    IconSize::Sm,
+                    TOKENS.ink_muted,
+                ))
+                .child(div().flex_1().child(workspace.song_search_input.clone())),
         )
         .child(list)
         .into_any_element()
@@ -306,23 +398,23 @@ fn render_themes_library(
         let swatch_color = match &theme.background {
             sundaydeck_core::BackgroundSpec::Solid { color } => rgba8_to_gpui(*color),
             sundaydeck_core::BackgroundSpec::LinearGradient { start, .. } => rgba8_to_gpui(*start),
-            sundaydeck_core::BackgroundSpec::Image { .. } => rgb(0x1E293B),
+            sundaydeck_core::BackgroundSpec::Image { .. } => TOKENS.canvas,
         };
 
         row = row.child(
             div()
                 .id(format!("lib-theme-{}", theme.id))
-                .w(px(210.0))
-                .p(px(10.0))
-                .rounded(px(8.0))
+                .w(px(192.0))
+                .p(px(8.0))
+                .rounded(px(RADIUS_TILE))
                 .cursor_pointer()
-                .bg(color(BG_CARD))
-                .hover(|s| s.bg(color(BG_CARD_HOVER)))
-                .border_2()
+                .bg(TOKENS.elevated)
+                .hover(|s| s.bg(TOKENS.elevated_hover))
+                .border_1()
                 .border_color(if is_active {
-                    color(PREVIEW_ACCENT)
+                    TOKENS.signal_preview
                 } else {
-                    color(BORDER_SUBTLE)
+                    TOKENS.gridline
                 })
                 .flex()
                 .flex_col()
@@ -338,33 +430,36 @@ fn render_themes_library(
                 .child(
                     div()
                         .w_full()
-                        .h(px(46.0))
-                        .rounded(px(6.0))
+                        .h(px(54.0))
+                        .rounded(px(RADIUS_CONTROL))
                         .bg(swatch_color)
                         .border_1()
-                        .border_color(rgba(0xFFFFFF18))
+                        .border_color(TOKENS.gridline)
                         .flex()
                         .items_center()
                         .justify_center()
+                        .font_family(theme.font_family.clone())
                         .text_color(rgba8_to_gpui(theme.text_color))
-                        .text_size(px(13.0))
+                        .text_size(px(15.0))
                         .font_weight(FontWeight::BOLD)
                         .child("Aa Bb"),
                 )
                 .child(
                     div()
-                        .text_color(color(TEXT_PRIMARY))
-                        .text_size(px(12.5))
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .font_family(FONT_DISPLAY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(12.0))
+                        .font_weight(FontWeight::BOLD)
                         .child(theme.name.clone()),
                 )
                 .child(
                     div()
-                        .text_color(color(TEXT_MUTED))
-                        .text_size(px(10.5))
+                        .font_family(FONT_MONO)
+                        .text_color(TOKENS.ink_muted)
+                        .text_size(px(9.5))
                         .child(format!(
-                            "{:.0}pt  •  {}ms fade",
-                            theme.font_size_pt, theme.transition_ms
+                            "{} // {:.0}pt // {}ms",
+                            theme.font_family, theme.font_size_pt, theme.transition_ms
                         )),
                 ),
         );

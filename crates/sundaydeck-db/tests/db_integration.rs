@@ -18,7 +18,7 @@ fn seed_is_idempotent_and_populates_starter_library() {
     assert!(!seed_defaults_if_empty(db.conn_mut()).expect("second seed is noop"));
 
     let themes = list_themes(db.conn()).expect("list themes");
-    assert_eq!(themes.len(), 3);
+    assert_eq!(themes.len(), 4);
 
     let songs = search_songs(db.conn(), "").expect("list all songs");
     assert_eq!(songs.len(), 3);
@@ -194,7 +194,7 @@ fn media_assets_deduplicate_by_sha256_and_settings_roundtrip() {
 fn async_db_worker_loads_bootstrap_and_searches_off_thread() {
     let worker = DbWorker::spawn_in_memory().expect("spawn worker");
     let boot = futures_lite_block_on(worker.load_bootstrap()).expect("bootstrap");
-    assert_eq!(boot.themes.len(), 3);
+    assert_eq!(boot.themes.len(), 4);
     assert_eq!(boot.loaded_songs.len(), 3);
 
     let hits = futures_lite_block_on(worker.search_songs("river")).expect("fts search");

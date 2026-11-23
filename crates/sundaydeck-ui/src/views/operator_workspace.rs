@@ -10,12 +10,13 @@ use sundaydeck_core::{
 use sundaydeck_db::DbWorker;
 
 use crate::actions::{
-    ClearStageMessage, GoLive, NextLiveSlide, PrevLiveSlide, QuitApp, ToggleAudienceWindow,
-    ToggleBlack, ToggleClearText, ToggleDirectClickLive, ToggleLogo, ToggleQuickEdit,
-    ToggleStageWindow,
+    ClearStageMessage, GoLive, HardCutBlack, HardCutClearText, HardCutLogo, NextLiveSlide,
+    PrevLiveSlide, QuitApp, ToggleAudienceWindow, ToggleBlack, ToggleClearText,
+    ToggleDirectClickLive, ToggleLogo, ToggleQuickEdit, ToggleStageWindow,
 };
 use crate::components::{TextInput, TextInputEvent};
-use crate::palette::{BG_APP, color};
+use crate::design::motion::modal_enter;
+use crate::design::tokens::{FONT_BODY, TOKENS};
 use crate::store::PresentationStore;
 use crate::views::alerts_timers_modal::AlertsTimersModal;
 use crate::views::bible_browser::BibleBrowserView;
@@ -277,8 +278,17 @@ impl OperatorWorkspace {
     }
 
     fn dispatch_cmd(&mut self, cmd: PresentationCommand, cx: &mut Context<Self>) {
+        self.dispatch_cmd_cut(cmd, false, cx);
+    }
+
+    fn dispatch_cmd_cut(
+        &mut self,
+        cmd: PresentationCommand,
+        hard_cut: bool,
+        cx: &mut Context<Self>,
+    ) {
         self.store.update(cx, |s, cx| {
-            if let Err(err) = s.dispatch(cmd, cx) {
+            if let Err(err) = s.dispatch_with_cut(cmd, hard_cut, cx) {
                 s.set_status(err.to_string(), cx);
             }
         });
@@ -293,6 +303,7 @@ impl Focusable for OperatorWorkspace {
 
 impl Render for OperatorWorkspace {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let motion_mode = self.store.read(cx).motion_mode;
         let header = render_operator_header(self, cx);
         let left_schedule = render_schedule_pane(self, cx);
         let center_workspace = render_library_preview_pane(self, cx);
@@ -303,8 +314,8 @@ impl Render for OperatorWorkspace {
             .key_context("OperatorWorkspace")
             .track_focus(&self.focus_handle)
             .size_full()
-            .bg(color(BG_APP))
-            .font_family(".SystemUIFont")
+            .bg(TOKENS.canvas)
+            .font_family(FONT_BODY)
             .flex()
             .flex_col()
             .on_action(cx.listener(|this, _: &GoLive, _, cx| {
@@ -331,6 +342,27 @@ impl Render for OperatorWorkspace {
             .on_action(cx.listener(|this, _: &ToggleLogo, _, cx| {
                 this.dispatch_cmd(
                     PresentationCommand::ToggleOverride(OutputOverride::Logo),
+                    cx,
+                );
+            }))
+            .on_action(cx.listener(|this, _: &HardCutClearText, _, cx| {
+                this.dispatch_cmd_cut(
+                    PresentationCommand::ToggleOverride(OutputOverride::ClearText),
+                    true,
+                    cx,
+                );
+            }))
+            .on_action(cx.listener(|this, _: &HardCutBlack, _, cx| {
+                this.dispatch_cmd_cut(
+                    PresentationCommand::ToggleOverride(OutputOverride::Black),
+                    true,
+                    cx,
+                );
+            }))
+            .on_action(cx.listener(|this, _: &HardCutLogo, _, cx| {
+                this.dispatch_cmd_cut(
+                    PresentationCommand::ToggleOverride(OutputOverride::Logo),
+                    true,
                     cx,
                 );
             }))
@@ -371,20 +403,22 @@ impl Render for OperatorWorkspace {
             );
 
         if let Some(modal) = &self.active_modal {
-            let content: AnyElement = match modal {
-                ActiveModal::SongEditor(m) => m.clone().into_any_element(),
-                ActiveModal::QuickEdit(m) => m.clone().into_any_element(),
-                ActiveModal::AlertsTimers(m) => m.clone().into_any_element(),
+            let (modal_id, content): (&'static str, AnyElement) = match modal {
+                ActiveModal::SongEditor(m) => ("modal-song-editor", m.clone().into_any_element()),
+                ActiveModal::QuickEdit(m) => ("modal-quick-edit", m.clone().into_any_element()),
+                ActiveModal::AlertsTimers(m) => {
+                    ("modal-alerts-timers", m.clone().into_any_element())
+                }
             };
             root = root.child(
                 div()
                     .absolute()
                     .inset_0()
-                    .bg(rgba(0x0306_0CCC))
+                    .bg(rgba(0x0506_08D6))
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(content),
+                    .child(modal_enter(modal_id, content, motion_mode)),
             );
         }
 

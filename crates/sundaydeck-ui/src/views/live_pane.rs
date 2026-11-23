@@ -1,62 +1,66 @@
 use gpui::{
     Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgb,
+    Styled, div, px, rgb, rgba,
 };
 use sundaydeck_core::{OutputOverride, PresentationCommand, SlideContent};
 
-use crate::palette::{
-    BG_CARD, BG_CARD_HOVER, BG_ELEVATED, BG_SURFACE, BORDER_STRONG, BORDER_SUBTLE, LIVE_ACCENT,
-    LIVE_SURFACE, OVERRIDE_BLACK, OVERRIDE_CLEAR, OVERRIDE_LOGO, TEXT_MUTED, TEXT_PRIMARY,
-    TEXT_SECONDARY, color, section_kind_color,
+use crate::design::icons::{DeckIcon, IconSize, deck_icon};
+use crate::design::motion::tally_pulse_dot;
+use crate::design::primitives::section_tag;
+use crate::design::tokens::{
+    FONT_BODY, FONT_DISPLAY, FONT_MONO, LIVE_DECK_WIDTH, MONITOR_HEIGHT_PX, MONITOR_WIDTH_PX,
+    PANE_HEADER_HEIGHT, RADIUS_CONTROL, TOKENS, section_short_code, section_strip_color,
 };
 use crate::renderer::render_audience_canvas;
 use crate::views::operator_workspace::OperatorWorkspace;
 use crate::views::override_controls::{render_override_buttons, render_stage_cue_strip};
 
-const MONITOR_WIDTH_PX: f32 = 348.0;
-const MONITOR_HEIGHT_PX: f32 = 196.0;
-
-/// Right Pane: WYSIWYG Live Output Monitor, pinned F1-F3 Recovery Overrides,
-/// active live slide navigation grid, Quick Edit trigger, and private Stage cues.
+/// Right Pane (`340px` Live Control Deck):
+/// Top 16:9 Live Output mirror framed with `1px` Tally Red (`#E53935`, or Warning Orange `#F97316`
+/// when an override is active), Tactile Broadcast Switcher Strip (`LIVE`, `CLEAR`, `BLACK`, `LOGO`),
+/// active slide queue with `3px` tally bars, and private Stage Cue dock.
 pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<OperatorWorkspace>) -> Div {
     let store_ref = workspace.store.read(cx);
     let snapshot = store_ref.snapshot();
     let now_ms = store_ref.now_epoch_ms();
+    let motion_mode = store_ref.motion_mode;
     let live = snapshot.live.clone();
     let active_override = snapshot.output_override;
     let stage_note = snapshot.stage.stage_message.clone();
+    let has_live = live.is_some();
 
     let (live_title, pos_badge, active_idx, live_slides) = match &live {
         Some(cursor) => (
             cursor.title.clone(),
-            format!("{} / {}", cursor.active_index + 1, cursor.len()),
+            format!("{:02}/{:02}", cursor.active_index + 1, cursor.len()),
             cursor.active_index,
             cursor.slides.to_vec(),
         ),
-        None => ("Standby".to_owned(), "—".to_owned(), 0, Vec::new()),
+        None => ("STANDBY".to_owned(), "--/--".to_owned(), 0, Vec::new()),
     };
 
-    let monitor_border = match active_override {
-        OutputOverride::None => color(LIVE_ACCENT),
-        OutputOverride::ClearText => color(OVERRIDE_CLEAR),
-        OutputOverride::Black => color(OVERRIDE_BLACK),
-        OutputOverride::Logo => color(OVERRIDE_LOGO),
+    let monitor_border = if active_override != OutputOverride::None {
+        TOKENS.signal_override
+    } else if has_live {
+        TOKENS.signal_live
+    } else {
+        TOKENS.gridline
     };
 
-    let override_pill = match active_override {
+    let override_badge = match active_override {
         OutputOverride::None => None,
-        OutputOverride::ClearText => Some(("TEXT CLEARED", color(OVERRIDE_CLEAR))),
-        OutputOverride::Black => Some(("BLACK OVERRIDE", color(OVERRIDE_BLACK))),
-        OutputOverride::Logo => Some(("LOGO SPLASH", color(OVERRIDE_LOGO))),
+        OutputOverride::ClearText => Some("CLEAR TEXT [F1]"),
+        OutputOverride::Black => Some("BLACKOUT [F2]"),
+        OutputOverride::Logo => Some("LOGO SPLASH [F3]"),
     };
 
     let mut monitor = div()
         .relative()
         .w(px(MONITOR_WIDTH_PX))
         .h(px(MONITOR_HEIGHT_PX))
-        .rounded(px(10.0))
+        .rounded(px(RADIUS_CONTROL))
         .overflow_hidden()
-        .border_2()
+        .border_1()
         .border_color(monitor_border)
         .bg(rgb(0x000000))
         .child(render_audience_canvas(
@@ -66,18 +70,19 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             cx,
         ));
 
-    if let Some((text, pill_bg)) = override_pill {
+    if let Some(text) = override_badge {
         monitor = monitor.child(
             div()
                 .absolute()
-                .top(px(8.0))
-                .left(px(8.0))
-                .px(px(8.0))
-                .py(px(3.0))
-                .rounded(px(5.0))
-                .bg(pill_bg)
-                .text_color(rgb(0x0B0F17))
-                .text_size(px(10.0))
+                .top(px(6.0))
+                .left(px(6.0))
+                .px(px(6.0))
+                .py(px(2.0))
+                .rounded(px(RADIUS_CONTROL))
+                .bg(TOKENS.signal_override)
+                .font_family(FONT_MONO)
+                .text_color(TOKENS.canvas)
+                .text_size(px(9.5))
                 .font_weight(FontWeight::BOLD)
                 .child(text),
         );
@@ -87,21 +92,19 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
         .id("live-slides-list")
         .flex_1()
         .overflow_y_scroll()
-        .px(px(14.0))
-        .py(px(10.0))
         .flex()
-        .flex_col()
-        .gap(px(6.0));
+        .flex_col();
 
     for (idx, slide) in live_slides.iter().enumerate() {
         let is_current = idx == active_idx;
-        let tag_color = match &slide.content {
-            SlideContent::Text {
-                section_kind: Some(kind),
-                ..
-            } => section_kind_color(*kind),
-            _ => rgb(0x6366F1),
+        let sec_kind = match &slide.content {
+            SlideContent::Text { section_kind, .. } => *section_kind,
+            _ => None,
         };
+        let strip_color = sec_kind
+            .map(section_strip_color)
+            .unwrap_or(TOKENS.ink_muted);
+        let short_code = section_short_code(&slide.label, sec_kind);
         let excerpt: String = slide
             .content
             .primary_text()
@@ -114,88 +117,110 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             div()
                 .id(format!("live-slide-{idx}"))
                 .w_full()
-                .px(px(10.0))
-                .py(px(8.0))
-                .rounded(px(8.0))
                 .cursor_pointer()
                 .bg(if is_current {
-                    color(LIVE_SURFACE)
+                    TOKENS.signal_live_tint
                 } else {
-                    color(BG_CARD)
+                    TOKENS.pane
                 })
-                .hover(|s| s.bg(color(BG_CARD_HOVER)))
-                .border_2()
-                .border_color(if is_current {
-                    color(LIVE_ACCENT)
-                } else {
-                    color(BORDER_SUBTLE)
-                })
+                .hover(|s| s.bg(TOKENS.elevated_hover))
+                .border_b_1()
+                .border_color(TOKENS.gridline)
                 .flex()
-                .flex_col()
-                .gap(px(4.0))
+                .items_stretch()
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.store.update(cx, |s, cx| {
                         let _ = s.dispatch(PresentationCommand::SelectLiveSlide(idx), cx);
                     });
                 }))
+                .child(div().w(px(3.0)).flex_shrink_0().bg(if is_current {
+                    TOKENS.signal_live
+                } else {
+                    rgba(0x0000_0000)
+                }))
                 .child(
                     div()
+                        .flex_1()
+                        .min_w_0()
+                        .overflow_hidden()
+                        .px(px(10.0))
+                        .py(px(7.0))
                         .flex()
-                        .items_center()
-                        .justify_between()
+                        .flex_col()
+                        .gap(px(4.0))
                         .child(
                             div()
+                                .w_full()
                                 .flex()
                                 .items_center()
+                                .justify_between()
                                 .gap(px(6.0))
-                                .child(div().w(px(7.0)).h(px(7.0)).rounded(px(99.0)).bg(tag_color))
                                 .child(
                                     div()
-                                        .text_color(color(TEXT_PRIMARY))
-                                        .text_size(px(11.5))
+                                        .flex()
+                                        .items_center()
+                                        .gap(px(6.0))
+                                        .child(section_tag(&short_code, strip_color))
+                                        .child(
+                                            div()
+                                                .font_family(FONT_MONO)
+                                                .text_color(TOKENS.ink_primary)
+                                                .text_size(px(10.5))
+                                                .font_weight(FontWeight::BOLD)
+                                                .child(slide.label.clone()),
+                                        ),
+                                )
+                                .child(
+                                    div()
+                                        .flex_shrink_0()
+                                        .font_family(FONT_MONO)
+                                        .text_color(if is_current {
+                                            TOKENS.signal_live
+                                        } else {
+                                            TOKENS.ink_muted
+                                        })
+                                        .text_size(px(9.5))
                                         .font_weight(FontWeight::BOLD)
-                                        .child(slide.label.clone()),
+                                        .child(if is_current {
+                                            "ON AIR".to_owned()
+                                        } else {
+                                            format!("{:02}", idx + 1)
+                                        }),
                                 ),
                         )
                         .child(
                             div()
+                                .w_full()
+                                .min_w_0()
+                                .font_family(FONT_BODY)
                                 .text_color(if is_current {
-                                    rgb(0xFCA5A5)
+                                    TOKENS.ink_primary
                                 } else {
-                                    color(TEXT_MUTED)
+                                    TOKENS.ink_secondary
                                 })
-                                .text_size(px(10.5))
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child(if is_current {
-                                    "ON AIR".to_owned()
-                                } else {
-                                    format!("#{}", idx + 1)
-                                }),
+                                .text_size(px(11.0))
+                                .line_height(px(15.0))
+                                .child(excerpt),
                         ),
-                )
-                .child(
-                    div()
-                        .text_color(color(TEXT_SECONDARY))
-                        .text_size(px(11.5))
-                        .child(excerpt),
                 ),
         );
     }
 
     div()
-        .w(px(380.0))
+        .w(px(LIVE_DECK_WIDTH))
         .h_full()
-        .bg(color(BG_SURFACE))
+        .bg(TOKENS.pane)
         .border_l_1()
-        .border_color(color(BORDER_SUBTLE))
+        .border_color(TOKENS.gridline)
         .flex()
         .flex_col()
         .child(
             div()
-                .px(px(14.0))
-                .py(px(10.0))
+                .w_full()
+                .h(px(PANE_HEADER_HEIGHT))
+                .px(px(12.0))
                 .border_b_1()
-                .border_color(color(BORDER_SUBTLE))
+                .border_color(TOKENS.gridline)
                 .flex()
                 .items_center()
                 .justify_between()
@@ -203,22 +228,26 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                     div()
                         .flex()
                         .items_center()
-                        .gap(px(7.0))
+                        .gap(px(6.0))
+                        .child(tally_pulse_dot(
+                            "live-pane-tally",
+                            TOKENS.signal_live,
+                            has_live && active_override == OutputOverride::None,
+                            motion_mode,
+                        ))
                         .child(
                             div()
-                                .px(px(7.0))
-                                .py(px(3.0))
-                                .rounded(px(5.0))
-                                .bg(color(LIVE_ACCENT))
-                                .text_color(rgb(0xFFFFFF))
+                                .font_family(FONT_MONO)
+                                .text_color(TOKENS.signal_live)
                                 .text_size(px(10.0))
                                 .font_weight(FontWeight::BOLD)
-                                .child("● LIVE"),
+                                .child("LIVE"),
                         )
                         .child(
                             div()
-                                .text_color(color(TEXT_PRIMARY))
-                                .text_size(px(12.5))
+                                .font_family(FONT_DISPLAY)
+                                .text_color(TOKENS.ink_primary)
+                                .text_size(px(12.0))
                                 .font_weight(FontWeight::BOLD)
                                 .child(live_title),
                         ),
@@ -231,79 +260,102 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                         .child(
                             div()
                                 .id("btn-quick-edit-live")
-                                .px(px(7.0))
-                                .py(px(4.0))
-                                .rounded(px(5.0))
+                                .h(px(22.0))
+                                .px(px(6.0))
+                                .rounded(px(RADIUS_CONTROL))
                                 .cursor_pointer()
-                                .bg(color(BG_ELEVATED))
-                                .hover(|s| s.bg(color(BG_CARD_HOVER)))
+                                .bg(TOKENS.elevated)
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
                                 .border_1()
-                                .border_color(color(BORDER_STRONG))
-                                .text_color(color(TEXT_SECONDARY))
-                                .text_size(px(10.5))
+                                .border_color(TOKENS.gridline)
+                                .flex()
+                                .items_center()
+                                .gap(px(4.0))
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.open_quick_edit(cx);
                                 }))
-                                .child("Edit Live"),
+                                .child(deck_icon(
+                                    DeckIcon::PencilSimple,
+                                    IconSize::Sm,
+                                    TOKENS.ink_secondary,
+                                ))
+                                .child(
+                                    div()
+                                        .font_family(FONT_MONO)
+                                        .text_color(TOKENS.ink_secondary)
+                                        .text_size(px(9.5))
+                                        .child("EDIT"),
+                                ),
                         )
                         .child(
                             div()
-                                .text_color(color(TEXT_MUTED))
-                                .text_size(px(10.5))
+                                .font_family(FONT_MONO)
+                                .text_color(TOKENS.ink_muted)
+                                .text_size(px(10.0))
                                 .child(pos_badge),
                         )
                         .child(
                             div()
                                 .id("btn-prev-slide")
-                                .px(px(7.0))
-                                .py(px(4.0))
-                                .rounded(px(5.0))
+                                .w(px(22.0))
+                                .h(px(22.0))
+                                .rounded(px(RADIUS_CONTROL))
                                 .cursor_pointer()
-                                .bg(color(BG_ELEVATED))
-                                .hover(|s| s.bg(color(BG_CARD_HOVER)))
+                                .bg(TOKENS.elevated)
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
                                 .border_1()
-                                .border_color(color(BORDER_STRONG))
-                                .text_color(color(TEXT_PRIMARY))
-                                .text_size(px(11.0))
+                                .border_color(TOKENS.gridline)
+                                .flex()
+                                .items_center()
+                                .justify_center()
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.store.update(cx, |s, cx| {
                                         let _ = s.dispatch(PresentationCommand::PrevLiveSlide, cx);
                                     });
                                 }))
-                                .child("◀"),
+                                .child(deck_icon(
+                                    DeckIcon::CaretLeft,
+                                    IconSize::Sm,
+                                    TOKENS.ink_primary,
+                                )),
                         )
                         .child(
                             div()
                                 .id("btn-next-slide")
-                                .px(px(7.0))
-                                .py(px(4.0))
-                                .rounded(px(5.0))
+                                .w(px(22.0))
+                                .h(px(22.0))
+                                .rounded(px(RADIUS_CONTROL))
                                 .cursor_pointer()
-                                .bg(color(BG_ELEVATED))
-                                .hover(|s| s.bg(color(BG_CARD_HOVER)))
+                                .bg(TOKENS.elevated)
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
                                 .border_1()
-                                .border_color(color(BORDER_STRONG))
-                                .text_color(color(TEXT_PRIMARY))
-                                .text_size(px(11.0))
+                                .border_color(TOKENS.gridline)
+                                .flex()
+                                .items_center()
+                                .justify_center()
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.store.update(cx, |s, cx| {
                                         let _ = s.dispatch(PresentationCommand::NextLiveSlide, cx);
                                     });
                                 }))
-                                .child("▶"),
+                                .child(deck_icon(
+                                    DeckIcon::CaretRight,
+                                    IconSize::Sm,
+                                    TOKENS.ink_primary,
+                                )),
                         ),
                 ),
         )
         .child(
             div()
-                .p(px(14.0))
+                .p(px(12.0))
                 .border_b_1()
-                .border_color(color(BORDER_SUBTLE))
+                .border_color(TOKENS.gridline)
                 .flex()
                 .flex_col()
                 .gap(px(10.0))
                 .child(monitor)
-                .child(render_override_buttons(active_override, cx)),
+                .child(render_override_buttons(active_override, has_live, cx)),
         )
         .child(live_list)
         .child(render_stage_cue_strip(stage_note.as_deref(), cx))

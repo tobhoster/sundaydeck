@@ -7,7 +7,10 @@ use sundaydeck_core::{
     ServiceTimer, Slide, SlideContent, Theme, TimerUrgency, VerticalAlign,
 };
 
-use crate::palette::{rgba8_to_gpui, weight_from_u16};
+use crate::design::fonts::resolve_font_family as resolve_bundled_font;
+use crate::design::tokens::{
+    FONT_BODY, FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, TOKENS, rgba8_to_gpui, weight_from_u16,
+};
 
 /// Renders the exact Audience Output canvas at any scale (both full-resolution projector
 /// and miniature 16:9 Operator Monitor preview) for pixel-faithful WYSIWYG.
@@ -47,18 +50,9 @@ pub fn render_audience_canvas(
     }
 }
 
-/// Resolves a theme font safely against loaded platform fonts so missing system fonts
-/// never panic during a live worship service.
+/// Resolves a theme font safely against bundled and loaded fonts so missing fonts never panic.
 pub fn resolve_font_family(requested: &str, cx: &App) -> SharedString {
-    if requested.is_empty() || requested == ".SystemUIFont" {
-        return SharedString::from(".SystemUIFont");
-    }
-    let available = cx.text_system().all_font_names();
-    if available.iter().any(|name| name == requested) {
-        SharedString::from(requested.to_owned())
-    } else {
-        SharedString::from(".SystemUIFont")
-    }
+    resolve_bundled_font(requested, cx)
 }
 
 fn render_logo_splash(
@@ -73,56 +67,63 @@ fn render_logo_splash(
         church_name.trim()
     };
 
-    let bg = linear_gradient(
-        155.0,
-        linear_color_stop(rgb(0x0E172A), 0.0),
-        linear_color_stop(rgb(0x050811), 1.0),
-    );
-    let badge_size = px((128.0 * scale).max(20.0));
-    let badge_radius = px((28.0 * scale).max(5.0));
-    let border_w = px((3.0 * scale).max(1.0));
-    let title_px = px((64.0 * scale).max(11.0));
-    let sub_px = px((22.0 * scale).max(7.0));
-    let gap = px((24.0 * scale).max(5.0));
+    let mark_size = px((112.0 * scale).max(18.0));
+    let border_w = px((2.0 * scale).max(1.0));
+    let title_px = px((62.0 * scale).max(10.0));
+    let sub_px = px((20.0 * scale).max(6.0));
+    let gap = px((22.0 * scale).max(4.0));
 
     let mut root = div()
         .size_full()
-        .bg(bg)
+        .bg(TOKENS.canvas)
         .flex()
         .flex_col()
         .items_center()
         .justify_center()
         .gap(gap)
-        .font_family(".SystemUIFont")
         .child(
             div()
-                .w(badge_size)
-                .h(badge_size)
-                .rounded(badge_radius)
+                .w(mark_size)
+                .h(mark_size)
+                .rounded(px((4.0 * scale).max(2.0)))
                 .border(border_w)
-                .border_color(rgba(0xF59E_0BAA))
-                .bg(rgba(0xF59E_0B1C))
+                .border_color(TOKENS.gridline)
+                .bg(TOKENS.pane)
                 .flex()
+                .flex_col()
                 .items_center()
                 .justify_center()
-                .text_color(rgb(0xFCD34D))
-                .text_size(px((56.0 * scale).max(10.0)))
-                .font_weight(FontWeight::BOLD)
-                .child("SD"),
+                .gap(px((6.0 * scale).max(1.0)))
+                .child(
+                    div()
+                        .w(px((40.0 * scale).max(6.0)))
+                        .h(px((3.0 * scale).max(1.0)))
+                        .bg(TOKENS.signal_preview),
+                )
+                .child(
+                    div()
+                        .font_family(FONT_DISPLAY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px((44.0 * scale).max(9.0)))
+                        .font_weight(FontWeight::BOLD)
+                        .child("SD"),
+                ),
         )
         .child(
             div()
-                .text_color(rgb(0xF8FAFC))
+                .font_family(FONT_DISPLAY)
+                .text_color(TOKENS.ink_primary)
                 .text_size(title_px)
                 .font_weight(FontWeight::BOLD)
                 .child(title.to_owned()),
         )
         .child(
             div()
-                .text_color(rgb(0x94A3B8))
+                .font_family(FONT_MONO)
+                .text_color(TOKENS.ink_secondary)
                 .text_size(sub_px)
                 .font_weight(FontWeight::MEDIUM)
-                .child("WELCOME  •  WORSHIP WITH US"),
+                .child("SUNDAY GATHERING"),
         );
 
     if let Some(active_timer) = timer {
@@ -130,26 +131,28 @@ fn render_logo_splash(
         root = root.child(
             div()
                 .mt(px((18.0 * scale).max(4.0)))
-                .px(px((34.0 * scale).max(8.0)))
-                .py(px((14.0 * scale).max(4.0)))
-                .rounded(px((14.0 * scale).max(4.0)))
-                .bg(rgba(0x0F17_2AD8))
+                .px(px((32.0 * scale).max(8.0)))
+                .py(px((12.0 * scale).max(3.0)))
+                .rounded(px((RADIUS_CONTROL * 2.0 * scale).max(2.0)))
+                .bg(TOKENS.pane)
                 .border(px((2.0 * scale).max(1.0)))
-                .border_color(rgba(0xF59E_0B88))
+                .border_color(TOKENS.gridline)
                 .flex()
                 .items_center()
                 .gap(px((18.0 * scale).max(5.0)))
                 .child(
                     div()
-                        .text_color(rgb(0x94A3B8))
-                        .text_size(px((22.0 * scale).max(6.0)))
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .font_family(FONT_MONO)
+                        .text_color(TOKENS.ink_secondary)
+                        .text_size(px((20.0 * scale).max(5.5)))
+                        .font_weight(FontWeight::MEDIUM)
                         .child(active_timer.label.to_ascii_uppercase()),
                 )
                 .child(
                     div()
-                        .text_color(rgb(0xFCD34D))
-                        .text_size(px((48.0 * scale).max(10.0)))
+                        .font_family(FONT_MONO)
+                        .text_color(TOKENS.signal_preview)
+                        .text_size(px((46.0 * scale).max(9.5)))
                         .font_weight(FontWeight::BOLD)
                         .child(disp.formatted),
                 ),
@@ -292,7 +295,8 @@ fn render_slide_foreground(
                         .right(pad_r)
                         .flex()
                         .justify_center()
-                        .text_color(text_color.alpha(0.68))
+                        .font_family(FONT_MONO)
+                        .text_color(text_color.alpha(0.62))
                         .text_size(footer_px)
                         .font_weight(FontWeight::MEDIUM)
                         .child(footer_text.clone()),
@@ -303,11 +307,14 @@ fn render_slide_foreground(
             container = container.child(
                 div()
                     .px(px((24.0 * scale).max(6.0)))
-                    .py(px((14.0 * scale).max(4.0)))
-                    .rounded(px((10.0 * scale).max(3.0)))
-                    .bg(rgba(0x0000_00AA))
-                    .text_color(rgb(0xE2E8F0))
-                    .text_size(px((32.0 * scale).max(8.0)))
+                    .py(px((12.0 * scale).max(4.0)))
+                    .rounded(px((RADIUS_CONTROL * scale).max(2.0)))
+                    .bg(TOKENS.pane)
+                    .border_1()
+                    .border_color(TOKENS.gridline)
+                    .font_family(FONT_DISPLAY)
+                    .text_color(TOKENS.ink_primary)
+                    .text_size(px((30.0 * scale).max(8.0)))
                     .child(caption.clone().unwrap_or_else(|| slide.label.clone())),
             );
         }
@@ -320,9 +327,9 @@ fn render_slide_foreground(
 fn render_audience_timer_badge(timer: &ServiceTimer, now_ms: i64, scale: f32) -> Div {
     let disp = timer.display(now_ms);
     let accent = match disp.urgency {
-        TimerUrgency::Normal => rgb(0x6EE7B7),
-        TimerUrgency::Warning => rgb(0xFCD34D),
-        TimerUrgency::Overtime => rgb(0xFCA5A5),
+        TimerUrgency::Normal => TOKENS.signal_voice,
+        TimerUrgency::Warning => TOKENS.signal_preview,
+        TimerUrgency::Overtime => TOKENS.signal_live,
     };
     let offset = px((24.0 * scale).max(4.0));
 
@@ -330,26 +337,28 @@ fn render_audience_timer_badge(timer: &ServiceTimer, now_ms: i64, scale: f32) ->
         .absolute()
         .top(offset)
         .left(offset)
-        .px(px((22.0 * scale).max(6.0)))
-        .py(px((10.0 * scale).max(3.0)))
-        .rounded(px((10.0 * scale).max(3.0)))
-        .bg(rgba(0x0B0F_17DD))
+        .px(px((20.0 * scale).max(5.0)))
+        .py(px((9.0 * scale).max(2.5)))
+        .rounded(px((RADIUS_CONTROL * 1.5 * scale).max(2.0)))
+        .bg(TOKENS.pane)
         .border(px((2.0 * scale).max(1.0)))
-        .border_color(accent.alpha(0.75))
+        .border_color(TOKENS.gridline)
         .flex()
         .items_center()
         .gap(px((12.0 * scale).max(3.0)))
         .child(
             div()
-                .text_color(rgb(0x94A3B8))
-                .text_size(px((20.0 * scale).max(5.5)))
-                .font_weight(FontWeight::SEMIBOLD)
+                .font_family(FONT_MONO)
+                .text_color(TOKENS.ink_secondary)
+                .text_size(px((18.0 * scale).max(5.0)))
+                .font_weight(FontWeight::MEDIUM)
                 .child(timer.label.to_ascii_uppercase()),
         )
         .child(
             div()
+                .font_family(FONT_MONO)
                 .text_color(accent)
-                .text_size(px((32.0 * scale).max(8.0)))
+                .text_size(px((30.0 * scale).max(7.5)))
                 .font_weight(FontWeight::BOLD)
                 .child(disp.formatted),
         )
@@ -358,7 +367,7 @@ fn render_audience_timer_badge(timer: &ServiceTimer, now_ms: i64, scale: f32) ->
 fn render_audience_alert_banner(alert: &AudienceAlert, scale: f32) -> Div {
     let pad_x = px((28.0 * scale).max(6.0));
     let pad_y = px((12.0 * scale).max(3.0));
-    let font_px = px((30.0 * scale).max(7.5));
+    let font_px = px((28.0 * scale).max(7.0));
     let offset = px((24.0 * scale).max(4.0));
     let border_w = px((2.0 * scale).max(1.0));
 
@@ -366,27 +375,28 @@ fn render_audience_alert_banner(alert: &AudienceAlert, scale: f32) -> Div {
         .absolute()
         .px(pad_x)
         .py(pad_y)
-        .border_color(rgb(0xF59E0B))
-        .text_color(rgb(0xFEF3C7))
+        .border_color(TOKENS.signal_preview)
+        .font_family(FONT_BODY)
+        .text_color(TOKENS.ink_primary)
         .text_size(font_px)
         .font_weight(FontWeight::SEMIBOLD)
         .child(alert.message.clone());
 
     match alert.position {
         AlertPosition::TopRight => base
-            .bg(rgba(0x0B12_20F2))
+            .bg(TOKENS.pane)
             .border(border_w)
             .top(offset)
             .right(offset)
-            .rounded(px((10.0 * scale).max(3.0))),
+            .rounded(px((RADIUS_CONTROL * 1.5 * scale).max(2.0))),
         AlertPosition::TopLeft => base
-            .bg(rgba(0x0B12_20F2))
+            .bg(TOKENS.pane)
             .border(border_w)
             .top(offset)
             .left(offset)
-            .rounded(px((10.0 * scale).max(3.0))),
+            .rounded(px((RADIUS_CONTROL * 1.5 * scale).max(2.0))),
         AlertPosition::TopBar => base
-            .bg(rgb(0x0B1220))
+            .bg(TOKENS.canvas)
             .border_b(border_w)
             .top(px(0.0))
             .left(px(0.0))
@@ -394,7 +404,7 @@ fn render_audience_alert_banner(alert: &AudienceAlert, scale: f32) -> Div {
             .flex()
             .justify_center(),
         AlertPosition::BottomBar => base
-            .bg(rgb(0x0B1220))
+            .bg(TOKENS.canvas)
             .border_t(border_w)
             .bottom(px(0.0))
             .left(px(0.0))
@@ -416,10 +426,6 @@ fn theme_background(spec: &BackgroundSpec) -> Background {
             linear_color_stop(rgba8_to_gpui(*start), 0.0),
             linear_color_stop(rgba8_to_gpui(*end), 1.0),
         ),
-        BackgroundSpec::Image { .. } => linear_gradient(
-            160.0,
-            linear_color_stop(rgb(0x1E293B), 0.0),
-            linear_color_stop(rgb(0x090D16), 1.0),
-        ),
+        BackgroundSpec::Image { .. } => TOKENS.canvas.into(),
     }
 }

@@ -11,12 +11,15 @@ use sundaydeck_core::{
 use sundaydeck_db::{AppSettings, BootstrapData, DbWorker};
 
 use crate::deck_builder::build_deck_for_service_item;
+use crate::design::motion::MotionMode;
+use crate::design::primitives::VoiceSyncMode;
 use crate::windows::WindowManager;
 
 #[derive(Debug, Clone, Copy)]
 pub struct StoreEvent {
     pub kind: sundaydeck_core::TransitionKind,
     pub version: u64,
+    pub hard_cut: bool,
 }
 
 pub struct AppServices {
@@ -52,6 +55,9 @@ pub struct PresentationStore {
     pub selected_verse_range: Option<(usize, usize)>,
     pub status_banner: Option<String>,
     pub clock_override_ms: Option<i64>,
+    pub fixed_clock_label: Option<String>,
+    pub motion_mode: MotionMode,
+    pub voice_sync_mode: VoiceSyncMode,
 }
 
 impl EventEmitter<StoreEvent> for PresentationStore {}
@@ -100,6 +106,9 @@ impl PresentationStore {
             selected_verse_range: Some((0, 0)),
             status_banner: None,
             clock_override_ms: None,
+            fixed_clock_label: None,
+            motion_mode: MotionMode::Full,
+            voice_sync_mode: VoiceSyncMode::Off,
         };
 
         if let Some(first_item) = store.service.items.first().cloned() {
@@ -128,9 +137,34 @@ impl PresentationStore {
         self.engine.snapshot()
     }
 
+    pub fn service_filename(&self) -> String {
+        let slug: String = self
+            .service
+            .title
+            .to_ascii_lowercase()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let trimmed = slug.trim_matches('-');
+        if trimmed.is_empty() {
+            "service.sdeck".to_owned()
+        } else {
+            format!("{trimmed}.sdeck")
+        }
+    }
+
     pub fn dispatch(
         &mut self,
         command: PresentationCommand,
+        cx: &mut Context<Self>,
+    ) -> Result<(), PresentationError> {
+        self.dispatch_with_cut(command, false, cx)
+    }
+
+    pub fn dispatch_with_cut(
+        &mut self,
+        command: PresentationCommand,
+        hard_cut: bool,
         cx: &mut Context<Self>,
     ) -> Result<(), PresentationError> {
         let transition = self.engine.dispatch(command)?;
@@ -138,6 +172,7 @@ impl PresentationStore {
         cx.emit(StoreEvent {
             kind: transition.kind,
             version: transition.snapshot.version,
+            hard_cut,
         });
         cx.notify();
         Ok(())

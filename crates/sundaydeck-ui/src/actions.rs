@@ -9,6 +9,9 @@ actions!(
         ToggleClearText,
         ToggleBlack,
         ToggleLogo,
+        HardCutClearText,
+        HardCutBlack,
+        HardCutLogo,
         ToggleAudienceWindow,
         ToggleStageWindow,
         ToggleDirectClickLive,
@@ -19,13 +22,16 @@ actions!(
 );
 
 /// Registers global recovery hotkeys and workspace navigation bindings.
-/// Recovery overrides (`F1`-`F3`) stay active globally; slide stepping is scoped to
-/// `OperatorWorkspace` so typing into text fields never advances slides accidentally.
+/// Recovery overrides (`F1`-`F3`) stay active globally (`Shift+F1`-`F3` perform instant hard cuts);
+/// slide stepping is scoped to `OperatorWorkspace` so typing into text fields never advances slides.
 pub fn register_keybindings(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("f1", ToggleClearText, None),
         KeyBinding::new("f2", ToggleBlack, None),
         KeyBinding::new("f3", ToggleLogo, None),
+        KeyBinding::new("shift-f1", HardCutClearText, None),
+        KeyBinding::new("shift-f2", HardCutBlack, None),
+        KeyBinding::new("shift-f3", HardCutLogo, None),
         KeyBinding::new("f5", GoLive, None),
         KeyBinding::new("cmd-enter", GoLive, None),
         KeyBinding::new("ctrl-enter", GoLive, None),

@@ -1,6 +1,6 @@
 use gpui::{
     AppContext as _, Context, Entity, EventEmitter, FontWeight, InteractiveElement, IntoElement,
-    ParentElement, Render, StatefulInteractiveElement, Styled, Window, div, px, rgb, rgba,
+    ParentElement, Render, StatefulInteractiveElement, Styled, Window, div, px, rgba,
 };
 use sundaydeck_core::{
     Arrangement, ArrangementId, ReflowMode, SectionId, SectionKind, Song, SongId, SongSection,
@@ -9,10 +9,8 @@ use sundaydeck_core::{
 use sundaydeck_db::DbWorker;
 
 use crate::components::TextInput;
-use crate::palette::{
-    BG_ELEVATED, BG_SURFACE, BORDER_STRONG, BORDER_SUBTLE, GO_LIVE_BG, PREVIEW_ACCENT, TEXT_MUTED,
-    TEXT_PRIMARY, TEXT_SECONDARY, color,
-};
+use crate::design::icons::{DeckIcon, IconSize, deck_icon};
+use crate::design::tokens::{FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, RADIUS_MODAL, TOKENS};
 use crate::store::PresentationStore;
 use crate::views::quick_edit_modal::ModalClosed;
 use crate::views::song_editor_body::{render_editor_body, render_import_body};
@@ -235,16 +233,19 @@ impl Render for SongEditorModal {
         div()
             .w(px(1020.0))
             .h(px(640.0))
-            .rounded(px(12.0))
-            .bg(color(BG_SURFACE))
+            .rounded(px(RADIUS_MODAL))
+            .bg(TOKENS.pane)
             .border_1()
-            .border_color(color(BORDER_STRONG))
-            .p(px(18.0))
+            .border_color(TOKENS.focus_border)
+            .p(px(16.0))
             .flex()
             .flex_col()
-            .gap(px(12.0))
+            .gap(px(10.0))
             .child(
                 div()
+                    .pb(px(10.0))
+                    .border_b_1()
+                    .border_color(TOKENS.gridline)
                     .flex()
                     .items_center()
                     .justify_between()
@@ -253,16 +254,22 @@ impl Render for SongEditorModal {
                             .flex()
                             .items_center()
                             .gap(px(10.0))
+                            .child(deck_icon(
+                                DeckIcon::MusicNotes,
+                                IconSize::Md,
+                                TOKENS.signal_preview,
+                            ))
                             .child(
                                 div()
-                                    .text_color(color(TEXT_PRIMARY))
-                                    .text_size(px(15.0))
+                                    .font_family(FONT_DISPLAY)
+                                    .text_color(TOKENS.ink_primary)
+                                    .text_size(px(14.5))
                                     .font_weight(FontWeight::BOLD)
-                                    .child("Song Editor & Arrangements"),
+                                    .child("SONG EDITOR & ARRANGEMENTS"),
                             )
                             .child(tab_pill(
                                 "se-tab-edit",
-                                "Edit Song",
+                                "EDIT SONG",
                                 self.active_tab == EditorTab::Edit,
                                 cx,
                                 |t, cx| {
@@ -272,7 +279,7 @@ impl Render for SongEditorModal {
                             ))
                             .child(tab_pill(
                                 "se-tab-import",
-                                "Import (OpenLyrics / SongSelect / Text)",
+                                "IMPORT (XML / USR / TXT)",
                                 self.active_tab == EditorTab::Import,
                                 cx,
                                 |t, cx| {
@@ -283,10 +290,11 @@ impl Render for SongEditorModal {
                     )
                     .child(
                         div()
-                            .text_color(color(TEXT_MUTED))
-                            .text_size(px(11.5))
+                            .font_family(FONT_MONO)
+                            .text_color(TOKENS.ink_muted)
+                            .text_size(px(10.0))
                             .child(format!(
-                                "{} sections  •  {} arrangements  •  {} slides",
+                                "{:02} SEC // {:02} ARR // {:02} SLIDES",
                                 self.draft.sections.len(),
                                 self.draft.arrangements.len(),
                                 slide_count
@@ -296,9 +304,9 @@ impl Render for SongEditorModal {
             .child(body)
             .child(
                 div()
-                    .pt(px(8.0))
+                    .pt(px(10.0))
                     .border_t_1()
-                    .border_color(color(BORDER_SUBTLE))
+                    .border_color(TOKENS.gridline)
                     .flex()
                     .items_center()
                     .justify_end()
@@ -306,42 +314,54 @@ impl Render for SongEditorModal {
                     .child(
                         div()
                             .id("se-cancel")
-                            .px(px(12.0))
-                            .py(px(6.0))
-                            .rounded(px(6.0))
+                            .h(px(26.0))
+                            .px(px(10.0))
+                            .rounded(px(RADIUS_CONTROL))
                             .cursor_pointer()
-                            .bg(color(BG_ELEVATED))
-                            .text_color(color(TEXT_SECONDARY))
-                            .text_size(px(12.0))
+                            .bg(TOKENS.elevated)
+                            .hover(|s| s.bg(TOKENS.elevated_hover))
+                            .border_1()
+                            .border_color(TOKENS.gridline)
+                            .flex()
+                            .items_center()
+                            .font_family(FONT_MONO)
+                            .text_color(TOKENS.ink_secondary)
+                            .text_size(px(10.5))
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(ModalClosed)))
-                            .child("Cancel"),
+                            .child("CANCEL"),
                     )
                     .child(if self.active_tab == EditorTab::Edit {
                         div()
                             .id("se-save")
-                            .px(px(16.0))
-                            .py(px(6.0))
-                            .rounded(px(6.0))
+                            .h(px(26.0))
+                            .px(px(14.0))
+                            .rounded(px(RADIUS_CONTROL))
                             .cursor_pointer()
-                            .bg(color(GO_LIVE_BG))
-                            .text_color(rgb(0x051811))
-                            .text_size(px(12.0))
+                            .bg(TOKENS.signal_preview)
+                            .flex()
+                            .items_center()
+                            .font_family(FONT_DISPLAY)
+                            .text_color(TOKENS.canvas)
+                            .text_size(px(11.5))
                             .font_weight(FontWeight::BOLD)
                             .on_click(cx.listener(|this, _, _, cx| this.save_song(cx)))
-                            .child("Save Song")
+                            .child("SAVE SONG")
                     } else {
                         div()
                             .id("se-import-submit")
-                            .px(px(16.0))
-                            .py(px(6.0))
-                            .rounded(px(6.0))
+                            .h(px(26.0))
+                            .px(px(14.0))
+                            .rounded(px(RADIUS_CONTROL))
                             .cursor_pointer()
-                            .bg(color(PREVIEW_ACCENT))
-                            .text_color(rgb(0x0B0F17))
-                            .text_size(px(12.0))
+                            .bg(TOKENS.signal_preview)
+                            .flex()
+                            .items_center()
+                            .font_family(FONT_DISPLAY)
+                            .text_color(TOKENS.canvas)
+                            .text_size(px(11.5))
                             .font_weight(FontWeight::BOLD)
                             .on_click(cx.listener(|this, _, _, cx| this.import_pasted_song(cx)))
-                            .child("Import Song")
+                            .child("IMPORT SONG")
                     }),
             )
     }
@@ -356,27 +376,29 @@ fn tab_pill(
 ) -> gpui::Stateful<gpui::Div> {
     div()
         .id(id)
-        .px(px(10.0))
-        .py(px(4.0))
-        .rounded(px(6.0))
+        .px(px(9.0))
+        .py(px(3.5))
+        .rounded(px(RADIUS_CONTROL))
         .cursor_pointer()
         .bg(if active {
-            color(BG_ELEVATED)
+            TOKENS.elevated
         } else {
             rgba(0x0000_0000)
         })
         .border_1()
         .border_color(if active {
-            color(BORDER_STRONG)
+            TOKENS.focus_border
         } else {
             rgba(0x0000_0000)
         })
+        .font_family(FONT_MONO)
         .text_color(if active {
-            color(TEXT_PRIMARY)
+            TOKENS.ink_primary
         } else {
-            color(TEXT_SECONDARY)
+            TOKENS.ink_secondary
         })
-        .text_size(px(11.5))
+        .text_size(px(10.0))
+        .font_weight(FontWeight::BOLD)
         .on_click(cx.listener(move |this, _, _, cx| on_click(this, cx)))
         .child(label)
 }
