@@ -1,0 +1,23 @@
+[package]
+name = "sundaydeck-planner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+embedded-llm = ["dep:llama-cpp-2"]
+
+[[bin]]
+name = "planner-bakeoff"
+path = "src/bin/planner_bakeoff.rs"
+
+[dependencies]
+llama-cpp-2 = { version = "0.1", optional = true }
+serde.workspace = true
+serde_json.workspace = true
+sundaydeck-core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ureq.workspace = true
+zip.workspace = true
