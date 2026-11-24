@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
   <link rel="stylesheet" href="style.css" />
@@ -24,41 +24,45 @@
         <span>SundayDeck</span>
       </a>
       <nav class="nav-links">
-        <a href="#walkthrough">Overview</a>
-        <a href="#features">Features</a>
-        <a href="#global">For Every Church</a>
-        <a href="#voice">Auto-Follow</a>
+        <a href="#walkthrough">Film</a>
+        <a href="#story">Sunday Morning</a>
+        <a href="#global">Every Tradition</a>
+        <a href="#shortcuts">Try It Live</a>
         <a href="#install">Download</a>
-        <a href="#contribute">Contribute</a>
+        <a href="#contribute">Free Forever</a>
       </nav>
       <a class="btn-primary" href="#install">Download Free</a>
     </div>
+    <div class="progress-track"><div class="progress-bar" id="reading-progress"></div></div>
   </header>
 
   <main id="top">
     <section class="hero">
       <div class="wrap">
-        <div class="eyebrow">
-          <span class="dot dot-emerald"></span>
-          <span>Free &amp; Open Source · Works 100% Offline · Mac, Windows &amp; Linux</span>
+        <div class="eyebrow" data-reveal>
+          <span class="dot dot-emerald dot-pulse"></span>
+          <span>100% Free &amp; Open Source · No Licenses · Mac, Windows &amp; Linux</span>
         </div>
-        <h1>Calm church slides built for real Sunday volunteers.</h1>
-        <p class="lead">
+        <h1 data-reveal data-delay="1">
+          Calm church slides built for <span class="serif-accent">real Sunday volunteers.</span>
+        </h1>
+        <p class="lead" data-reveal data-delay="2">
           SundayDeck is free, lightweight presentation software made so any volunteer can sit down
           ten minutes before service and run worship lyrics, Scripture, sermon slides, and
-          livestream lower-thirds with quiet confidence — no subscriptions, no internet required.
+          livestream lower-thirds with quiet confidence — no seat licenses, no subscriptions, no
+          internet required.
         </p>
-        <div class="cta-row">
+        <div class="cta-row" data-reveal data-delay="3">
           <a class="btn-primary" href="#install">Download Free</a>
-          <a class="btn-secondary" href="#walkthrough">Watch 45-Second Film</a>
-          <a class="btn-secondary" href="#global">Bibles &amp; Hymnbooks</a>
+          <a class="btn-secondary" href="#walkthrough">Watch 60-Second Film</a>
+          <a class="btn-secondary" href="#story">Walk Through Sunday Morning</a>
         </div>
-        <div class="meta-strip">
+        <div class="meta-strip" data-reveal data-delay="4">
           <span class="meta-item"><span class="dot dot-emerald"></span>100% Offline &amp; Private</span>
           <span class="meta-item"><span class="dot dot-amber"></span>Sanctuary, Stage &amp; Livestream Ready</span>
-          <span class="meta-item"><span class="dot dot-coral"></span>Instant Hide / Black / Logo Recovery</span>
+          <span class="meta-item"><span class="dot dot-coral"></span>Zero Licenses · Zero Subscriptions</span>
         </div>
-        <div class="frame">
+        <div class="frame hero-frame" data-reveal data-delay="2">
           <img
             src="media/hero-workspace.png"
             alt="SundayDeck operator workspace showing Service Order, 16:9 Slide Grid, and Live Sanctuary Preview"
@@ -69,16 +73,16 @@
 
     <section id="walkthrough">
       <div class="wrap">
-        <div class="sec-head">
-          <div class="sec-label"><span class="dot dot-amber"></span><span>Product Film</span></div>
-          <h2>From pastor's notes to full sanctuary screens in under a minute.</h2>
+        <div class="sec-head" data-reveal>
+          <div class="sec-label"><span class="dot dot-amber"></span><span>One-Minute Overview</span></div>
+          <h2>From pastor's notes to full sanctuary screens before the doors open.</h2>
           <p class="sec-copy">
-            See how SundayDeck moves effortlessly from a pastor's sermon notes to custom slide
-            layouts, peaceful photography and motion backgrounds, hands-free microphone auto-follow,
-            and bilingual worship for congregations around the world.
+            Watch how SundayDeck moves calmly from a pastor's sermon notes to custom slide layouts,
+            peaceful photography and motion backgrounds, hands-free microphone auto-follow, and
+            bilingual worship across North and South America.
           </p>
         </div>
-        <div class="frame">
+        <div class="frame" data-reveal data-delay="1">
           <video controls playsinline preload="metadata" poster="media/hero-workspace.png">
             <source src="media/sundaydeck-promo-ad.mp4" type="video/mp4" />
           </video>
@@ -86,102 +90,180 @@
       </div>
     </section>
 
-    <section id="features">
+    <section id="story" class="story-section">
       <div class="wrap">
-        <div class="sec-head">
-          <div class="sec-label"><span class="dot dot-amber"></span><span>Designed for Sunday Morning</span></div>
-          <h2>Everything your media booth needs. Nothing that gets in the way.</h2>
+        <div class="sec-head" data-reveal>
+          <div class="sec-label"><span class="dot dot-amber"></span><span>A Sunday Morning Story</span></div>
+          <h2>Follow a volunteer from <span class="serif-accent">9:45 AM to benediction.</span></h2>
           <p class="sec-copy">
-            Clear plain-English controls, strict separation between what you are preparing and what
-            the room sees, and instant recovery keys when plans change mid-service.
+            Scroll through the morning — or click any moment — to see how SundayDeck stays calm,
+            predictable, and out of your way when real services change on the fly.
           </p>
         </div>
 
-        <div class="feature-grid">
-          <article class="feature-card">
-            <img src="media/plan-importer.png" alt="SundayDeck Plan Importer turning pastor notes into a reviewable service order" />
-            <div class="feature-body">
-              <h3>Drop a Pastor's PowerPoint or Word Document</h3>
+        <div class="story-layout">
+          <div class="story-rail">
+            <article
+              class="story-chapter is-active"
+              data-time="9:45 AM"
+              data-stage="Plan Importer · Ready to Review"
+              data-caption="Songs matched, Scriptures pulled offline, and sermon slides formatted automatically."
+            >
+              <div class="chapter-time">9:45 AM · Fifteen minutes before service</div>
+              <h3>The pastor sends over the sermon notes.</h3>
               <p>
-                Import a pastor's PowerPoint deck, Word document, or plain sermon outline and turn it
-                into a clean, reviewable service order in seconds — matching your song library,
-                pulling Scriptures offline, and laying out sermon points automatically.
+                Drop a PowerPoint deck, Word document, or plain outline straight into SundayDeck.
+                Songs link to your library, Scriptures pull cleanly offline, and every item waits in
+                a clear checklist for your approval before going into the service order.
               </p>
-            </div>
-          </article>
+            </article>
 
-          <article class="feature-card">
-            <img src="media/custom-slide-builder.png" alt="SundayDeck Custom Slide Builder with curated layouts and gentle transitions" />
-            <div class="feature-body">
-              <h3>Built-In Slide Layouts &amp; Gentle Transitions</h3>
+            <article
+              class="story-chapter"
+              data-time="9:52 AM"
+              data-stage="Custom Slide Builder · Live Preview"
+              data-caption="Build welcome cards, progressive sermon points, and countdowns without leaving SundayDeck."
+            >
+              <div class="chapter-time">9:52 AM · One last-minute announcement</div>
+              <h3>Create clean slides without opening PowerPoint.</h3>
               <p>
-                Design welcome titles, key quotes, progressive click-to-reveal sermon bullets,
-                split photo announcements, and pre-service countdowns right inside SundayDeck —
-                complete with smooth transitions and zero outside design apps required.
+                Pick a curated layout — welcome title, key quote, click-to-reveal sermon bullets,
+                photo + text announcement, or pre-service countdown — and choose a calm slide
+                transition while your sanctuary backdrop stays steady behind the words.
               </p>
-            </div>
-          </article>
+            </article>
 
-          <article class="feature-card">
-            <img src="media/unsplash-mountains.png" alt="SundayDeck Sanctuary output over warm mountain photography" />
-            <div class="feature-body">
-              <h3>Peaceful Photography &amp; Looping Motion Backgrounds</h3>
+            <article
+              class="story-chapter"
+              data-time="10:00 AM"
+              data-stage="Sanctuary Screen · Stage &amp; Livestream Synced"
+              data-caption="Peaceful photography, looping motion backgrounds, stage confidence monitor, and OBS lower-thirds."
+            >
+              <div class="chapter-time">10:00 AM · Worship begins</div>
+              <h3>Warm visuals for the room, clarity for the stage.</h3>
               <p>
-                Ships ready with curated sanctuary photography and subtle looping motion backgrounds,
-                plus an easy picker to add your own photos or worship videos with automatic text
-                contrast scrims so lyrics stay crisp from the back pew.
+                Project lyrics over peaceful photography or gentle looping backgrounds while your
+                stage monitor shows the worship team the current line, the next slide, and a quiet
+                countdown — and your livestream receives crisp transparent lower-thirds automatically.
               </p>
-            </div>
-          </article>
+            </article>
 
-          <article class="feature-card">
-            <img src="media/stage-monitor.png" alt="SundayDeck Stage Confidence Monitor showing current slide, next slide, clock, and countdown" />
-            <div class="feature-body">
-              <h3>Sanctuary Screen, Stage Monitor &amp; Livestream Overlay</h3>
+            <article
+              class="story-chapter"
+              data-time="10:20 AM"
+              data-stage="Auto-Follow · Listening Locally"
+              data-caption="Follows worship lyrics hands-free and queues spoken Bible verses for one-click projection."
+            >
+              <div class="chapter-time">10:20 AM · Spontaneous chorus &amp; preaching</div>
+              <h3>Your microphone keeps pace — completely offline.</h3>
               <p>
-                Drive your sanctuary projector and stage confidence monitor independently, and
-                connect directly to OBS Studio with a transparent lower-third lyric overlay or
-                chroma-key theme — while private stage timers and cues stay off the main screen.
+                Turn on microphone auto-follow in safe Suggest or Auto mode so slides stay with the
+                worship leader even when they circle back to the chorus. During the sermon, spoken
+                Bible verses appear in a calm one-click queue without ever hijacking the screen.
               </p>
+            </article>
+
+            <article
+              class="story-chapter"
+              data-time="10:45 AM"
+              data-stage="Bilingual &amp; Call-and-Response Ready"
+              data-caption="66-book Protestant &amp; 73-book Catholic Bibles, numbered hymnbooks, and stacked bilingual slides."
+            >
+              <div class="chapter-time">10:45 AM · One church, every generation &amp; language</div>
+              <h3>Bilingual lyrics, hymn numbers, and responsive readings.</h3>
+              <p>
+                Jump directly to hymns by book and number, display English alongside Spanish or
+                Portuguese on one clean slide, or project Leader and Congregation call-and-response
+                readings with clear visual contrast from the back pew.
+              </p>
+            </article>
+          </div>
+
+          <div class="story-stage-wrap" data-reveal>
+            <div class="frame">
+              <div class="story-stage-bar">
+                <span class="stage-pill">
+                  <span class="dot dot-emerald dot-pulse"></span>
+                  <span id="story-stage-label">Plan Importer · Ready to Review</span>
+                </span>
+                <span class="stage-clock" id="story-stage-time">9:45 AM</span>
+              </div>
+
+              <div class="story-viewport">
+                <div class="story-slide is-active">
+                  <img src="media/plan-importer.png" alt="SundayDeck Plan Importer reviewing a pastor's sermon notes" />
+                </div>
+                <div class="story-slide">
+                  <img src="media/custom-slide-builder.png" alt="SundayDeck Custom Slide Builder with progressive bullets and preview" />
+                </div>
+                <div class="story-slide">
+                  <img src="media/unsplash-mountains.png" alt="SundayDeck sanctuary output over warm mountain photography" />
+                </div>
+                <div class="story-slide">
+                  <img src="media/voice-autofollow.png" alt="SundayDeck offline microphone Auto-Follow listening and highlighting next slide" />
+                </div>
+                <div class="story-slide">
+                  <img src="media/liturgy-call-response.png" alt="Bilingual Catholic Order of Mass Call and Response slide on sanctuary output" />
+                </div>
+              </div>
+
+              <div class="story-caption-bar">
+                <span id="story-stage-caption">
+                  Songs matched, Scriptures pulled offline, and sermon slides formatted automatically.
+                </span>
+                <div class="story-dots" aria-label="Story chapters">
+                  <button class="story-dot is-active" type="button" aria-label="9:45 AM"></button>
+                  <button class="story-dot" type="button" aria-label="9:52 AM"></button>
+                  <button class="story-dot" type="button" aria-label="10:00 AM"></button>
+                  <button class="story-dot" type="button" aria-label="10:20 AM"></button>
+                  <button class="story-dot" type="button" aria-label="10:45 AM"></button>
+                </div>
+              </div>
             </div>
-          </article>
+          </div>
         </div>
       </div>
     </section>
 
     <section id="global">
       <div class="wrap">
-        <div class="sec-head">
+        <div class="sec-head" data-reveal>
           <div class="sec-label"><span class="dot dot-emerald"></span><span>Across North &amp; South America</span></div>
           <h2>Contemporary, Baptist, Catholic, Mainline, and Bilingual churches — ready out of the box.</h2>
           <p class="sec-copy">
             SundayDeck welcomes churches across the Americas with Protestant and Catholic Bible
-            canons, instant hymnbook number lookup, native bilingual slides, and call-and-response liturgy.
+            canons, instant hymnbook number lookup, native bilingual slides, and easy migration from
+            your existing song library.
           </p>
         </div>
 
         <div class="feature-grid">
-          <article class="feature-card">
-            <img src="media/liturgy-call-response.png" alt="Bilingual Catholic Order of Mass Call and Response slide on sanctuary output" />
+          <article class="feature-card" data-reveal>
+            <div class="feature-media">
+              <img src="media/stage-monitor.png" alt="SundayDeck Stage Confidence Monitor with current slide, next slide, clock, and countdown timer" />
+            </div>
             <div class="feature-body">
-              <h3>73-Book Catholic &amp; 66-Book Protestant Bibles + Call &amp; Response</h3>
+              <h3>Sanctuary Screen, Stage Monitor &amp; OBS Livestream Overlay</h3>
               <p>
-                Search full offline Bibles in English, Spanish, Portuguese, and French — even
-                without typing accents or tildes. Project parallel dual-language Scriptures and
-                clean Leader / Congregation call-and-response slides for Mass and responsive readings.
+                Drive your sanctuary projector and stage confidence monitor independently, and
+                connect directly to OBS Studio with a transparent lower-third lyric overlay or
+                chroma-key theme — while private stage cues and speaker timers stay off the main screen.
               </p>
             </div>
           </article>
 
-          <article class="feature-card">
-            <img src="media/global-church-packs.png" alt="SundayDeck Settings showing Church Tradition profiles, Bilingual Lyrics, and .sdeck-pack importer" />
+          <article class="feature-card" data-reveal data-delay="1">
+            <div class="feature-media">
+              <img src="media/global-church-packs.png" alt="SundayDeck Settings showing Americas Church Traditions, Bilingual Lyrics, and .sdeck-pack importer" />
+            </div>
             <div class="feature-body">
-              <h3>Numbered Hymnbooks, Bilingual Lyrics &amp; Easy Library Migration</h3>
+              <h3>66 &amp; 73-Book Bibles, Numbered Hymnbooks &amp; Easy Migration</h3>
               <p>
-                Jump directly to hymns by book and number (<code>BH 330</code>, <code>UMH 378</code>,
-                <code>HC 15</code>, <code>#42</code>), display stacked English / Spanish / Portuguese
-                bilingual lyrics or toggle single-language mode in one click, and bring your existing
-                songs over from EasyWorship, OpenLP, ProPresenter, VideoPsalm, FreeShow, or SongSelect.
+                Search full offline Bibles in English, Spanish, Portuguese, and French without
+                worrying about accents. Jump straight to hymns (<code>BH 330</code>,
+                <code>UMH 378</code>, <code>HC 15</code>, <code>#42</code>), toggle bilingual
+                lyrics in one click, or bring libraries over from EasyWorship, OpenLP, ProPresenter,
+                VideoPsalm, FreeShow, and SongSelect.
               </p>
             </div>
           </article>
@@ -189,40 +271,55 @@
       </div>
     </section>
 
-    <section id="voice">
+    <section id="shortcuts">
       <div class="wrap">
-        <div class="sec-head">
-          <div class="sec-label"><span class="dot dot-emerald"></span><span>Hands-Free Auto-Follow</span></div>
-          <h2>Your microphone keeps pace with worship — completely offline.</h2>
+        <div class="sec-head" data-reveal>
+          <div class="sec-label"><span class="dot dot-amber"></span><span>Try the Booth Controls</span></div>
+          <h2>Feel how calm recovery keys are when plans change live.</h2>
           <p class="sec-copy">
-            Connect your laptop microphone or soundboard feed and let SundayDeck follow along as
-            your congregation sings, while catching spoken Bible references during the sermon into a
-            calm one-click queue. Nothing ever leaves your church computer.
+            Click any control below to test what the sanctuary screen does — advancing slides,
+            hiding words while keeping your background steady, fading gently to black, or bringing
+            up your church logo in one tap.
           </p>
         </div>
 
-        <div class="split">
-          <div class="frame">
-            <img
-              src="media/voice-autofollow.png"
-              alt="SundayDeck Auto-Follow popover showing listening state, confidence meter, and next slide suggestion"
-            />
+        <div class="booth-sim" data-reveal data-delay="1">
+          <div class="sanctuary-screen" id="sim-screen" data-mode="live">
+            <div class="sanctuary-bg"></div>
+            <div class="sanctuary-layer sanctuary-text-layer">
+              <div class="sanctuary-lyrics" id="sim-lyrics">
+                Amazing grace, how sweet the sound<br />That saved a wretch like me
+              </div>
+              <div class="sanctuary-sub" id="sim-sub">Verse 1 · Amazing Grace</div>
+            </div>
+            <div class="sanctuary-layer sanctuary-logo-layer">
+              <div class="logo-emblem">SD</div>
+              <div class="sanctuary-lyrics" style="font-size: 20px;">Grace Fellowship</div>
+              <div class="sanctuary-sub">Welcome Home · Sunday Gathering</div>
+            </div>
+            <div class="sanctuary-badge">
+              <span class="dot dot-emerald" id="sim-badge-dot"></span>
+              <span id="sim-badge-text">Live on Sanctuary Screen</span>
+            </div>
           </div>
-          <div>
-            <ul class="step-list">
-              <li>
-                <strong>1. Safe-by-Default Modes (Off, Suggest, or Auto)</strong>
-                <span>Start in <em>Suggest next slide</em> so SundayDeck gently highlights the upcoming slide, or switch to <em>Advance automatically</em> for hands-free worship.</span>
-              </li>
-              <li>
-                <strong>2. Catches Spontaneous Repeats &amp; Spoken Scriptures</strong>
-                <span>Follows worship leaders when they circle back to the chorus, and listens during preaching to queue spoken verses like <em>Romans 8:28</em> for one-click projection — never interrupting the screen unexpectedly.</span>
-              </li>
-              <li>
-                <strong>3. Built-In Safety Lock &amp; Offline Rehearsal</strong>
-                <span>Automatically pauses whenever <em>Black Screen</em> or <em>Show Logo</em> is active, and includes a built-in rehearsal test so volunteers can practice before Sunday morning.</span>
-              </li>
-            </ul>
+
+          <div class="booth-keys">
+            <button class="kbd-btn is-live-btn" type="button" data-sim="next">
+              <span><strong>Next Slide</strong> · Advance lyrics or Scripture</span>
+              <kbd>Space</kbd>
+            </button>
+            <button class="kbd-btn" type="button" data-sim="clear">
+              <span><strong>Hide Words</strong> · Keep peaceful background steady</span>
+              <kbd>F1</kbd>
+            </button>
+            <button class="kbd-btn" type="button" data-sim="black">
+              <span><strong>Black Screen</strong> · Calm fade for prayer or video</span>
+              <kbd>F2</kbd>
+            </button>
+            <button class="kbd-btn" type="button" data-sim="logo">
+              <span><strong>Show Church Logo</strong> · Before &amp; after service</span>
+              <kbd>F3</kbd>
+            </button>
           </div>
         </div>
       </div>
@@ -230,17 +327,17 @@
 
     <section id="install">
       <div class="wrap">
-        <div class="sec-head">
+        <div class="sec-head" data-reveal>
           <div class="sec-label"><span class="dot dot-emerald"></span><span>Download SundayDeck</span></div>
           <h2>Free installers for Mac, Windows, and Linux.</h2>
           <p class="sec-copy">
-            No account sign-up, no monthly seat fees, and no watermark. Starts in under a second
-            even on modest older church laptops.
+            No account sign-up, no seat licenses, and no watermark. Starts in under a second even on
+            modest older church laptops.
           </p>
         </div>
 
         <div class="install-grid">
-          <div class="card">
+          <div class="card" data-reveal>
             <h3>macOS (Apple Silicon &amp; Intel)</h3>
             <p>Install in one line with Homebrew, or download the macOS installer disk image and drag SundayDeck into Applications.</p>
             <pre><code>brew tap OWNER/sundaydeck
@@ -248,7 +345,7 @@ brew install --cask sundaydeck</code></pre>
             <p>Or download <code>SundayDeck-macOS-arm64.dmg</code> / <code>macOS-x86_64.dmg</code> from Releases.</p>
           </div>
 
-          <div class="card">
+          <div class="card" data-reveal data-delay="1">
             <h3>Windows (64-bit)</h3>
             <p>Standard Windows installer with Start Menu shortcut and <code>.sdeck</code> service bundle double-click support, or a portable zip.</p>
             <pre><code>SundayDeck-windows-x86_64-setup.exe
@@ -256,7 +353,7 @@ brew install --cask sundaydeck</code></pre>
 SundayDeck-windows-x86_64.zip</code></pre>
           </div>
 
-          <div class="card">
+          <div class="card" data-reveal data-delay="2">
             <h3>Linux</h3>
             <p>Debian / Ubuntu package or portable archive ready for any desktop Linux laptop in the sound booth.</p>
             <pre><code>sudo apt install ./sundaydeck_0.1.0_amd64.deb
@@ -267,11 +364,11 @@ tar -xzf SundayDeck-linux-x86_64.tar.gz</code></pre>
       </div>
     </section>
 
-    <section id="contribute">
+    <section id="contribute" class="conviction-banner">
       <div class="wrap">
-        <div class="sec-head">
+        <div class="sec-head" data-reveal>
           <div class="sec-label"><span class="dot dot-emerald"></span><span>Our Conviction</span></div>
-          <h2>Church software should be free and fully accessible.</h2>
+          <h2>Church software should be <span class="serif-accent">free and fully accessible.</span></h2>
           <p class="sec-copy">
             No seat licenses. No annual renewals. No locked features, watermarks, or forced upgrades.
             Whether you are a small church plant meeting in a living room or a busy Sunday sanctuary,
@@ -281,7 +378,7 @@ tar -xzf SundayDeck-linux-x86_64.tar.gz</code></pre>
         </div>
 
         <div class="install-grid">
-          <div class="card">
+          <div class="card" data-reveal>
             <h3>100% Free — No Licenses Required</h3>
             <p>
               Install SundayDeck on as many sanctuary laptops, volunteer practice machines, and booth
@@ -289,7 +386,7 @@ tar -xzf SundayDeck-linux-x86_64.tar.gz</code></pre>
             </p>
           </div>
 
-          <div class="card">
+          <div class="card" data-reveal data-delay="1">
             <h3>Built Together, Open to Contributions</h3>
             <p>
               SundayDeck is open source and shaped by real churches. Bug reports, Spanish, Portuguese,
@@ -298,7 +395,7 @@ tar -xzf SundayDeck-linux-x86_64.tar.gz</code></pre>
             </p>
           </div>
 
-          <div class="card">
+          <div class="card" data-reveal data-delay="2">
             <h3>How You Can Help</h3>
             <p>
               Try SundayDeck with your volunteers, share what felt confusing ten minutes before
@@ -309,33 +406,15 @@ tar -xzf SundayDeck-linux-x86_64.tar.gz</code></pre>
         </div>
       </div>
     </section>
-
-    <section id="shortcuts">
-      <div class="wrap">
-        <div class="sec-head">
-          <div class="sec-label"><span class="dot dot-amber"></span><span>Live Booth Shortcuts</span></div>
-          <h2>Simple keyboard controls anyone can remember.</h2>
-        </div>
-
-        <div class="kbd-grid">
-          <div class="kbd-row"><span>Next live slide</span><kbd>Space / Right</kbd></div>
-          <div class="kbd-row"><span>Previous live slide</span><kbd>Left / Up</kbd></div>
-          <div class="kbd-row"><span>Show Preview on Screen</span><kbd>Cmd/Ctrl + Enter</kbd></div>
-          <div class="kbd-row"><span>Hide Words (keep background)</span><kbd>F1</kbd></div>
-          <div class="kbd-row"><span>Black Screen</span><kbd>F2</kbd></div>
-          <div class="kbd-row"><span>Show Church Logo</span><kbd>F3</kbd></div>
-          <div class="kbd-row"><span>Instant cut override</span><kbd>Shift + F1 / F2 / F3</kbd></div>
-          <div class="kbd-row"><span>Fix a typo live (Quick Edit)</span><kbd>Cmd/Ctrl + E</kbd></div>
-        </div>
-      </div>
-    </section>
   </main>
 
   <footer>
     <div class="wrap foot-row">
       <span>SundayDeck · Free &amp; Open Source Church Presentation Software</span>
-      <span>MIT / Apache-2.0 License · Made for volunteers serving every Sunday.</span>
+      <span>MIT / Apache-2.0 · Zero licenses, built for volunteers serving every Sunday.</span>
     </div>
   </footer>
+
+  <script src="story.js" defer></script>
 </body>
 </html>
