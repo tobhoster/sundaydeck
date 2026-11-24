@@ -2,171 +2,124 @@
 
 # SundayDeck
 
-**A calm, GPU-accelerated, offline-first church presentation studio built in Rust.**
+**Calm, free, offline church presentation software built for real Sunday volunteers.**
 
-*Designed for Sunday volunteers — zero subscriptions, zero cloud lock-in, instant offline Bible lookup, local AI service planning, and mic-driven voice slide navigation.*
+*Zero subscriptions. Zero internet required. Instant startup on Mac, Windows, and Linux — with songs, Protestant & Catholic Bibles, numbered hymnbooks, built-in slide layouts, stage monitor, livestream lower-thirds, and hands-free microphone auto-follow.*
 
-[![CI](https://img.shields.io/badge/CI-Rust%20%2B%20GPUI-1a1c20?style=flat-square&logo=rust&logoColor=f5f3ef)](.github/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/Releases-macOS%20%7C%20Windows%20%7C%20Linux-1a1c20?style=flat-square)](.github/workflows/release.yml)
+[![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-1a1c20?style=flat-square)](.github/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-MIT%20%2F%20Apache--2.0-1a1c20?style=flat-square)](LICENSE-MIT)
-[![Offline First](https://img.shields.io/badge/Architecture-100%25%20Offline-38b780?style=flat-square)](#why-sundaydeck)
+[![Offline First](https://img.shields.io/badge/Works-100%25%20Offline-38b780?style=flat-square)](#why-sundaydeck)
 
 <br />
 
-<img src="docs/media/hero-workspace.png" alt="SundayDeck Operator Workspace — Service Order, 16:9 Slide Grid, and Live Projector Monitor" width="100%" />
+<img src="docs/media/hero-workspace.png" alt="SundayDeck Operator Workspace — Service Order, 16:9 Slide Grid, and Live Sanctuary Preview" width="100%" />
 
 </div>
 
 ---
 
-## Visual Walkthrough
+## Product Film & Walkthrough
 
-Watch SundayDeck move from **Service Order → Live Sanctuary Projection → Unsplash Photo & Looping Motion Video → Pastor `.pptx`/`.docx` Plan Import → Mic Voice Auto-Follow → Stage Confidence Monitor → Custom Church Logo**:
+Watch the 45-second narrated overview (`docs/media/sundaydeck-promo-ad.mp4`) or preview the live workflow below:
 
 <div align="center">
-  <img src="docs/media/walkthrough.gif" alt="SundayDeck full live workflow walkthrough" width="100%" />
+  <img src="docs/media/walkthrough.gif" alt="SundayDeck live Sunday morning workflow walkthrough" width="100%" />
   <br />
-  <sub>Full HD walkthrough video: <a href="docs/media/sundaydeck-walkthrough.mp4"><code>docs/media/sundaydeck-walkthrough.mp4</code></a> · Live site source: <a href="docs/index.html"><code>docs/index.html</code></a></sub>
+  <sub>
+    <strong>Narrated launch video:</strong> <a href="docs/media/sundaydeck-promo-ad.mp4"><code>docs/media/sundaydeck-promo-ad.mp4</code></a> ·
+    <strong>Silent HD walkthrough:</strong> <a href="docs/media/sundaydeck-walkthrough.mp4"><code>docs/media/sundaydeck-walkthrough.mp4</code></a> ·
+    <strong>Website:</strong> <a href="docs/index.html"><code>docs/index.html</code></a>
+  </sub>
 </div>
 
 ---
 
 ## Why SundayDeck?
 
-Most church presentation suites are either expensive subscriptions, sluggish web wrappers, or packed with broadcast jargon that intimidates a 10-minute-before-service volunteer.
+Most church presentation apps are either expensive subscriptions, sluggish on older church laptops, or cluttered with broadcast jargon that intimidates a volunteer stepping into the booth ten minutes before service.
 
-SundayDeck is built from scratch in **Rust + GPUI**:
+SundayDeck is designed around quiet, predictable Sunday morning craft:
 
-- **Calm, volunteer-first native UI** — Warm dark-linen surfaces, plain-English controls (`Show on Screen`, `Hide Words`, `Black Screen`, `Show Logo`), zero clutter, zero emojis.
-- **100% offline SQLite library** — Songs (with instant FTS5 lyric/CCLI search), non-destructive arrangements, offline multi-translation Bibles, custom themes, and Sunday service schedules all live locally.
-- **Dual-display ready** — Independent **Audience Output** (projector/LED wall) and **Stage Confidence Monitor** (current + next slide, clock, speaker countdown, and private booth cues that never leak to the sanctuary).
-- **Voice-Synced Auto-Follow** — Hands-free slide navigation listening from your microphone or soundboard feed locally, with safe Suggest/Auto modes and automatic pause during Black/Logo overrides.
-- **Pastor Plan Importer** — Drop a pastor's `.pptx` PowerPoint, `.docx` Word doc, or plain outline to generate a complete, reviewable Sunday service plan (deterministic instant mode, optional local LLM via Ollama/`llama-server`, or optional embedded GGUF).
-- **Rich Sanctuary Media** — Bundled Unsplash photography, GPU-crossfaded looping motion video backgrounds, PDF/image slide decks, timed pre-service announcement loops, custom church logo branding, and portable `.sdeck` service bundles.
+- **Calm, volunteer-first workspace** — Warm dark surfaces, plain-English controls (`Show on Screen`, `Hide Words`, `Black Screen`, `Show Logo`), strict Preview vs. Live separation, and live **Quick Edit** to fix a typo without disturbing the sanctuary screen.
+- **Built-in Custom Slide Layouts & Gentle Transitions** — Create welcome cards, key sermon quotes, click-to-reveal bullet points, image + text announcements, pre-service countdowns, and call-and-response liturgy right inside the app.
+- **Pastor Notes to Service Order** — Drop a pastor's PowerPoint (`.pptx`), Word document (`.docx`), or plain sermon outline to build a reviewable service order in seconds — matching songs, pulling Scriptures offline, and laying out sermon points.
+- **Sanctuary, Stage & Livestream Ready** — Independent Audience Projector and Stage Confidence Monitor windows (with current + next slide, clock, speaker timers, and private stage cues), plus a built-in local **OBS Studio** transparent lower-third overlay and chroma-key theme.
+- **Hands-Free Microphone Auto-Follow** — Listens locally to your room mic or soundboard to follow sung lyrics in safe Suggest/Auto modes and queues spoken sermon Bible verses for one click — completely offline.
+- **Built for Global Congregations** — Full **66-book Protestant & 73-book Catholic Bibles**, accent-tolerant search (Yoruba, Spanish, French, English), **parallel dual-translation Scripture**, **numbered hymnbooks** (`CAC 120`, `CCC 315`, `MHB 1`, `#42`), **bilingual stacked lyrics**, and portable **`.sdeck` / `.sdeck-pack`** offline bundles.
+- **Easy Library Migration** — Import existing libraries from EasyWorship, OpenLP, ProPresenter, VideoPsalm, FreeShow, ChordPro, OpenLyrics, SongSelect, and standard USFM/USFX/OSIS/Zefania/SQLite Bibles.
 
 ---
 
-## Quick Install
+## Download & Install
 
 ### macOS (Homebrew — Apple Silicon & Intel)
 
-> Replace `OWNER` with your GitHub username or organization once you publish the repo (or create a `homebrew-sundaydeck` tap repository containing [`packaging/homebrew/Casks/sundaydeck.rb`](packaging/homebrew/Casks/sundaydeck.rb)).
+> Replace `OWNER` with your GitHub username or organization once published (or host [`packaging/homebrew/Casks/sundaydeck.rb`](packaging/homebrew/Casks/sundaydeck.rb) in a `homebrew-sundaydeck` tap repository).
 
 ```bash
 brew tap OWNER/sundaydeck
 brew install --cask sundaydeck
 ```
 
-Or download `SundayDeck-<version>-macOS-arm64.dmg` (Apple Silicon M1–M4) or `SundayDeck-<version>-macOS-x86_64.dmg` (Intel) from **GitHub Releases**, open the DMG, and drag **SundayDeck** into **Applications**.
-
-> **Build a macOS `.dmg` locally on your Mac right now:**
-> ```bash
-> ./scripts/build-macos-dmg.sh
-> # Outputs: dist/SundayDeck-0.1.0-macOS-arm64.dmg
-> ```
+Or download `SundayDeck-<version>-macOS-arm64.dmg` (Apple Silicon M1–M4) or `SundayDeck-<version>-macOS-x86_64.dmg` (Intel) from **GitHub Releases**, open the disk image, and drag **SundayDeck** into **Applications**.
 
 ### Windows (64-bit)
 
 Download from **GitHub Releases**:
-- **Installer (recommended):** `SundayDeck-<version>-windows-x86_64-setup.exe` (adds Start Menu shortcut and `.sdeck` bundle file association)
-- **Portable ZIP:** `SundayDeck-<version>-windows-x86_64.zip` (unzip and run `SundayDeck.exe` with zero install)
+- **Installer (recommended):** `SundayDeck-<version>-windows-x86_64-setup.exe` (adds Start Menu shortcut and `.sdeck` bundle support)
+- **Portable ZIP:** `SundayDeck-<version>-windows-x86_64.zip` (unzip and run `SundayDeck.exe` with zero installation)
 
-### Linux (Wayland & X11)
+### Linux
 
 Download from **GitHub Releases**:
 - **Debian / Ubuntu:**
   ```bash
   sudo apt install ./sundaydeck_<version>_amd64.deb
   ```
-- **Portable Tarball (Fedora, Arch, openSUSE, etc.):**
+- **Portable Archive (Fedora, Arch, openSUSE, etc.):**
   ```bash
   tar -xzf SundayDeck-<version>-linux-x86_64.tar.gz
   cd SundayDeck-<version>-linux-x86_64
   ./sundaydeck
   ```
 
-### Build from Source (Rust 1.85+)
-
-```bash
-git clone https://github.com/OWNER/sundaydeck.git
-cd sundaydeck
-cargo run --release -p sundaydeck-ui --bin sundaydeck
-
-# Optional: compile with in-process embedded llama.cpp GGUF support
-cargo run --release -p sundaydeck-ui --features embedded-llm --bin sundaydeck
-```
-
 ---
 
-## How to Use SundayDeck (5-Minute Volunteer Guide)
+## 5-Minute Volunteer Guide
 
 ### 1. Plan Your Service — or Drop the Pastor's PowerPoint / Word File
 
-Click the **Upload** icon in the **Service Order** rail (or click the Service Title in the top bar) to drop a `.pptx`, `.docx`, or plain text outline. SundayDeck automatically matches songs in your library, pulls Scripture passages offline, builds sermon point slides, and lets you review every item before applying.
+Click the **Upload** button in the **Service Order** rail to drop a `.pptx`, `.docx`, or plain outline. SundayDeck matches your songs, fetches Scriptures offline, formats sermon points, and lets you review every slide before adding it to your Sunday schedule.
 
-| Pastor Plan Importer | Dual-Display & Stage Confidence Monitor |
+| Plan Importer | Built-In Slide Layouts |
 | :---: | :---: |
-| <img src="docs/media/plan-importer.png" alt="Pastor Plan Importer modal" width="100%" /> | <img src="docs/media/stage-monitor.png" alt="Stage Confidence Monitor" width="100%" /> |
+| <img src="docs/media/plan-importer.png" alt="SundayDeck Plan Importer modal" width="100%" /> | <img src="docs/media/custom-slide-builder.png" alt="SundayDeck Custom Slide Builder modal" width="100%" /> |
 
-### 2. Choose Sanctuary Backgrounds (Unsplash Photos & Looping Video)
+### 2. Choose Peaceful Backgrounds & Connect Your Displays
 
-Open the **Themes** tab in the bottom center drawer to switch themes live in one click, or click **Add Background** to apply curated Unsplash photography, download any Unsplash image URL offline, or load local `.mp4` / `.mov` / `.webm` worship motion loops with custom contrast scrims.
+Pick curated sanctuary photography, load local looping worship videos with custom contrast scrims, send clean output to your projector and **Stage Confidence Monitor**, or toggle the built-in **OBS Livestream Overlay** (`http://127.0.0.1:8787/overlay`) directly from the **Projector** menu.
 
-| Unsplash Sanctuary Photography | Looping Motion Video Background |
+| Sanctuary Photography | Stage Confidence Monitor |
 | :---: | :---: |
-| <img src="docs/media/unsplash-mountains.png" alt="Unsplash Mountains Sanctuary Theme" width="100%" /> | <img src="docs/media/motion-golden-light.png" alt="Golden Light Motion Video Theme" width="100%" /> |
+| <img src="docs/media/unsplash-mountains.png" alt="Sanctuary mountain photography background" width="100%" /> | <img src="docs/media/stage-monitor.png" alt="Stage Confidence Monitor" width="100%" /> |
 
-### 3. Run Live With Zero Stress
+### 3. Global Churches, Numbered Hymnbooks & Bilingual Worship
 
-1. Click any item in **Service Order** (left rail) to load its 16:9 slide cards into **Next Up** (center).
-2. Click **Show on Screen** (or press `Cmd/Ctrl + Enter`) to fade it live onto the projector.
-3. Press **`Space`** or **`Right Arrow`** to advance slides.
-4. Spot a lyric typo during worship? Press **`Cmd/Ctrl + E`** for live **Quick Edit** — fix the typo in place without interrupting the room.
-5. Need an emergency screen recovery? Press **`F1`** (Hide Words), **`F2`** (Black Screen), or **`F3`** (Show Church Logo). Hold **`Shift`** with any F-key for an instant hard cut.
+Open **Settings → Bibles & Packs** to choose your **Church Tradition** (`Contemporary`, `African & Diaspora`, `Methodist / Mainline`, `Catholic Parish`, `Spanish / Bilingual`), toggle **Bilingual Stacked / Primary / Secondary** lyrics, import 66- or 73-book offline Bibles, or install verified Public Domain `.sdeck-pack` starter packs.
 
-### 4. Pre-Service Announcement Loops, Offline Bibles & Portable `.sdeck` Packs
+> **Copyright Respect:** SundayDeck never bundles copyrighted contemporary worship songs or copyrighted Bible translations. Verified Public Domain starter packs can be generated reproducibly with `python3 scripts/build-starter-packs.py`, and churches can import their own legally licensed hymnbooks and Bibles in seconds.
 
-Click the **Gear** icon in the top right (or the **Packs** button in Service Order) to open **SundayDeck Settings**:
-
-- **Church Branding:** Set your church name and upload a custom Church Logo image for `Show Logo (F3)`.
-- **Full 66-Book Offline Bibles:** Import OSIS, USFX, Zefania `.xml`, or `.sqlite` Bible packs for instant offline Scripture projection.
-- **PDF / Image Decks & Pre-Service Loops:** Import PDFs or PNG/JPEG slide decks as regular presentations or timed auto-advancing announcement loops (wraps cleanly and pauses automatically whenever Black or Logo is engaged).
-- **Portable `.sdeck` Service Bundles:** Export this Sunday's schedule + songs + themes + local media into a single `.sdeck` zip file and open it on the booth computer with zero missing files.
-
-| Pre-Service Announcement Loop | Settings, Branding & Offline Packs |
+| Bilingual Call & Response | Church Tradition & Offline Packs |
 | :---: | :---: |
-| <img src="docs/media/announcement-loop.png" alt="Pre-Service Announcement Loop Workspace" width="100%" /> | <img src="docs/media/settings-branding.png" alt="Settings and Church Branding Modal" width="100%" /> |
+| <img src="docs/media/liturgy-call-response.png" alt="Bilingual Catholic Order of Mass Call and Response slide" width="100%" /> | <img src="docs/media/global-church-packs.png" alt="Church Tradition, Bilingual Lyrics, and Offline Packs Settings" width="100%" /> |
 
----
+### 4. Hands-Free Microphone Auto-Follow
 
-## Voice-Synced Slide Navigation (Automatic Mic Auto-Follow)
-
-**Yes — live microphone slide navigation is already built into SundayDeck (`crates/sundaydeck-voice`) and runs 100% locally.**
+Click **Auto-Follow** in the top bar, choose your microphone or soundboard input, and select **Suggest next slide** (highlights the next slide with a warm amber ring) or **Advance automatically**. During the sermon, spoken Bible references appear cleanly in a **1-Click Scripture Queue** on the right without ever hijacking the live screen.
 
 <div align="center">
-  <img src="docs/media/voice-autofollow.png" alt="Auto-Follow Voice Sync popover and live confidence progress bar" width="90%" />
+  <img src="docs/media/voice-autofollow.png" alt="Auto-Follow popover with live listening meter and next slide suggestion" width="90%" />
 </div>
-
-### How It Works Under the Hood
-
-1. **Native Audio Capture (`cpal`)** — Captures live audio from any laptop mic, USB interface, or soundboard feed on macOS, Windows, and Linux, resampling to 16 kHz mono PCM with an RMS voice-activity gate and live 3-bar level meter.
-2. **100% Local Speech-to-Text (`whisper.cpp`)** — Streams rolling 2-second speech windows to a local `whisper-server` on `http://127.0.0.1:8081/inference` (configurable in **Settings → Local AI & Voice**). Audio never touches the internet.
-3. **Worship-Aware Slide Aligner (`DeckVoiceAligner`)** — Phonetic normalization, end-of-slide anchor weighting (so slides advance right as the congregation finishes the final line), cooldown debouncing (prevents double-advances on sustained notes), spontaneous Chorus repeat detection, and an automatic safety lock whenever **Black Screen** or **Show Logo** is active.
-
-### Enabling Live Mic Auto-Follow
-
-1. **Start a local Whisper server** (one-time install, runs 100% offline):
-   ```bash
-   # macOS (Homebrew)
-   brew install whisper-cpp
-   curl -L -o ggml-base.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
-   whisper-server -m ggml-base.en.bin --host 127.0.0.1 --port 8081
-   ```
-   *(On Windows/Linux, download the prebuilt `whisper-server` binary from [`ggml-org/whisper.cpp`](https://github.com/ggml-org/whisper.cpp/releases) and run the same command.)*
-2. Click **Auto-Follow** in SundayDeck's top bar.
-3. Pick your microphone / audio interface from **Microphone Input**.
-4. Choose **Suggest next slide** (recommended for your first Sunday — highlights the next slide with an amber ring) or **Advance automatically** (advances slides hands-free once alignment confidence crosses your threshold).
-5. Want to try it before hooking up a mic? Click **Test Auto-Follow** inside the popover to run the built-in offline rehearsal simulator over your active song or Scripture!
 
 ---
 
@@ -174,70 +127,41 @@ Click the **Gear** icon in the top right (or the **Packs** button in Service Ord
 
 | Action | Shortcut |
 | :--- | :--- |
-| Next live slide | `Space` / `Right` / `Down` |
+| Next live slide (or reveal next bullet point) | `Space` / `Right` / `Down` |
 | Previous live slide | `Left` / `Up` |
 | Show staged preview on screen | `Cmd/Ctrl + Enter` |
-| Hide Words (keep background) | `F1` (`Shift + F1` hard cut) |
-| Black Screen | `F2` (`Shift + F2` hard cut) |
-| Show Church Logo | `F3` (`Shift + F3` hard cut) |
-| Quick Edit live slide text | `Cmd/Ctrl + E` |
+| Hide Words (keep background) | `F1` (`Shift + F1` instant cut) |
+| Black Screen | `F2` (`Shift + F2` instant cut) |
+| Show Church Logo | `F3` (`Shift + F3` instant cut) |
+| Fix a typo live (Quick Edit) | `Cmd/Ctrl + E` |
 | Toggle Audience Projector window | `Cmd/Ctrl + Shift + A` |
 | Toggle Stage Confidence Monitor | `Cmd/Ctrl + Shift + S` |
-| Toggle click-slide-directly-live | `Cmd/Ctrl + Shift + D` |
 
 ---
 
-## Publishing Releases, Homebrew Tap & Custom Domain (GitHub Pages)
+## Publishing Releases, Homebrew & Custom Domain
 
-SundayDeck ships with 3 ready-to-run GitHub Actions workflows:
+SundayDeck includes automated release and website publishing workflows:
 
-| Workflow | Trigger | What It Does |
-| :--- | :--- | :--- |
-| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Push / PR to `main` | Runs `cargo fmt --check`, `cargo clippy -- -D warnings`, and full `cargo test --workspace` with headless software Vulkan. |
-| [`.github/workflows/release.yml`](.github/workflows/release.yml) | Tag push (`v*`) or manual run | Builds **macOS arm64 + Intel `.dmg`**, **Windows `.exe` + `.zip`**, and **Linux `.deb` + `.tar.gz`**, computes `SHA256SUMS.txt`, generates an updated `sundaydeck.rb` Homebrew Cask, and publishes a GitHub Release. |
-| [`.github/workflows/pages.yml`](.github/workflows/pages.yml) | Push to `docs/**` | Deploys [`docs/`](docs/index.html) directly to **GitHub Pages**. |
+- **Tag a release (`git tag v0.1.0 && git push origin main --tags`)** to build macOS (`.dmg`), Windows (`.exe` + `.zip`), and Linux (`.deb` + `.tar.gz`) installers along with `SHA256SUMS.txt` and an updated Homebrew Cask formula (`packaging/homebrew/Casks/sundaydeck.rb`).
+- **Custom Domain on GitHub Pages:** Enable **Settings → Pages → Source: GitHub Actions**, add your domain in `docs/CNAME` (see [`docs/CNAME.example`](docs/CNAME.example)), and point your DNS `A` / `CNAME` records to GitHub Pages.
 
-### Cutting Your First Release
+<details>
+<summary><strong>For Contributors: Building from Source</strong></summary>
 
 ```bash
-git tag v0.1.0
-git push origin main --tags
+git clone https://github.com/OWNER/sundaydeck.git
+cd sundaydeck
+cargo run --release -p sundaydeck-ui --bin sundaydeck
+
+# Build a local macOS .dmg installer on macOS:
+./scripts/build-macos-dmg.sh
+
+# Build verified Public Domain starter packs (.sdeck-pack):
+python3 scripts/build-starter-packs.py
 ```
 
-GitHub Actions automatically builds all 4 platform binaries, attaches every installer + `SHA256SUMS.txt` + updated `sundaydeck.rb` to the GitHub Release.
-
-### Setting Up Your Homebrew Tap
-
-1. Create a public GitHub repo named `homebrew-sundaydeck` under your GitHub account.
-2. Copy the release-generated `sundaydeck.rb` into `Casks/sundaydeck.rb` inside `homebrew-sundaydeck` and push.
-3. Anyone on macOS can now install with:
-   ```bash
-   brew tap YOUR_GITHUB_USER/sundaydeck
-   brew install --cask sundaydeck
-   ```
-
-### Routing Your Custom Domain to GitHub Pages
-
-1. In your repo's **Settings → Pages**, set **Source** to **GitHub Actions**.
-2. Create `docs/CNAME` containing only your domain (for example `sundaydeck.org` — see [`docs/CNAME.example`](docs/CNAME.example)) and commit it.
-3. At your DNS registrar, configure either:
-   - **Apex domain (`yourdomain.com`):** Add four `A` records pointing to GitHub Pages:
-     `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
-   - **Subdomain (`app.yourdomain.com` or `www.yourdomain.com`):** Add a `CNAME` record pointing to `<YOUR_GITHUB_USER>.github.io`.
-4. Enable **Enforce HTTPS** in GitHub Pages settings once DNS propagates.
-
----
-
-## Workspace Architecture
-
-```text
-crates/
-├── sundaydeck-core/     # Pure domain models, PresentationEngine, song reflow, Bible XML parsers, .pptx/.docx extractor, .sdeck zip bundles
-├── sundaydeck-db/       # SQLite WAL + FTS5 schema, migrations, seeded songs/themes/Bibles, non-blocking DbWorker
-├── sundaydeck-planner/  # Hybrid deterministic + local OpenAI-compatible LLM + optional embedded llama.cpp planner
-├── sundaydeck-voice/    # Live cpal mic capture, offline Whisper HTTP client, DeckVoiceAligner, background VoiceEngineHandle
-└── sundaydeck-ui/       # Native GPUI operator console, Audience & Stage windows, bundled OFL fonts, vendored Phosphor icons
-```
+</details>
 
 ---
 
