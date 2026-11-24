@@ -20,7 +20,9 @@
   <header>
     <div class="wrap nav">
       <a class="brand" href="#top">
-        <span class="brand-mark"><span></span></span>
+        <span class="brand-mark">
+          <span class="ic ic-sm" style="--ic: url('icons/monitor.svg');"></span>
+        </span>
         <span>SundayDeck</span>
       </a>
       <nav class="nav-links">
@@ -31,7 +33,10 @@
         <a href="#install">Download</a>
         <a href="#contribute">Free Forever</a>
       </nav>
-      <a class="btn-primary" href="#install">Download Free</a>
+      <a class="btn-nav" href="#install">
+        <span class="ic ic-sm" style="--ic: url('icons/download-simple.svg');"></span>
+        <span>Download</span>
+      </a>
     </div>
     <div class="progress-track"><div class="progress-bar" id="reading-progress"></div></div>
   </header>
@@ -39,9 +44,11 @@
   <main id="top">
     <section class="hero">
       <div class="wrap">
-        <div class="eyebrow" data-reveal>
-          <span class="dot dot-emerald dot-pulse"></span>
-          <span>100% Free &amp; Open Source · No Licenses · Mac, Windows &amp; Linux</span>
+        <div class="kicker" data-reveal>
+          <span class="ic ic-sm ic-emerald" style="--ic: url('icons/heart.svg');"></span>
+          <span>Free &amp; Open Source</span>
+          <span class="kicker-rule"></span>
+          <span>No Licenses · Mac, Windows &amp; Linux</span>
         </div>
         <h1 data-reveal data-delay="1">
           Calm church slides built for <span class="serif-accent">real Sunday volunteers.</span>
@@ -53,14 +60,32 @@
           internet required.
         </p>
         <div class="cta-row" data-reveal data-delay="3">
-          <a class="btn-primary" href="#install">Download Free</a>
-          <a class="btn-secondary" href="#walkthrough">Watch 60-Second Film</a>
-          <a class="btn-secondary" href="#story">Walk Through Sunday Morning</a>
+          <a class="btn-primary" href="#install">
+            <span class="ic" style="--ic: url('icons/download-simple.svg');"></span>
+            <span>Download Free</span>
+          </a>
+          <a class="btn-secondary" href="#walkthrough">
+            <span class="ic ic-sm" style="--ic: url('icons/play-fill.svg');"></span>
+            <span>Watch the Film</span>
+          </a>
+          <a class="link-editorial" href="#story">
+            <span>Walk through Sunday morning</span>
+            <span class="ic ic-sm" style="--ic: url('icons/arrow-right.svg');"></span>
+          </a>
         </div>
         <div class="meta-strip" data-reveal data-delay="4">
-          <span class="meta-item"><span class="dot dot-emerald"></span>100% Offline &amp; Private</span>
-          <span class="meta-item"><span class="dot dot-amber"></span>Sanctuary, Stage &amp; Livestream Ready</span>
-          <span class="meta-item"><span class="dot dot-coral"></span>Zero Licenses · Zero Subscriptions</span>
+          <span class="meta-item">
+            <span class="ic ic-sm ic-emerald" style="--ic: url('icons/lock-simple.svg');"></span>
+            <span>100% Offline &amp; Private</span>
+          </span>
+          <span class="meta-item">
+            <span class="ic ic-sm ic-amber" style="--ic: url('icons/monitor.svg');"></span>
+            <span>Sanctuary, Stage &amp; Livestream Ready</span>
+          </span>
+          <span class="meta-item">
+            <span class="ic ic-sm" style="--ic: url('icons/check.svg');"></span>
+            <span>Zero Licenses · Zero Subscriptions</span>
+          </span>
         </div>
         <div class="frame hero-frame" data-reveal data-delay="2">
           <img
@@ -74,7 +99,10 @@
     <section id="walkthrough">
       <div class="wrap">
         <div class="sec-head" data-reveal>
-          <div class="sec-label"><span class="dot dot-amber"></span><span>One-Minute Overview</span></div>
+          <div class="sec-label">
+            <span class="ic ic-sm ic-amber" style="--ic: url('icons/play-fill.svg');"></span>
+            <span>One-Minute Overview</span>
+          </div>
           <h2>From pastor's notes to full sanctuary screens before the doors open.</h2>
           <p class="sec-copy">
             Watch how SundayDeck moves calmly from a pastor's sermon notes to custom slide layouts,
@@ -93,7 +121,10 @@
     <section id="story" class="story-section">
       <div class="wrap">
         <div class="sec-head" data-reveal>
-          <div class="sec-label"><span class="dot dot-amber"></span><span>A Sunday Morning Story</span></div>
+          <div class="sec-label">
+            <span class="ic ic-sm ic-amber" style="--ic: url('icons/clock.svg');"></span>
+            <span>A Sunday Morning Story</span>
+          </div>
           <h2>Follow a volunteer from <span class="serif-accent">9:45 AM to benediction.</span></h2>
           <p class="sec-copy">
             Scroll through the morning — or click any moment — to see how SundayDeck stays calm,
@@ -109,7 +140,10 @@
               data-stage="Plan Importer · Ready to Review"
               data-caption="Songs matched, Scriptures pulled offline, and sermon slides formatted automatically."
             >
-              <div class="chapter-time">9:45 AM · Fifteen minutes before service</div>
+              <div class="chapter-time">
+                <span class="ic ic-sm" style="--ic: url('icons/upload-simple.svg');"></span>
+                <span>9:45 AM · Fifteen minutes before service</span>
+              </div>
               <h3>The pastor sends over the sermon notes.</h3>
               <p>
                 Drop a PowerPoint deck, Word document, or plain outline straight into SundayDeck.
@@ -124,7 +158,10 @@
               data-stage="Custom Slide Builder · Live Preview"
               data-caption="Build welcome cards, progressive sermon points, and countdowns without leaving SundayDeck."
             >
-              <div class="chapter-time">9:52 AM · One last-minute announcement</div>
+              <div class="chapter-time">
+                <span class="ic ic-sm" style="--ic: url('icons/stack.svg');"></span>
+                <span>9:52 AM · One last-minute announcement</span>
+              </div>
               <h3>Create clean slides without opening PowerPoint.</h3>
               <p>
                 Pick a curated layout — welcome title, key quote, click-to-reveal sermon bullets,
@@ -139,7 +176,10 @@
               data-stage="Sanctuary Screen · Stage &amp; Livestream Synced"
               data-caption="Peaceful photography, looping motion backgrounds, stage confidence monitor, and OBS lower-thirds."
             >
-              <div class="chapter-time">10:00 AM · Worship begins</div>
+              <div class="chapter-time">
+                <span class="ic ic-sm" style="--ic: url('icons/monitor.svg');"></span>
+                <span>10:00 AM · Worship begins</span>
+              </div>
               <h3>Warm visuals for the room, clarity for the stage.</h3>
               <p>
                 Project lyrics over peaceful photography or gentle looping backgrounds while your
@@ -154,7 +194,10 @@
               data-stage="Auto-Follow · Listening Locally"
               data-caption="Follows worship lyrics hands-free and queues spoken Bible verses for one-click projection."
             >
-              <div class="chapter-time">10:20 AM · Spontaneous chorus &amp; preaching</div>
+              <div class="chapter-time">
+                <span class="ic ic-sm" style="--ic: url('icons/microphone.svg');"></span>
+                <span>10:20 AM · Spontaneous chorus &amp; preaching</span>
+              </div>
               <h3>Your microphone keeps pace — completely offline.</h3>
               <p>
                 Turn on microphone auto-follow in safe Suggest or Auto mode so slides stay with the
@@ -169,7 +212,10 @@
               data-stage="Bilingual &amp; Call-and-Response Ready"
               data-caption="66-book Protestant &amp; 73-book Catholic Bibles, numbered hymnbooks, and stacked bilingual slides."
             >
-              <div class="chapter-time">10:45 AM · One church, every generation &amp; language</div>
+              <div class="chapter-time">
+                <span class="ic ic-sm" style="--ic: url('icons/book-open-text.svg');"></span>
+                <span>10:45 AM · One church, every generation &amp; language</span>
+              </div>
               <h3>Bilingual lyrics, hymn numbers, and responsive readings.</h3>
               <p>
                 Jump directly to hymns by book and number, display English alongside Spanish or
@@ -183,7 +229,7 @@
             <div class="frame">
               <div class="story-stage-bar">
                 <span class="stage-pill">
-                  <span class="dot dot-emerald dot-pulse"></span>
+                  <span class="dot dot-emerald"></span>
                   <span id="story-stage-label">Plan Importer · Ready to Review</span>
                 </span>
                 <span class="stage-clock" id="story-stage-time">9:45 AM</span>
@@ -228,7 +274,10 @@
     <section id="global">
       <div class="wrap">
         <div class="sec-head" data-reveal>
-          <div class="sec-label"><span class="dot dot-emerald"></span><span>Across North &amp; South America</span></div>
+          <div class="sec-label">
+            <span class="ic ic-sm ic-emerald" style="--ic: url('icons/book-open-text.svg');"></span>
+            <span>Across North &amp; South America</span>
+          </div>
           <h2>Contemporary, Baptist, Catholic, Mainline, and Bilingual churches — ready out of the box.</h2>
           <p class="sec-copy">
             SundayDeck welcomes churches across the Americas with Protestant and Catholic Bible
@@ -243,7 +292,12 @@
               <img src="media/stage-monitor.png" alt="SundayDeck Stage Confidence Monitor with current slide, next slide, clock, and countdown timer" />
             </div>
             <div class="feature-body">
-              <h3>Sanctuary Screen, Stage Monitor &amp; OBS Livestream Overlay</h3>
+              <div class="card-title-row">
+                <span class="icon-chip">
+                  <span class="ic" style="--ic: url('icons/broadcast.svg');"></span>
+                </span>
+                <h3>Sanctuary Screen, Stage Monitor &amp; OBS Livestream Overlay</h3>
+              </div>
               <p>
                 Drive your sanctuary projector and stage confidence monitor independently, and
                 connect directly to OBS Studio with a transparent lower-third lyric overlay or
@@ -257,7 +311,12 @@
               <img src="media/global-church-packs.png" alt="SundayDeck Settings showing Americas Church Traditions, Bilingual Lyrics, and .sdeck-pack importer" />
             </div>
             <div class="feature-body">
-              <h3>66 &amp; 73-Book Bibles, Numbered Hymnbooks &amp; Easy Migration</h3>
+              <div class="card-title-row">
+                <span class="icon-chip">
+                  <span class="ic" style="--ic: url('icons/music-notes.svg');"></span>
+                </span>
+                <h3>66 &amp; 73-Book Bibles, Numbered Hymnbooks &amp; Easy Migration</h3>
+              </div>
               <p>
                 Search full offline Bibles in English, Spanish, Portuguese, and French without
                 worrying about accents. Jump straight to hymns (<code>BH 330</code>,
@@ -274,7 +333,10 @@
     <section id="shortcuts">
       <div class="wrap">
         <div class="sec-head" data-reveal>
-          <div class="sec-label"><span class="dot dot-amber"></span><span>Try the Booth Controls</span></div>
+          <div class="sec-label">
+            <span class="ic ic-sm ic-amber" style="--ic: url('icons/palette.svg');"></span>
+            <span>Try the Booth Controls</span>
+          </div>
           <h2>Feel how calm recovery keys are when plans change live.</h2>
           <p class="sec-copy">
             Click any control below to test what the sanctuary screen does — advancing slides,
@@ -305,19 +367,31 @@
 
           <div class="booth-keys">
             <button class="kbd-btn is-live-btn" type="button" data-sim="next">
-              <span><strong>Next Slide</strong> · Advance lyrics or Scripture</span>
+              <span class="kbd-btn-left">
+                <span class="ic" style="--ic: url('icons/play-fill.svg');"></span>
+                <span><strong>Next Slide</strong> · Advance lyrics or Scripture</span>
+              </span>
               <kbd>Space</kbd>
             </button>
             <button class="kbd-btn" type="button" data-sim="clear">
-              <span><strong>Hide Words</strong> · Keep peaceful background steady</span>
+              <span class="kbd-btn-left">
+                <span class="ic" style="--ic: url('icons/text-t-slash.svg');"></span>
+                <span><strong>Hide Words</strong> · Keep peaceful background steady</span>
+              </span>
               <kbd>F1</kbd>
             </button>
             <button class="kbd-btn" type="button" data-sim="black">
-              <span><strong>Black Screen</strong> · Calm fade for prayer or video</span>
+              <span class="kbd-btn-left">
+                <span class="ic" style="--ic: url('icons/eye-slash.svg');"></span>
+                <span><strong>Black Screen</strong> · Calm fade for prayer or video</span>
+              </span>
               <kbd>F2</kbd>
             </button>
             <button class="kbd-btn" type="button" data-sim="logo">
-              <span><strong>Show Church Logo</strong> · Before &amp; after service</span>
+              <span class="kbd-btn-left">
+                <span class="ic" style="--ic: url('icons/image.svg');"></span>
+                <span><strong>Show Church Logo</strong> · Before &amp; after service</span>
+              </span>
               <kbd>F3</kbd>
             </button>
           </div>
@@ -328,7 +402,10 @@
     <section id="install">
       <div class="wrap">
         <div class="sec-head" data-reveal>
-          <div class="sec-label"><span class="dot dot-emerald"></span><span>Download SundayDeck</span></div>
+          <div class="sec-label">
+            <span class="ic ic-sm ic-emerald" style="--ic: url('icons/download-simple.svg');"></span>
+            <span>Download SundayDeck</span>
+          </div>
           <h2>Free installers for Mac, Windows, and Linux.</h2>
           <p class="sec-copy">
             No account sign-up, no seat licenses, and no watermark. Starts in under a second even on
@@ -338,7 +415,12 @@
 
         <div class="install-grid">
           <div class="card" data-reveal>
-            <h3>macOS (Apple Silicon &amp; Intel)</h3>
+            <div class="card-title-row">
+              <span class="icon-chip">
+                <span class="ic" style="--ic: url('icons/apple.svg');"></span>
+              </span>
+              <h3>macOS (Apple Silicon &amp; Intel)</h3>
+            </div>
             <p>Install in one line with Homebrew, or download the macOS installer disk image and drag SundayDeck into Applications.</p>
             <pre><code>brew tap OWNER/sundaydeck
 brew install --cask sundaydeck</code></pre>
@@ -346,7 +428,12 @@ brew install --cask sundaydeck</code></pre>
           </div>
 
           <div class="card" data-reveal data-delay="1">
-            <h3>Windows (64-bit)</h3>
+            <div class="card-title-row">
+              <span class="icon-chip">
+                <span class="ic" style="--ic: url('icons/windows.svg');"></span>
+              </span>
+              <h3>Windows (64-bit)</h3>
+            </div>
             <p>Standard Windows installer with Start Menu shortcut and <code>.sdeck</code> service bundle double-click support, or a portable zip.</p>
             <pre><code>SundayDeck-windows-x86_64-setup.exe
 # Or portable (no install needed):
@@ -354,7 +441,12 @@ SundayDeck-windows-x86_64.zip</code></pre>
           </div>
 
           <div class="card" data-reveal data-delay="2">
-            <h3>Linux</h3>
+            <div class="card-title-row">
+              <span class="icon-chip">
+                <span class="ic" style="--ic: url('icons/terminal.svg');"></span>
+              </span>
+              <h3>Linux</h3>
+            </div>
             <p>Debian / Ubuntu package or portable archive ready for any desktop Linux laptop in the sound booth.</p>
             <pre><code>sudo apt install ./sundaydeck_0.1.0_amd64.deb
 # Or extract portable archive:
@@ -367,7 +459,10 @@ tar -xzf SundayDeck-linux-x86_64.tar.gz</code></pre>
     <section id="contribute" class="conviction-banner">
       <div class="wrap">
         <div class="sec-head" data-reveal>
-          <div class="sec-label"><span class="dot dot-emerald"></span><span>Our Conviction</span></div>
+          <div class="sec-label">
+            <span class="ic ic-sm ic-emerald" style="--ic: url('icons/heart.svg');"></span>
+            <span>Our Conviction</span>
+          </div>
           <h2>Church software should be <span class="serif-accent">free and fully accessible.</span></h2>
           <p class="sec-copy">
             No seat licenses. No annual renewals. No locked features, watermarks, or forced upgrades.
@@ -379,7 +474,12 @@ tar -xzf SundayDeck-linux-x86_64.tar.gz</code></pre>
 
         <div class="install-grid">
           <div class="card" data-reveal>
-            <h3>100% Free — No Licenses Required</h3>
+            <div class="card-title-row">
+              <span class="icon-chip">
+                <span class="ic ic-emerald" style="--ic: url('icons/heart.svg');"></span>
+              </span>
+              <h3>100% Free — No Licenses Required</h3>
+            </div>
             <p>
               Install SundayDeck on as many sanctuary laptops, volunteer practice machines, and booth
               computers as your church needs. No activation keys, no subscriptions, and no accounts.
@@ -387,7 +487,12 @@ tar -xzf SundayDeck-linux-x86_64.tar.gz</code></pre>
           </div>
 
           <div class="card" data-reveal data-delay="1">
-            <h3>Built Together, Open to Contributions</h3>
+            <div class="card-title-row">
+              <span class="icon-chip">
+                <span class="ic ic-amber" style="--ic: url('icons/users.svg');"></span>
+              </span>
+              <h3>Built Together, Open to Contributions</h3>
+            </div>
             <p>
               SundayDeck is open source and shaped by real churches. Bug reports, Spanish, Portuguese,
               and French translations, public-domain starter packs, usability feedback, and pull
@@ -396,7 +501,12 @@ tar -xzf SundayDeck-linux-x86_64.tar.gz</code></pre>
           </div>
 
           <div class="card" data-reveal data-delay="2">
-            <h3>How You Can Help</h3>
+            <div class="card-title-row">
+              <span class="icon-chip">
+                <span class="ic" style="--ic: url('icons/broadcast.svg');"></span>
+              </span>
+              <h3>How You Can Help</h3>
+            </div>
             <p>
               Try SundayDeck with your volunteers, share what felt confusing ten minutes before
               service, contribute a translation or improvement on GitHub, or pass it along to a
