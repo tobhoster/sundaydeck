@@ -21,6 +21,7 @@ use crate::store::PresentationStore;
 use crate::views::alerts_timers_modal::AlertsTimersModal;
 use crate::views::background_picker_modal::BackgroundPickerModal;
 use crate::views::bible_browser::BibleBrowserView;
+use crate::views::custom_slide_modal::CustomSlideModal;
 use crate::views::header_popovers::render_header_popover;
 use crate::views::library_preview_pane::render_library_preview_pane;
 use crate::views::live_pane::render_live_pane;
@@ -42,6 +43,7 @@ pub enum HeaderPopover {
 pub enum LibraryTab {
     Songs,
     Bible,
+    CustomSlides,
     Themes,
 }
 
@@ -51,6 +53,7 @@ pub enum ActiveModal {
     AlertsTimers(Entity<AlertsTimersModal>),
     PlanImporter(Entity<PlanImportModal>),
     BackgroundPicker(Entity<BackgroundPickerModal>),
+    CustomSlideBuilder(Entity<CustomSlideModal>),
     Settings(Entity<SettingsModal>),
 }
 
@@ -171,6 +174,11 @@ impl OperatorWorkspace {
                 SlideContent::Text { body, .. } => {
                     Some((slide.id, slide.label.clone(), body.clone()))
                 }
+                SlideContent::Custom { layout, .. } => Some((
+                    slide.id,
+                    slide.label.clone(),
+                    layout.primary_str().to_owned(),
+                )),
                 SlideContent::Image { .. } | SlideContent::Blank => None,
             })
         else {
@@ -395,6 +403,9 @@ impl Render for OperatorWorkspace {
                 ActiveModal::AlertsTimers(m) => ("modal-alerts", m.clone().into_any_element()),
                 ActiveModal::PlanImporter(m) => ("modal-plan", m.clone().into_any_element()),
                 ActiveModal::BackgroundPicker(m) => ("modal-bg", m.clone().into_any_element()),
+                ActiveModal::CustomSlideBuilder(m) => {
+                    ("modal-custom-slide", m.clone().into_any_element())
+                }
                 ActiveModal::Settings(m) => ("modal-settings", m.clone().into_any_element()),
             };
             root = root.child(

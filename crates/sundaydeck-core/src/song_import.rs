@@ -80,6 +80,8 @@ pub fn import_songselect_usr(raw: &str) -> Result<Song, ImportError> {
                 label,
                 ordinal: sections.len() as u32,
                 body,
+                secondary_body: None,
+                stage_chords: None,
             });
         }
     }
@@ -105,6 +107,10 @@ pub fn import_songselect_usr(raw: &str) -> Result<Song, ImportError> {
         default_theme_id: None,
         default_arrangement_id: Some(arr_id),
         default_reflow_mode: ReflowMode::ByStanza,
+        primary_lang: "en".to_owned(),
+        secondary_lang: None,
+        hymnal_entries: Vec::new(),
+        traditions: Vec::new(),
         sections,
         arrangements: vec![Arrangement {
             id: arr_id,
@@ -159,6 +165,8 @@ pub fn import_plain_text_song(title_hint: &str, raw: &str) -> Result<Song, Impor
                 label,
                 ordinal: sections.len() as u32,
                 body,
+                secondary_body: None,
+                stage_chords: None,
             });
         }
     }
@@ -184,6 +192,10 @@ pub fn import_plain_text_song(title_hint: &str, raw: &str) -> Result<Song, Impor
         default_theme_id: None,
         default_arrangement_id: Some(arr_id),
         default_reflow_mode: ReflowMode::ByStanza,
+        primary_lang: "en".to_owned(),
+        secondary_lang: None,
+        hymnal_entries: Vec::new(),
+        traditions: Vec::new(),
         sections,
         arrangements: vec![Arrangement {
             id: arr_id,

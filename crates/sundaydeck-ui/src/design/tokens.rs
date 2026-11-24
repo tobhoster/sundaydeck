@@ -333,7 +333,8 @@ pub fn payload_icon(payload: &ServiceItemPayload, active: bool) -> DeckIcon {
         }
         ServiceItemPayload::Presentation { .. }
         | ServiceItemPayload::TextDeck { .. }
-        | ServiceItemPayload::CustomSlide { .. } => {
+        | ServiceItemPayload::CustomSlide { .. }
+        | ServiceItemPayload::CustomDeck { .. } => {
             if active {
                 DeckIcon::StackFill
             } else {

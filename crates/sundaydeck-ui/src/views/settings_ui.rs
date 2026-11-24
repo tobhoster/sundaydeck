@@ -166,14 +166,14 @@ pub(crate) fn render_settings_modal(modal: &SettingsModal, cx: &mut Context<Sett
                 .child(tab_btn(
                     "settings-tab-ai",
                     DeckIcon::Microphone,
-                    "Local AI & Voice",
+                    "Planner & Voice",
                     SettingsTab::AiVoice,
                     cx,
                 ))
                 .child(tab_btn(
                     "settings-tab-bibles",
                     DeckIcon::Stack,
-                    "Bibles & Service Packs",
+                    "Bibles & Packs",
                     SettingsTab::BiblesBundles,
                     cx,
                 )),

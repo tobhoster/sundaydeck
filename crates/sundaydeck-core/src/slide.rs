@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::custom_slide::{CustomSlideLayout, SlideTransition};
 use crate::ids::{MediaAssetId, SectionId, SlideId};
 use crate::song::SectionKind;
 
@@ -19,6 +20,13 @@ pub enum SlideContent {
         uri: Option<String>,
         caption: Option<String>,
     },
+    /// Structured custom layout authored in the Custom Slide Builder.
+    Custom {
+        layout: CustomSlideLayout,
+        /// Number of revealed bullets when `BulletPoints { progressive_reveal: true }`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        revealed_steps: Option<usize>,
+    },
     Blank,
 }
 
@@ -28,6 +36,7 @@ impl SlideContent {
         match self {
             Self::Text { body, .. } => body.as_str(),
             Self::Image { caption, .. } => caption.as_deref().unwrap_or("[Image Slide]"),
+            Self::Custom { layout, .. } => layout.primary_str(),
             Self::Blank => "",
         }
     }
@@ -40,4 +49,6 @@ pub struct Slide {
     pub source_section_id: Option<SectionId>,
     pub label: String,
     pub content: SlideContent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_override: Option<SlideTransition>,
 }

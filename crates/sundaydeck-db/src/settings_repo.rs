@@ -25,6 +25,12 @@ const fn default_voice_threshold_pct() -> u8 {
 const fn default_voice_lock_during_override() -> bool {
     true
 }
+fn default_church_profile() -> String {
+    "contemporary".to_owned()
+}
+fn default_bilingual_mode() -> String {
+    "bilingual_stacked".to_owned()
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppSettings {
@@ -47,6 +53,12 @@ pub struct AppSettings {
     pub voice_advance_threshold_pct: u8,
     #[serde(default = "default_voice_lock_during_override")]
     pub voice_lock_during_override: bool,
+    #[serde(default = "default_church_profile")]
+    pub church_profile: String,
+    #[serde(default = "default_bilingual_mode")]
+    pub bilingual_mode: String,
+    #[serde(default)]
+    pub enable_catholic_canon: bool,
 }
 
 impl Default for AppSettings {
@@ -64,6 +76,9 @@ impl Default for AppSettings {
             whisper_url: default_whisper_url(),
             voice_advance_threshold_pct: default_voice_threshold_pct(),
             voice_lock_during_override: default_voice_lock_during_override(),
+            church_profile: default_church_profile(),
+            bilingual_mode: default_bilingual_mode(),
+            enable_catholic_canon: false,
         }
     }
 }

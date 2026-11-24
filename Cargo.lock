@@ -5804,6 +5804,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sundaydeck-overlay"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sundaydeck-core",
+]
+
+[[package]]
 name = "sundaydeck-planner"
 version = "0.1.0"
 dependencies = [
@@ -5832,6 +5841,7 @@ dependencies = [
  "sha2 0.11.1",
  "sundaydeck-core",
  "sundaydeck-db",
+ "sundaydeck-overlay",
  "sundaydeck-planner",
  "sundaydeck-voice",
  "tracing",

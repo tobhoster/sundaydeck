@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/sundaydeck-core",
     "crates/sundaydeck-db",
+    "crates/sundaydeck-overlay",
     "crates/sundaydeck-planner",
     "crates/sundaydeck-voice",
     "crates/sundaydeck-ui",
@@ -17,6 +18,7 @@ authors = ["SundayDeck Contributors"]
 [workspace.dependencies]
 sundaydeck-core = { path = "crates/sundaydeck-core" }
 sundaydeck-db = { path = "crates/sundaydeck-db" }
+sundaydeck-overlay = { path = "crates/sundaydeck-overlay" }
 sundaydeck-planner = { path = "crates/sundaydeck-planner" }
 sundaydeck-voice = { path = "crates/sundaydeck-voice" }
 

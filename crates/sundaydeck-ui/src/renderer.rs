@@ -3,13 +3,16 @@ use gpui::{
     Styled, StyledImage, div, img, px, rgb,
 };
 use sundaydeck_core::{
-    AlertPosition, AudienceAlert, AudienceRenderState, HorizontalAlign, ServiceTimer, Slide,
-    SlideContent, Theme, TimerUrgency, VerticalAlign,
+    AudienceAlert, AudienceRenderState, HorizontalAlign, ServiceTimer, Slide, SlideContent, Theme,
+    VerticalAlign,
 };
 
+use crate::custom_slide_renderer::{
+    render_audience_alert_banner, render_audience_timer_badge, render_custom_slide_layout,
+};
 use crate::design::fonts::resolve_font_family as resolve_bundled_font;
 use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, TOKENS, rgba8_to_gpui, weight_from_u16,
+    FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, TOKENS, rgba8_to_gpui, weight_from_u16,
 };
 use crate::media::{apply_theme_background, load_background_image};
 
@@ -56,6 +59,80 @@ pub fn render_audience_canvas(
         )
         .into_any_element(),
     }
+}
+
+/// Renders ONLY the theme background layer (used by layer-aware Audience transitions so backgrounds
+/// stay steady while foreground lyrics/verses animate between slides of the same item).
+pub fn render_audience_background_only(theme: &Theme, now_ms: i64) -> AnyElement {
+    apply_theme_background(
+        div().relative().size_full().overflow_hidden(),
+        &theme.background,
+        now_ms,
+    )
+    .into_any_element()
+}
+
+/// Renders ONLY the foreground slide content + alerts/timers over a transparent container
+/// for layer-aware slide transitions (`SoftRise`, `GentleSlide`, `ZoomDissolve`, `Crossfade`).
+pub fn render_audience_foreground_only(
+    state: &AudienceRenderState,
+    canvas_width_px: f32,
+    now_ms: i64,
+    cx: &App,
+) -> AnyElement {
+    let scale = (canvas_width_px / Theme::REFERENCE_WIDTH_PX).clamp(0.12, 4.0);
+    let AudienceRenderState::Slide {
+        slide,
+        theme,
+        show_text,
+        alert,
+        audience_timer,
+        ..
+    } = state
+    else {
+        return div().size_full().into_any_element();
+    };
+    let font_family = resolve_font_family(&theme.font_family, cx);
+    let canvas_w = Theme::REFERENCE_WIDTH_PX * scale;
+    let canvas_h = Theme::REFERENCE_HEIGHT_PX * scale;
+    let pad_t = px(canvas_h * theme.margins.top_pct);
+    let pad_r = px(canvas_w * theme.margins.right_pct);
+    let pad_b = px(canvas_h * theme.margins.bottom_pct);
+    let pad_l = px(canvas_w * theme.margins.left_pct);
+
+    let mut root = div()
+        .relative()
+        .size_full()
+        .overflow_hidden()
+        .font_family(font_family);
+    if *show_text {
+        root = root.child(render_slide_foreground(
+            slide,
+            theme,
+            audience_timer.as_ref(),
+            now_ms,
+            scale,
+            pad_t,
+            pad_r,
+            pad_b,
+            pad_l,
+        ));
+        if let Some(active_timer) = audience_timer.as_ref()
+            && !matches!(
+                slide.content,
+                SlideContent::Custom {
+                    layout: sundaydeck_core::CustomSlideLayout::CountdownSlide { .. },
+                    ..
+                }
+            )
+        {
+            root = root.child(render_audience_timer_badge(active_timer, now_ms, scale));
+        }
+        if let Some(active_alert) = alert.as_ref() {
+            root = root.child(render_audience_alert_banner(active_alert, scale));
+        }
+    }
+    root.into_any_element()
 }
 
 /// Resolves a theme font safely against bundled and loaded fonts so missing fonts never panic.
@@ -218,9 +295,17 @@ fn render_slide_canvas(
 
     if show_text {
         root = root.child(render_slide_foreground(
-            slide, theme, scale, pad_t, pad_r, pad_b, pad_l,
+            slide, theme, timer, now_ms, scale, pad_t, pad_r, pad_b, pad_l,
         ));
-        if let Some(active_timer) = timer {
+        if let Some(active_timer) = timer
+            && !matches!(
+                slide.content,
+                SlideContent::Custom {
+                    layout: sundaydeck_core::CustomSlideLayout::CountdownSlide { .. },
+                    ..
+                }
+            )
+        {
             root = root.child(render_audience_timer_badge(active_timer, now_ms, scale));
         }
         if let Some(active_alert) = alert {
@@ -231,9 +316,12 @@ fn render_slide_canvas(
     root
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_slide_foreground(
     slide: &Slide,
     theme: &Theme,
+    timer: Option<&ServiceTimer>,
+    now_ms: i64,
     scale: f32,
     pad_t: Pixels,
     pad_r: Pixels,
@@ -344,98 +432,25 @@ fn render_slide_foreground(
                     .child(caption.clone().unwrap_or_else(|| slide.label.clone())),
             );
         }
+        SlideContent::Custom {
+            layout,
+            revealed_steps,
+        } => {
+            return render_custom_slide_layout(
+                layout,
+                *revealed_steps,
+                theme,
+                timer,
+                now_ms,
+                scale,
+                pad_t,
+                pad_r,
+                pad_b,
+                pad_l,
+            );
+        }
         SlideContent::Blank => {}
     }
 
     container
-}
-
-fn render_audience_timer_badge(timer: &ServiceTimer, now_ms: i64, scale: f32) -> Div {
-    let disp = timer.display(now_ms);
-    let accent = match disp.urgency {
-        TimerUrgency::Normal => TOKENS.signal_voice,
-        TimerUrgency::Warning => TOKENS.signal_preview,
-        TimerUrgency::Overtime => TOKENS.signal_live,
-    };
-    let offset = px((24.0 * scale).max(4.0));
-
-    div()
-        .absolute()
-        .top(offset)
-        .left(offset)
-        .px(px((20.0 * scale).max(5.0)))
-        .py(px((9.0 * scale).max(2.5)))
-        .rounded(px((RADIUS_CONTROL * 1.5 * scale).max(2.0)))
-        .bg(TOKENS.pane)
-        .border(px((2.0 * scale).max(1.0)))
-        .border_color(TOKENS.gridline)
-        .flex()
-        .items_center()
-        .gap(px((12.0 * scale).max(3.0)))
-        .child(
-            div()
-                .font_family(FONT_MONO)
-                .text_color(TOKENS.ink_secondary)
-                .text_size(px((18.0 * scale).max(5.0)))
-                .font_weight(FontWeight::MEDIUM)
-                .child(timer.label.to_ascii_uppercase()),
-        )
-        .child(
-            div()
-                .font_family(FONT_MONO)
-                .text_color(accent)
-                .text_size(px((30.0 * scale).max(7.5)))
-                .font_weight(FontWeight::BOLD)
-                .child(disp.formatted),
-        )
-}
-
-fn render_audience_alert_banner(alert: &AudienceAlert, scale: f32) -> Div {
-    let pad_x = px((28.0 * scale).max(6.0));
-    let pad_y = px((12.0 * scale).max(3.0));
-    let font_px = px((28.0 * scale).max(7.0));
-    let offset = px((24.0 * scale).max(4.0));
-    let border_w = px((2.0 * scale).max(1.0));
-
-    let base = div()
-        .absolute()
-        .px(pad_x)
-        .py(pad_y)
-        .border_color(TOKENS.signal_preview)
-        .font_family(FONT_BODY)
-        .text_color(TOKENS.ink_primary)
-        .text_size(font_px)
-        .font_weight(FontWeight::SEMIBOLD)
-        .child(alert.message.clone());
-
-    match alert.position {
-        AlertPosition::TopRight => base
-            .bg(TOKENS.pane)
-            .border(border_w)
-            .top(offset)
-            .right(offset)
-            .rounded(px((RADIUS_CONTROL * 1.5 * scale).max(2.0))),
-        AlertPosition::TopLeft => base
-            .bg(TOKENS.pane)
-            .border(border_w)
-            .top(offset)
-            .left(offset)
-            .rounded(px((RADIUS_CONTROL * 1.5 * scale).max(2.0))),
-        AlertPosition::TopBar => base
-            .bg(TOKENS.canvas)
-            .border_b(border_w)
-            .top(px(0.0))
-            .left(px(0.0))
-            .right(px(0.0))
-            .flex()
-            .justify_center(),
-        AlertPosition::BottomBar => base
-            .bg(TOKENS.canvas)
-            .border_t(border_w)
-            .bottom(px(0.0))
-            .left(px(0.0))
-            .right(px(0.0))
-            .flex()
-            .justify_center(),
-    }
 }

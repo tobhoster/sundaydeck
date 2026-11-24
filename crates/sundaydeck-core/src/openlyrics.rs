@@ -80,6 +80,8 @@ pub fn import_openlyrics_xml(xml: &str) -> Result<Song, ImportError> {
                                         label,
                                         ordinal,
                                         body,
+                                        secondary_body: None,
+                                        stage_chords: None,
                                     },
                                 ));
                             }
@@ -123,6 +125,10 @@ pub fn import_openlyrics_xml(xml: &str) -> Result<Song, ImportError> {
         default_theme_id: None,
         default_arrangement_id: Some(arr_id),
         default_reflow_mode: ReflowMode::ByStanza,
+        primary_lang: "en".to_owned(),
+        secondary_lang: None,
+        hymnal_entries: Vec::new(),
+        traditions: Vec::new(),
         sections,
         arrangements: vec![Arrangement {
             id: arr_id,

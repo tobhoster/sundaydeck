@@ -173,7 +173,7 @@ pub(crate) fn render_background_picker_modal(
                     .text_color(TOKENS.ink_muted)
                     .text_size(px(11.5))
                     .child(
-                        "Downloaded Unsplash photos & local videos are cached offline in SQLite.",
+                        "Downloaded photos and local videos are saved offline for Sunday morning.",
                     ),
             )
             .child(

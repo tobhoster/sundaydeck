@@ -5,8 +5,8 @@ use gpui::{
     AppContext as _, Context, Entity, EventEmitter, IntoElement, PathPromptOptions, Render, Window,
 };
 use sundaydeck_core::{
-    BackgroundSpec, HorizontalAlign, ImageFit, MediaAssetId, Rgba8, SafeMargins, TextShadow, Theme,
-    ThemeId, ThemeTarget, VerticalAlign,
+    BackgroundSpec, HorizontalAlign, ImageFit, MediaAssetId, Rgba8, SafeMargins, SlideTransition,
+    TextShadow, Theme, ThemeId, ThemeTarget, VerticalAlign,
 };
 use sundaydeck_db::DbWorker;
 
@@ -394,6 +394,7 @@ fn build_custom_theme(name: String, font_family: String, background: BackgroundS
         margins: SafeMargins::DEFAULT,
         footer_font_size_pt: 22.0,
         transition_ms: 400,
+        transition: SlideTransition::Crossfade { duration_ms: 400 },
     }
 }
 

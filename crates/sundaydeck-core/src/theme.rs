@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::custom_slide::SlideTransition;
 use crate::error::ValidationError;
 use crate::ids::{MediaAssetId, ThemeId};
 
@@ -126,7 +127,17 @@ pub enum BackgroundSpec {
         /// Darkening overlay in `[0.0, 1.0]` to guarantee lyric contrast over motion footage.
         scrim_opacity: f32,
     },
+    /// Live webcam, HDMI-to-USB capture card, or OBS Virtual Camera feed.
+    LiveCamera {
+        device_id: String,
+        #[serde(default)]
+        device_label: String,
+        scrim_opacity: f32,
+    },
 }
+
+/// Extensible background source alias matching the Refined Master Spec domain model.
+pub type BackgroundSource = BackgroundSpec;
 
 const fn default_video_fps() -> f32 {
     1.0
@@ -139,6 +150,7 @@ impl BackgroundSpec {
             Self::LinearGradient { .. } => "linear_gradient",
             Self::Image { .. } => "image",
             Self::VideoLoop { .. } => "video_loop",
+            Self::LiveCamera { .. } => "live_camera",
         }
     }
 }
@@ -250,6 +262,8 @@ pub struct Theme {
     pub margins: SafeMargins,
     pub footer_font_size_pt: f32,
     pub transition_ms: u16,
+    #[serde(default)]
+    pub transition: SlideTransition,
 }
 
 impl Theme {

@@ -4,7 +4,10 @@ use gpui::{
     Context, Div, FontWeight, InteractiveElement, ObjectFit, ParentElement,
     StatefulInteractiveElement, Styled, StyledImage, div, img, px, rgb, rgba,
 };
-use sundaydeck_core::{BackgroundSpec, PresentationCommand, ReflowMode, SlideContent};
+use sundaydeck_core::{
+    AudienceRenderState, BackgroundSpec, PresentationCommand, ReflowMode, SlideContent,
+    SlideTransition, TransitionDirection,
+};
 
 use crate::design::fonts::resolve_font_family;
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
@@ -15,6 +18,7 @@ use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
 };
 use crate::media::{apply_theme_background, load_background_image};
+use crate::renderer::render_audience_canvas;
 use crate::views::operator_workspace::OperatorWorkspace;
 
 const TILE_W_PX: f32 = 256.0;
@@ -123,6 +127,10 @@ pub fn render_preview_section(
         let kind_dot = match &theme.background {
             BackgroundSpec::VideoLoop { .. } => Some(TOKENS.signal_preview),
             BackgroundSpec::Image { .. } => Some(rgb(0x6B9BF2)),
+            BackgroundSpec::LiveCamera { .. } => Some(TOKENS.signal_voice),
+            BackgroundSpec::Solid { color } if color.g() > 150 && color.r() < 40 => {
+                Some(TOKENS.signal_voice)
+            }
             BackgroundSpec::LinearGradient { .. } | BackgroundSpec::Solid { .. } => None,
         };
 
@@ -227,8 +235,34 @@ pub fn render_preview_section(
             SlideContent::Image { uri, .. } => uri.as_deref().and_then(load_background_image),
             _ => None,
         };
+        let is_custom_layout = matches!(slide.content, SlideContent::Custom { .. });
 
-        let mut styled_tile = if let Some(render_img) = slide_image.clone() {
+        let mut styled_tile = if is_custom_layout {
+            let custom_theme = preview
+                .as_ref()
+                .map(|c| Arc::clone(&c.theme))
+                .unwrap_or_else(|| Arc::clone(&active_theme));
+            let tr = slide
+                .transition_override
+                .unwrap_or(SlideTransition::DEFAULT_SOFT_RISE);
+            let mini_state = AudienceRenderState::Slide {
+                slide: slide.clone(),
+                theme: custom_theme,
+                show_text: true,
+                alert: None,
+                audience_timer: None,
+                transition_ms: tr.duration_ms(),
+                active_transition: tr,
+                transition_direction: TransitionDirection::Forward,
+            };
+            base_tile.bg(rgb(0x0B0C0E)).child(
+                div()
+                    .absolute()
+                    .inset_0()
+                    .size_full()
+                    .child(render_audience_canvas(&mini_state, TILE_W_PX, now_ms, cx)),
+            )
+        } else if let Some(render_img) = slide_image.clone() {
             base_tile
                 .bg(rgb(0x0B0C0E))
                 .child(
@@ -270,7 +304,7 @@ pub fn render_preview_section(
                 ),
         );
 
-        if slide_image.is_some() {
+        if slide_image.is_some() || is_custom_layout {
             styled_tile = styled_tile.child(div().flex_1());
         } else {
             styled_tile = styled_tile.child(

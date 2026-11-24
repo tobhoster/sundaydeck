@@ -111,7 +111,8 @@ pub fn upsert_service(conn: &mut Connection, schedule: &ServiceSchedule) -> Resu
             | ServiceItemPayload::Presentation { .. }
             | ServiceItemPayload::TextDeck { .. }
             | ServiceItemPayload::AnnouncementLoop { .. }
-            | ServiceItemPayload::CustomSlide { .. } => (None, None, None),
+            | ServiceItemPayload::CustomSlide { .. }
+            | ServiceItemPayload::CustomDeck { .. } => (None, None, None),
         };
         let payload_json = serde_json::to_string(&item.payload)?;
 

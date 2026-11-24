@@ -38,8 +38,22 @@ pub const VOICE_THRESHOLD_CHOICES: &[(u8, &str)] = &[
 
 pub const LOOP_INTERVAL_CHOICES: &[u16] = &[5, 6, 8, 12];
 
-/// Full Church Branding, Display Motion, Local AI / Whisper Voice, Offline Bible Importer,
-/// Portable `.sdeck` Service Bundles, and PDF / Image Deck & Pre-Service Loop modal.
+pub const CHURCH_PROFILE_CHOICES: &[(&str, &str)] = &[
+    ("contemporary", "Contemporary"),
+    ("african_diaspora", "African & Diaspora"),
+    ("methodist_mainline", "Methodist / Mainline"),
+    ("catholic_parish", "Catholic Parish (73-Book)"),
+    ("spanish_bilingual", "Spanish / Bilingual"),
+];
+
+pub const BILINGUAL_MODE_CHOICES: &[(&str, &str)] = &[
+    ("bilingual_stacked", "Bilingual Stacked"),
+    ("primary_only", "Primary Only"),
+    ("secondary_only", "Secondary Only"),
+];
+
+/// Full Church Branding, Display Motion, Service Assistant & Voice, Offline Bible Importer,
+/// Global Church Style & `.sdeck-pack` Packs, and Portable `.sdeck` Service Bundles modal.
 pub struct SettingsModal {
     pub(crate) store: Entity<PresentationStore>,
     pub(crate) db: Option<DbWorker>,
@@ -53,6 +67,9 @@ pub struct SettingsModal {
     pub(crate) whisper_url_input: Entity<TextInput>,
     pub(crate) voice_threshold_pct: u8,
     pub(crate) voice_lock_during_override: bool,
+    pub(crate) church_profile: String,
+    pub(crate) bilingual_mode: String,
+    pub(crate) enable_catholic_canon: bool,
     pub(crate) loop_interval_secs: u16,
     pub(crate) new_service_input: Entity<TextInput>,
     pub(crate) status_note: Option<String>,
@@ -116,6 +133,9 @@ impl SettingsModal {
             whisper_url_input,
             voice_threshold_pct: cur.voice_advance_threshold_pct,
             voice_lock_during_override: cur.voice_lock_during_override,
+            church_profile: cur.church_profile,
+            bilingual_mode: cur.bilingual_mode,
+            enable_catholic_canon: cur.enable_catholic_canon,
             loop_interval_secs: 6,
             new_service_input,
             status_note: None,
@@ -144,6 +164,9 @@ impl SettingsModal {
         }
         settings.voice_advance_threshold_pct = self.voice_threshold_pct;
         settings.voice_lock_during_override = self.voice_lock_during_override;
+        settings.church_profile = self.church_profile.clone();
+        settings.bilingual_mode = self.bilingual_mode.clone();
+        settings.enable_catholic_canon = self.enable_catholic_canon;
 
         let saved = self
             .store

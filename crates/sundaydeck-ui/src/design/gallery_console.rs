@@ -206,7 +206,7 @@ pub(crate) fn render_operator_typography() -> Div {
                 .child(keycap("Space"))
                 .child(keycap("F1"))
                 .child(keycap("F2"))
-                .child(keycap("F5")),
+                .child(keycap("F3")),
         );
 
     let v_rule = || div().w(px(1.0)).bg(TOKENS.hairline);

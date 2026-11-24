@@ -4,14 +4,15 @@ use gpui::{
     Animation, AnimationExt as _, AnyElement, ElementId, IntoElement, PaintEffect, ParentElement,
     Rgba, Styled, div, ease_in_out, ease_out_quint, point, pulsating_between, px,
 };
+use sundaydeck_core::{SlideTransition, TransitionDirection};
 
 /// Global motion preference respected across operator micro-interactions and projector fades.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MotionMode {
-    /// Full mechanical console snaps, tally pulse, and smooth projector crossfade + 4px settle.
+    /// Full smooth transitions (`Crossfade`, `Soft Rise`, `Gentle Slide`, `Zoom Dissolve`) + tally pulse.
     #[default]
     Full,
-    /// Projector crossfades enabled; console micro-motion and pulse disabled for ultra-calm booths.
+    /// Calm crossfades only; directional slides and console pulse disabled.
     CrossfadeOnly,
     /// Zero animation frames — instant hard cuts everywhere.
     Instant,
@@ -35,10 +36,10 @@ pub const PALETTE_ENTER_MS: u64 = 120;
 pub const VOICE_BAR_MS: u64 = 100;
 pub const TALLY_PULSE_MS: u64 = 1800;
 
-// Cinematic projector timings (220ms-600ms).
+// Cinematic projector timings (260ms-550ms).
 pub const SLIDE_CROSSFADE_MS: u64 = 280;
 pub const OVERRIDE_FADE_MS: u64 = 280;
-pub const BACKGROUND_SWAP_MS: u64 = 600;
+pub const BACKGROUND_SWAP_MS: u64 = 550;
 
 /// Soft 7px status dot that gently breathes (`0.45 -> 1.0`, `1800ms` sine)
 /// when live or listening with Smooth animations enabled.
@@ -87,13 +88,15 @@ pub fn modal_enter(
         .into_any_element()
 }
 
-/// Dual-buffer GPU crossfade helper for the Audience Projector window.
-/// Fades the incoming layer smoothly over the outgoing layer with an optional 4px upward settle.
+/// Dual-buffer GPU transition layer for the Audience Projector window.
+/// Supports `Crossfade`, `SoftRise` (`10px` upward settle), `GentleSlide` (directional left/right),
+/// `ZoomDissolve`, and `Instant` while respecting the global [`MotionMode`].
 pub struct CrossfadeLayer {
     id: ElementId,
     duration_ms: u64,
     mode: MotionMode,
-    settle_px: f32,
+    transition: SlideTransition,
+    direction: TransitionDirection,
 }
 
 impl CrossfadeLayer {
@@ -102,20 +105,30 @@ impl CrossfadeLayer {
             id: id.into(),
             duration_ms,
             mode,
-            settle_px: 4.0,
+            transition: SlideTransition::Crossfade {
+                duration_ms: duration_ms.min(u64::from(u16::MAX)) as u16,
+            },
+            direction: TransitionDirection::Forward,
         }
     }
 
-    pub fn without_settle(mut self) -> Self {
-        self.settle_px = 0.0;
+    pub fn with_transition(
+        mut self,
+        transition: SlideTransition,
+        direction: TransitionDirection,
+    ) -> Self {
+        self.transition = transition;
+        self.direction = direction;
         self
     }
 
     pub fn render(self, previous: Option<AnyElement>, current: AnyElement) -> AnyElement {
         let mut stage = div().relative().size_full().overflow_hidden();
 
-        let should_animate =
-            previous.is_some() && self.duration_ms > 0 && self.mode != MotionMode::Instant;
+        let should_animate = previous.is_some()
+            && self.duration_ms > 0
+            && self.mode != MotionMode::Instant
+            && self.transition != SlideTransition::Instant;
 
         if !should_animate {
             return stage
@@ -123,26 +136,72 @@ impl CrossfadeLayer {
                 .into_any_element();
         }
 
-        if let Some(prev) = previous {
-            stage = stage.child(div().absolute().inset_0().child(prev));
-        }
-
-        let settle = if self.mode == MotionMode::Full {
-            self.settle_px
-        } else {
-            0.0
+        let effective = match self.mode {
+            MotionMode::Full => self.transition,
+            MotionMode::CrossfadeOnly => SlideTransition::Crossfade {
+                duration_ms: self.duration_ms.min(u64::from(u16::MAX)) as u16,
+            },
+            MotionMode::Instant => SlideTransition::Instant,
         };
+
         let animation =
             Animation::new(Duration::from_millis(self.duration_ms)).with_easing(ease_in_out);
+        let out_id = ElementId::Name(format!("{}-out", self.id).into());
 
+        if let Some(prev) = previous {
+            let dir = self.direction;
+            let outgoing = div().absolute().inset_0().child(prev).with_paint_animation(
+                out_id,
+                animation.clone(),
+                move |delta| {
+                    let t = delta.clamp(0.0, 1.0);
+                    let dx = match effective {
+                        SlideTransition::GentleSlide { .. } => {
+                            let sign = if dir == TransitionDirection::Forward {
+                                -1.0
+                            } else {
+                                1.0
+                            };
+                            sign * t * 36.0
+                        }
+                        _ => 0.0,
+                    };
+                    PaintEffect {
+                        opacity: (1.0 - t).clamp(0.0, 1.0),
+                        translation: point(px(dx), px(0.0)),
+                        ..PaintEffect::NONE
+                    }
+                },
+            );
+            stage = stage.child(outgoing);
+        }
+
+        let dir = self.direction;
         let incoming = div()
             .absolute()
             .inset_0()
             .child(current)
-            .with_paint_animation(self.id, animation, move |delta| PaintEffect {
-                opacity: delta.clamp(0.0, 1.0),
-                translation: point(px(0.0), px((1.0 - delta) * settle)),
-                ..PaintEffect::NONE
+            .with_paint_animation(self.id, animation, move |delta| {
+                let t = delta.clamp(0.0, 1.0);
+                let rem = 1.0 - t;
+                let (dx, dy) = match effective {
+                    SlideTransition::Crossfade { .. } | SlideTransition::Instant => (0.0, 0.0),
+                    SlideTransition::SoftRise { .. } => (0.0, rem * 10.0),
+                    SlideTransition::GentleSlide { .. } => {
+                        let sign = if dir == TransitionDirection::Forward {
+                            1.0
+                        } else {
+                            -1.0
+                        };
+                        (sign * rem * 48.0, 0.0)
+                    }
+                    SlideTransition::ZoomDissolve { .. } => (0.0, rem * 6.0),
+                };
+                PaintEffect {
+                    opacity: t,
+                    translation: point(px(dx), px(dy)),
+                    ..PaintEffect::NONE
+                }
             });
 
         stage.child(incoming).into_any_element()

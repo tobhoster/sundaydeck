@@ -181,6 +181,7 @@ fn announcement_loop_wraps_cleanly_and_pauses_during_overrides() {
                 uri: Some(format!("backgrounds/golden-loop-0{n}.jpg")),
                 caption: Some(format!("Announcement {n}")),
             },
+            transition_override: None,
         })
         .collect();
 
@@ -243,5 +244,126 @@ fn announcement_loop_wraps_cleanly_and_pauses_during_overrides() {
             assert_eq!(fallback_title, "Grace Fellowship");
         }
         other => panic!("expected Logo render state, got {other:?}"),
+    }
+}
+
+#[test]
+fn progressive_bullet_build_in_and_directional_slide_transitions() {
+    use sundaydeck_core::{
+        BackgroundSource, CustomSlideLayout, SlideTransition, TransitionDirection,
+        chroma_key_green_theme,
+    };
+
+    let theme = Arc::new(chroma_key_green_theme());
+    assert!(matches!(theme.background, BackgroundSource::Solid { .. }));
+
+    let bullet_slide = Slide {
+        id: SlideId::new_v7(),
+        source_section_id: None,
+        label: "Sermon Points".to_owned(),
+        content: SlideContent::Custom {
+            layout: CustomSlideLayout::BulletPoints {
+                heading: "Walking in Confidence".to_owned(),
+                bullets: vec!["One".to_owned(), "Two".to_owned(), "Three".to_owned()],
+                progressive_reveal: true,
+            },
+            revealed_steps: Some(1),
+        },
+        transition_override: Some(SlideTransition::DEFAULT_GENTLE_SLIDE),
+    };
+    let next_slide = Slide {
+        id: SlideId::new_v7(),
+        source_section_id: None,
+        label: "Closing".to_owned(),
+        content: SlideContent::Custom {
+            layout: CustomSlideLayout::BigStatement {
+                statement: "Grace leads us home.".to_owned(),
+                attribution: None,
+                align: sundaydeck_core::HorizontalAlign::Center,
+            },
+            revealed_steps: None,
+        },
+        transition_override: Some(SlideTransition::DEFAULT_ZOOM_DISSOLVE),
+    };
+
+    let deck = DeckCursor::try_new(None, "Sermon", vec![bullet_slide, next_slide], theme)
+        .expect("custom deck");
+    let mut engine = PresentationEngine::new(None, "Grace Fellowship");
+    engine
+        .dispatch(PresentationCommand::GoLiveDirect(deck))
+        .expect("go live");
+
+    // Step 1 -> 2 in place (progressive bullet reveal)
+    let r1 = engine
+        .dispatch(PresentationCommand::NextLiveSlide)
+        .expect("reveal bullet 2");
+    assert_eq!(r1.kind, TransitionKind::LiveInPlacePatch);
+    assert_eq!(r1.snapshot.live.as_ref().unwrap().active_index, 0);
+    assert!(matches!(
+        r1.snapshot
+            .live
+            .as_ref()
+            .unwrap()
+            .active_slide()
+            .unwrap()
+            .content,
+        SlideContent::Custom {
+            revealed_steps: Some(2),
+            ..
+        }
+    ));
+
+    // Step 2 -> 3 in place
+    let r2 = engine
+        .dispatch(PresentationCommand::NextLiveSlide)
+        .expect("reveal bullet 3");
+    assert_eq!(r2.kind, TransitionKind::LiveInPlacePatch);
+    assert!(matches!(
+        r2.snapshot
+            .live
+            .as_ref()
+            .unwrap()
+            .active_slide()
+            .unwrap()
+            .content,
+        SlideContent::Custom {
+            revealed_steps: Some(3),
+            ..
+        }
+    ));
+
+    // All 3 bullets revealed -> next advances to Slide 2 with ZoomDissolve + Forward direction!
+    let r3 = engine
+        .dispatch(PresentationCommand::NextLiveSlide)
+        .expect("advance to slide 2");
+    assert_eq!(r3.kind, TransitionKind::LiveCrossfade);
+    assert_eq!(r3.snapshot.live.as_ref().unwrap().active_index, 1);
+    match &r3.snapshot.audience {
+        AudienceRenderState::Slide {
+            active_transition,
+            transition_direction,
+            ..
+        } => {
+            assert_eq!(*active_transition, SlideTransition::DEFAULT_ZOOM_DISSOLVE);
+            assert_eq!(*transition_direction, TransitionDirection::Forward);
+        }
+        other => panic!("expected Slide, got {other:?}"),
+    }
+
+    // Prev moves back to Slide 1 with Backward direction
+    let r4 = engine
+        .dispatch(PresentationCommand::PrevLiveSlide)
+        .expect("prev slide");
+    assert_eq!(r4.snapshot.live.as_ref().unwrap().active_index, 0);
+    match &r4.snapshot.audience {
+        AudienceRenderState::Slide {
+            active_transition,
+            transition_direction,
+            ..
+        } => {
+            assert_eq!(*active_transition, SlideTransition::DEFAULT_GENTLE_SLIDE);
+            assert_eq!(*transition_direction, TransitionDirection::Backward);
+        }
+        other => panic!("expected Slide, got {other:?}"),
     }
 }

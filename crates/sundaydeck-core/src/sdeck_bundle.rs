@@ -115,7 +115,9 @@ pub fn export_sdeck_bundle(
                     &mut used_names,
                 );
             }
-            BackgroundSpec::Solid { .. } | BackgroundSpec::LinearGradient { .. } => {}
+            BackgroundSpec::Solid { .. }
+            | BackgroundSpec::LinearGradient { .. }
+            | BackgroundSpec::LiveCamera { .. } => {}
         }
     }
 
@@ -125,6 +127,28 @@ pub fn export_sdeck_bundle(
             | ServiceItemPayload::AnnouncementLoop { slide_uris, .. } => {
                 for uri in slide_uris.iter_mut() {
                     rewrite_export_uri(uri, &mut media_entries, &mut seen_paths, &mut used_names);
+                }
+            }
+            ServiceItemPayload::CustomDeck { slides, .. } => {
+                for spec in slides.iter_mut() {
+                    match &mut spec.layout {
+                        crate::custom_slide::CustomSlideLayout::ImageTextSplit {
+                            image_uri: Some(u),
+                            ..
+                        }
+                        | crate::custom_slide::CustomSlideLayout::FullBleedImage {
+                            image_uri: Some(u),
+                            ..
+                        } => {
+                            rewrite_export_uri(
+                                u,
+                                &mut media_entries,
+                                &mut seen_paths,
+                                &mut used_names,
+                            );
+                        }
+                        _ => {}
+                    }
                 }
             }
             ServiceItemPayload::Song { .. }
@@ -269,7 +293,9 @@ pub fn import_sdeck_bundle(
                 rewrite_import_uri(uri, &extracted_map);
                 rewrite_import_uri(poster_uri, &extracted_map);
             }
-            BackgroundSpec::Solid { .. } | BackgroundSpec::LinearGradient { .. } => {}
+            BackgroundSpec::Solid { .. }
+            | BackgroundSpec::LinearGradient { .. }
+            | BackgroundSpec::LiveCamera { .. } => {}
         }
     }
 
@@ -279,6 +305,21 @@ pub fn import_sdeck_bundle(
             | ServiceItemPayload::AnnouncementLoop { slide_uris, .. } => {
                 for uri in slide_uris.iter_mut() {
                     rewrite_import_uri(uri, &extracted_map);
+                }
+            }
+            ServiceItemPayload::CustomDeck { slides, .. } => {
+                for spec in slides.iter_mut() {
+                    match &mut spec.layout {
+                        crate::custom_slide::CustomSlideLayout::ImageTextSplit {
+                            image_uri: Some(u),
+                            ..
+                        }
+                        | crate::custom_slide::CustomSlideLayout::FullBleedImage {
+                            image_uri: Some(u),
+                            ..
+                        } => rewrite_import_uri(u, &extracted_map),
+                        _ => {}
+                    }
                 }
             }
             ServiceItemPayload::Song { .. }

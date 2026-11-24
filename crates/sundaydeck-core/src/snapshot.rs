@@ -3,6 +3,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::alerts::AudienceAlert;
+use crate::custom_slide::{SlideTransition, TransitionDirection};
 use crate::error::PresentationError;
 use crate::ids::{MediaAssetId, ServiceItemId};
 use crate::slide::Slide;
@@ -111,6 +112,8 @@ pub enum AudienceRenderState {
         alert: Option<AudienceAlert>,
         audience_timer: Option<ServiceTimer>,
         transition_ms: u16,
+        active_transition: SlideTransition,
+        transition_direction: TransitionDirection,
     },
 }
 

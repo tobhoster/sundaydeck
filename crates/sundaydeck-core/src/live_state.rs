@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::alerts::AudienceAlert;
+use crate::custom_slide::TransitionDirection;
 use crate::error::PresentationError;
 use crate::ids::{MediaAssetId, SlideId};
 use crate::slide::{Slide, SlideContent};
@@ -80,6 +81,7 @@ pub struct PresentationEngine {
     audience_alert: Option<AudienceAlert>,
     active_timer: Option<ServiceTimer>,
     next_item_first_slide: Option<Slide>,
+    last_direction: TransitionDirection,
     cached_snapshot: Arc<PresentationSnapshot>,
 }
 
@@ -98,6 +100,7 @@ impl PresentationEngine {
             audience_alert: None,
             active_timer: None,
             next_item_first_slide: None,
+            last_direction: TransitionDirection::Forward,
             cached_snapshot: Arc::new(PresentationSnapshot {
                 version: 0,
                 preview: None,
@@ -143,8 +146,12 @@ impl PresentationEngine {
                 preview.select(index)?;
                 TransitionKind::PreviewOnly
             }
-            PresentationCommand::GoLive => self.promote_preview_to_live()?,
+            PresentationCommand::GoLive => {
+                self.last_direction = TransitionDirection::Forward;
+                self.promote_preview_to_live()?
+            }
             PresentationCommand::GoLiveDirect(cursor) => {
+                self.last_direction = TransitionDirection::Forward;
                 self.preview = Some(cursor.clone());
                 self.live = Some(cursor);
                 self.release_clear_text_only();
@@ -152,31 +159,32 @@ impl PresentationEngine {
             }
             PresentationCommand::SelectLiveSlide(index) => {
                 let live = self.live.as_mut().ok_or(PresentationError::NoLiveDeck)?;
+                self.last_direction = if index < live.active_index {
+                    TransitionDirection::Backward
+                } else {
+                    TransitionDirection::Forward
+                };
                 live.select(index)?;
                 TransitionKind::LiveCrossfade
             }
             PresentationCommand::NextLiveSlide => self.step_live(1)?,
             PresentationCommand::PrevLiveSlide => self.step_live(-1)?,
             PresentationCommand::AdvanceLiveLoop => {
-                if self.output_override != OutputOverride::None {
+                let can_advance = self.output_override == OutputOverride::None
+                    && self
+                        .live
+                        .as_ref()
+                        .is_some_and(|l| l.loop_interval_secs.is_some() && l.slides.len() > 1);
+                if !can_advance {
                     return Ok(EngineTransition {
                         kind: TransitionKind::StageOnly,
                         snapshot: Arc::clone(&self.cached_snapshot),
                     });
                 }
-                let Some(live) = self.live.as_mut() else {
-                    return Ok(EngineTransition {
-                        kind: TransitionKind::StageOnly,
-                        snapshot: Arc::clone(&self.cached_snapshot),
-                    });
-                };
-                if live.loop_interval_secs.is_none() || live.slides.len() <= 1 {
-                    return Ok(EngineTransition {
-                        kind: TransitionKind::StageOnly,
-                        snapshot: Arc::clone(&self.cached_snapshot),
-                    });
+                if let Some(live) = self.live.as_mut() {
+                    self.last_direction = TransitionDirection::Forward;
+                    live.active_index = (live.active_index + 1) % live.slides.len();
                 }
-                live.active_index = (live.active_index + 1) % live.slides.len();
                 TransitionKind::LiveCrossfade
             }
             PresentationCommand::ToggleOverride(target) => {
@@ -309,6 +317,30 @@ impl PresentationEngine {
 
     fn step_live(&mut self, delta: isize) -> Result<TransitionKind, PresentationError> {
         let live = self.live.as_mut().ok_or(PresentationError::NoLiveDeck)?;
+        self.last_direction = if delta >= 0 {
+            TransitionDirection::Forward
+        } else {
+            TransitionDirection::Backward
+        };
+
+        if let Some(active) = live.slides.get(live.active_index)
+            && let SlideContent::Custom {
+                layout,
+                revealed_steps,
+            } = &active.content
+            && let Some(next_step) =
+                crate::custom_slide::next_progressive_step(layout, *revealed_steps, delta)
+        {
+            let mut updated = live.slides.to_vec();
+            if let SlideContent::Custom { revealed_steps, .. } =
+                &mut updated[live.active_index].content
+            {
+                *revealed_steps = Some(next_step);
+            }
+            live.slides = Arc::from(updated);
+            return Ok(TransitionKind::LiveInPlacePatch);
+        }
+
         let last = live.slides.len().saturating_sub(1);
         let next_idx = if delta >= 0 {
             live.active_index.saturating_add(delta as usize).min(last)
@@ -333,6 +365,7 @@ impl PresentationEngine {
 
         match &mut target.content {
             SlideContent::Text { body, .. } => *body = new_body,
+            SlideContent::Custom { layout, .. } => layout.patch_primary_text(new_body),
             SlideContent::Image { .. } | SlideContent::Blank => {
                 return Err(PresentationError::SlideNotText { slide_id });
             }
@@ -406,7 +439,10 @@ impl PresentationEngine {
                 .map(|slide| (slide.clone(), Arc::clone(&cursor.theme)))
         }) {
             Some((slide, theme)) => {
-                let transition_ms = theme.transition_ms;
+                let active_transition = slide.transition_override.unwrap_or(theme.transition);
+                let transition_ms = active_transition
+                    .duration_ms()
+                    .max(theme.transition_ms.min(active_transition.duration_ms()));
                 AudienceRenderState::Slide {
                     slide,
                     theme,
@@ -422,6 +458,8 @@ impl PresentationEngine {
                         None
                     },
                     transition_ms,
+                    active_transition,
+                    transition_direction: self.last_direction,
                 }
             }
             None => AudienceRenderState::Black {

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::error::ValidationError;
+use crate::global_content::HymnalEntry;
 use crate::ids::{ArrangementId, SectionId, SongId, ThemeId};
 
 /// Structural role of a reusable song section.
@@ -121,6 +122,10 @@ impl ReflowMode {
     }
 }
 
+fn default_lang_en() -> String {
+    "en".to_owned()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SongSection {
     pub id: SectionId,
@@ -128,6 +133,12 @@ pub struct SongSection {
     pub label: String,
     pub ordinal: u32,
     pub body: String,
+    /// Optional paired second-language lyrics (e.g. Yoruba + English or Spanish + English).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary_body: Option<String>,
+    /// Optional chord-annotated lyrics surfaced only on the Stage Confidence Monitor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage_chords: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -148,19 +159,42 @@ pub struct Song {
     pub default_theme_id: Option<ThemeId>,
     pub default_arrangement_id: Option<ArrangementId>,
     pub default_reflow_mode: ReflowMode,
+    #[serde(default = "default_lang_en")]
+    pub primary_lang: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary_lang: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hymnal_entries: Vec<HymnalEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub traditions: Vec<String>,
     pub sections: Vec<SongSection>,
     pub arrangements: Vec<Arrangement>,
 }
 
 impl Song {
-    /// Materializes a single normalized lyric string for SQLite FTS5 indexing.
+    /// Materializes a single normalized lyric string (including secondary language + ASCII-folded
+    /// search text + hymn numbers) for SQLite FTS5 indexing.
     pub fn lyrics_search_text(&self) -> String {
-        self.sections
-            .iter()
-            .map(|section| section.body.trim())
-            .filter(|body| !body.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n")
+        let mut parts: Vec<String> = Vec::new();
+        for h in &self.hymnal_entries {
+            parts.push(format!("{} {} #{}", h.hymnal_code, h.hymn_number, h.hymn_number));
+        }
+        for section in &self.sections {
+            let trimmed = section.body.trim();
+            if !trimmed.is_empty() {
+                parts.push(trimmed.to_owned());
+                let folded = crate::bible_aliases::strip_diacritics(trimmed);
+                if folded != trimmed.to_ascii_lowercase() {
+                    parts.push(folded);
+                }
+            }
+            if let Some(sec) = section.secondary_body.as_deref()
+                && !sec.trim().is_empty()
+            {
+                parts.push(sec.trim().to_owned());
+            }
+        }
+        parts.join("\n")
     }
 
     /// Resolves the requested arrangement, falling back to default or first available.

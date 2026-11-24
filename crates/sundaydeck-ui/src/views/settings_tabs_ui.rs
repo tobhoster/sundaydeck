@@ -7,7 +7,8 @@ use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::primitives::{neutral_option_chip, sculpted_secondary_button_body};
 use crate::design::tokens::{FONT_BODY, FONT_MONO, RADIUS_CONTROL, TOKENS};
 use crate::views::settings_modal::{
-    LLM_PRESET_CHOICES, LOOP_INTERVAL_CHOICES, SettingsModal, VOICE_THRESHOLD_CHOICES,
+    BILINGUAL_MODE_CHOICES, CHURCH_PROFILE_CHOICES, LLM_PRESET_CHOICES, LOOP_INTERVAL_CHOICES,
+    SettingsModal, VOICE_THRESHOLD_CHOICES,
 };
 use crate::views::settings_ui::{field_label, section_card};
 
@@ -54,25 +55,25 @@ pub(crate) fn render_ai_voice_tab(modal: &SettingsModal, cx: &mut Context<Settin
         .flex_col()
         .gap(px(16.0))
         .child(section_card(
-            "Local AI Service Planner (Offline llama.cpp / Ollama)",
+            "Offline Service Plan Assistant",
             div()
                 .flex()
                 .flex_col()
                 .gap(px(11.0))
                 .child(field_label(
-                    "OpenAI-Compatible Local Endpoint",
+                    "Local Companion Endpoint",
                     modal.llm_url_input.clone(),
                 ))
                 .child(llm_chips),
         ))
         .child(section_card(
-            "Voice-Synced Auto-Follow (Offline Whisper)",
+            "Offline Microphone Auto-Follow",
             div()
                 .flex()
                 .flex_col()
                 .gap(px(11.0))
                 .child(field_label(
-                    "Local Whisper HTTP Inference URL",
+                    "Local Voice Engine URL",
                     modal.whisper_url_input.clone(),
                 ))
                 .child(threshold_chips)
@@ -157,13 +158,61 @@ pub(crate) fn render_bibles_bundles_tab(
         );
     }
 
+    let mut profile_chips = div().flex().flex_wrap().gap(px(6.0));
+    for (id, label) in CHURCH_PROFILE_CHOICES {
+        let selected = modal.church_profile == *id;
+        let id_str = (*id).to_owned();
+        profile_chips = profile_chips.child(
+            neutral_option_chip(
+                format!("settings-profile-{id}"),
+                *label,
+                selected,
+                TOKENS.signal_preview,
+            )
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.church_profile = id_str.clone();
+                if id_str == "catholic_parish" {
+                    this.enable_catholic_canon = true;
+                }
+                cx.notify();
+            })),
+        );
+    }
+
+    let mut bilingual_chips = div().flex().flex_wrap().gap(px(6.0));
+    for (id, label) in BILINGUAL_MODE_CHOICES {
+        let selected = modal.bilingual_mode == *id;
+        let id_str = (*id).to_owned();
+        bilingual_chips = bilingual_chips.child(
+            neutral_option_chip(
+                format!("settings-bilingual-{id}"),
+                *label,
+                selected,
+                TOKENS.signal_voice,
+            )
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.bilingual_mode = id_str.clone();
+                cx.notify();
+            })),
+        );
+    }
+
     div()
         .w_full()
         .flex()
         .flex_col()
         .gap(px(14.0))
         .child(section_card(
-            "Offline 66-Book Bible Packs",
+            "Church Tradition & Bilingual Lyrics",
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(9.0))
+                .child(profile_chips)
+                .child(bilingual_chips),
+        ))
+        .child(section_card(
+            "Offline Bibles (66 & 73 Books) & Content Packs",
             div()
                 .flex()
                 .flex_col()
@@ -180,21 +229,40 @@ pub(crate) fn render_bibles_bundles_tab(
                                 .font_family(FONT_BODY)
                                 .text_color(TOKENS.ink_muted)
                                 .text_size(px(11.5))
-                                .child("Import OSIS, USFX, or Zefania .xml or .sqlite full Bibles for instant offline lookup."),
+                                .child("Import USFM, OSIS, USFX, Zefania, SQLite Bibles, or .sdeck-pack hymnals & liturgy."),
                         )
                         .child(
                             div()
-                                .id("settings-import-bible")
                                 .flex_shrink_0()
-                                .cursor_pointer()
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.import_bible_pack(cx);
-                                }))
-                                .child(sculpted_secondary_button_body(
-                                    Some(DeckIcon::BookOpenText),
-                                    "Import Bible File",
-                                    TOKENS.ink_primary,
-                                )),
+                                .flex()
+                                .items_center()
+                                .gap(px(7.0))
+                                .child(
+                                    div()
+                                        .id("settings-import-bible")
+                                        .cursor_pointer()
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.import_bible_pack(cx);
+                                        }))
+                                        .child(sculpted_secondary_button_body(
+                                            Some(DeckIcon::BookOpenText),
+                                            "Import Bible",
+                                            TOKENS.ink_primary,
+                                        )),
+                                )
+                                .child(
+                                    div()
+                                        .id("settings-import-pack")
+                                        .cursor_pointer()
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.import_community_pack(cx);
+                                        }))
+                                        .child(sculpted_secondary_button_body(
+                                            Some(DeckIcon::Stack),
+                                            "Import .sdeck-pack",
+                                            TOKENS.signal_preview,
+                                        )),
+                                ),
                         ),
                 ),
         ))

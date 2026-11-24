@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use gpui::{
     Div, ObjectFit, ParentElement, RenderImage, Styled, StyledImage, div, img, linear_color_stop,
-    linear_gradient, rgba,
+    linear_gradient, rgb, rgba,
 };
 use image::Frame;
 use rust_embed::RustEmbed;
@@ -147,6 +147,14 @@ pub fn apply_theme_background(mut container: Div, spec: &BackgroundSpec, now_ms:
                     );
                 }
             }
+            add_scrim(container, *scrim_opacity)
+        }
+        BackgroundSpec::LiveCamera { scrim_opacity, .. } => {
+            container = container.bg(linear_gradient(
+                160.0,
+                linear_color_stop(rgb(0x161920), 0.0),
+                linear_color_stop(rgb(0x0D0F13), 1.0),
+            ));
             add_scrim(container, *scrim_opacity)
         }
     }

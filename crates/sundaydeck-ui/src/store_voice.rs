@@ -104,6 +104,12 @@ impl PresentationStore {
                 VoiceEvent::AutoAdvance { target_index, .. } => {
                     let _ = self.dispatch(PresentationCommand::SelectLiveSlide(target_index), cx);
                 }
+                VoiceEvent::ScriptureMentioned { reference, .. } => {
+                    if !self.queued_scriptures.contains(&reference) {
+                        self.queued_scriptures.insert(0, reference);
+                        self.queued_scriptures.truncate(5);
+                    }
+                }
             }
         }
         cx.notify();

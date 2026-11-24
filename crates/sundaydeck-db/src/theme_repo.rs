@@ -1,7 +1,7 @@
 use rusqlite::{Connection, OptionalExtension, Row, params};
 use sundaydeck_core::{
-    BackgroundSpec, HorizontalAlign, Rgba8, SafeMargins, TextShadow, Theme, ThemeId, ThemeTarget,
-    VerticalAlign,
+    BackgroundSpec, HorizontalAlign, Rgba8, SafeMargins, SlideTransition, TextShadow, Theme,
+    ThemeId, ThemeTarget, VerticalAlign,
 };
 
 use crate::connection::now_epoch_ms;
@@ -13,7 +13,7 @@ pub fn list_themes(conn: &Connection) -> Result<Vec<Theme>, DbError> {
                 font_weight, line_height, text_color_rgba, h_align, v_align,
                 stroke_width_px, stroke_color_rgba, shadow_json,
                 margin_top_pct, margin_right_pct, margin_bottom_pct, margin_left_pct,
-                footer_font_size_pt, transition_ms
+                footer_font_size_pt, transition_ms, transition_json
          FROM themes
          ORDER BY is_default DESC, name COLLATE NOCASE ASC",
     )?;
@@ -32,7 +32,7 @@ pub fn get_theme(conn: &Connection, id: ThemeId) -> Result<Option<Theme>, DbErro
                 font_weight, line_height, text_color_rgba, h_align, v_align,
                 stroke_width_px, stroke_color_rgba, shadow_json,
                 margin_top_pct, margin_right_pct, margin_bottom_pct, margin_left_pct,
-                footer_font_size_pt, transition_ms
+                footer_font_size_pt, transition_ms, transition_json
          FROM themes
          WHERE id = ?1",
     )?;
@@ -46,6 +46,7 @@ pub fn upsert_theme(conn: &mut Connection, theme: &Theme) -> Result<(), DbError>
     theme.validate()?;
     let now = now_epoch_ms();
     let background_json = serde_json::to_string(&theme.background)?;
+    let transition_json = serde_json::to_string(&theme.transition)?;
     let shadow_json = theme
         .shadow
         .as_ref()
@@ -67,13 +68,13 @@ pub fn upsert_theme(conn: &mut Connection, theme: &Theme) -> Result<(), DbError>
              font_family, font_size_pt, font_weight, line_height, text_color_rgba,
              h_align, v_align, stroke_width_px, stroke_color_rgba, shadow_json,
              margin_top_pct, margin_right_pct, margin_bottom_pct, margin_left_pct,
-             footer_font_size_pt, transition_ms, created_at, updated_at
+             footer_font_size_pt, transition_ms, transition_json, created_at, updated_at
          ) VALUES (
              ?1, ?2, ?3, ?4, ?5, ?6,
              ?7, ?8, ?9, ?10, ?11,
              ?12, ?13, ?14, ?15, ?16,
              ?17, ?18, ?19, ?20,
-             ?21, ?22, ?23, ?24
+             ?21, ?22, ?23, ?24, ?25
          )
          ON CONFLICT(id) DO UPDATE SET
              name = excluded.name,
@@ -97,6 +98,7 @@ pub fn upsert_theme(conn: &mut Connection, theme: &Theme) -> Result<(), DbError>
              margin_left_pct = excluded.margin_left_pct,
              footer_font_size_pt = excluded.footer_font_size_pt,
              transition_ms = excluded.transition_ms,
+             transition_json = excluded.transition_json,
              updated_at = excluded.updated_at",
         params![
             theme.id.to_string(),
@@ -121,6 +123,7 @@ pub fn upsert_theme(conn: &mut Connection, theme: &Theme) -> Result<(), DbError>
             f64::from(theme.margins.left_pct),
             f64::from(theme.footer_font_size_pt),
             i64::from(theme.transition_ms),
+            transition_json,
             now,
             now,
         ],
@@ -156,6 +159,7 @@ fn map_theme_row(row: &Row<'_>) -> rusqlite::Result<Result<Theme, DbError>> {
     let margin_left_pct: f64 = row.get(18)?;
     let footer_font_size_pt: f64 = row.get(19)?;
     let transition_ms: i64 = row.get(20)?;
+    let transition_json: Option<String> = row.get(21)?;
 
     Ok(parse_theme_fields(RawThemeRow {
         id_str,
@@ -179,6 +183,7 @@ fn map_theme_row(row: &Row<'_>) -> rusqlite::Result<Result<Theme, DbError>> {
         margin_left_pct,
         footer_font_size_pt,
         transition_ms,
+        transition_json,
     }))
 }
 
@@ -204,6 +209,7 @@ struct RawThemeRow {
     margin_left_pct: f64,
     footer_font_size_pt: f64,
     transition_ms: i64,
+    transition_json: Option<String>,
 }
 
 fn parse_theme_fields(raw: RawThemeRow) -> Result<Theme, DbError> {
@@ -213,6 +219,13 @@ fn parse_theme_fields(raw: RawThemeRow) -> Result<Theme, DbError> {
         .as_deref()
         .map(serde_json::from_str)
         .transpose()?;
+    let transition_ms = u16::try_from(raw.transition_ms).unwrap_or(280);
+    let transition: SlideTransition = match raw.transition_json.as_deref() {
+        Some(json) => serde_json::from_str(json)?,
+        None => SlideTransition::Crossfade {
+            duration_ms: transition_ms,
+        },
+    };
 
     Ok(Theme {
         id: ThemeId::parse_str(&raw.id_str)?,
@@ -237,6 +250,7 @@ fn parse_theme_fields(raw: RawThemeRow) -> Result<Theme, DbError> {
             left_pct: raw.margin_left_pct as f32,
         },
         footer_font_size_pt: raw.footer_font_size_pt as f32,
-        transition_ms: u16::try_from(raw.transition_ms).unwrap_or(250),
+        transition_ms,
+        transition,
     })
 }

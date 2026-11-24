@@ -4,7 +4,7 @@ use std::path::Path;
 use rusqlite::{Connection, OptionalExtension, params};
 use sundaydeck_core::{
     BibleTranslation, BibleTranslationId, BibleVerse, ParsedBible, ParsedVerse, ScriptureRef,
-    book_by_number,
+    book_by_number, strip_diacritics,
 };
 
 use crate::connection::now_epoch_ms;
@@ -76,16 +76,17 @@ pub fn import_parsed_bible(
 
     {
         let mut book_stmt = tx.prepare(
-            "INSERT INTO bible_books (translation_id, book_number, name, chapter_count)
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO bible_books (translation_id, book_number, usfm_code, name, chapter_count)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
         )?;
         for (book_num, chapter_count) in max_chapter_per_book {
-            let book_name = book_by_number(book_num)
-                .map(|m| m.name)
-                .unwrap_or("Unknown");
+            let meta = book_by_number(book_num);
+            let usfm_code = meta.map(|m| m.usfx_id).unwrap_or("");
+            let book_name = meta.map(|m| m.name).unwrap_or("Unknown");
             book_stmt.execute(params![
                 id_str,
                 i64::from(book_num),
+                usfm_code,
                 book_name,
                 i64::from(chapter_count)
             ])?;
@@ -94,16 +95,19 @@ pub fn import_parsed_bible(
 
     {
         let mut verse_stmt = tx.prepare(
-            "INSERT OR REPLACE INTO bible_verses (translation_id, book_number, chapter, verse, text)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT OR REPLACE INTO bible_verses
+                (translation_id, book_number, chapter, verse, text, search_text_ascii)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         )?;
         for v in &parsed.verses {
+            let folded = strip_diacritics(&v.text);
             verse_stmt.execute(params![
                 id_str,
                 i64::from(v.book_number),
                 i64::from(v.chapter),
                 i64::from(v.verse),
                 v.text,
+                folded,
             ])?;
         }
     }
@@ -364,7 +368,8 @@ fn table_columns(conn: &Connection, table: &str) -> Vec<String> {
 }
 
 fn build_fts5_prefix_query(raw: &str) -> Option<String> {
-    let tokens: Vec<String> = raw
+    let folded = strip_diacritics(raw);
+    let tokens: Vec<String> = folded
         .split(|c: char| !c.is_alphanumeric())
         .filter(|tok| !tok.is_empty())
         .map(|tok| format!("\"{tok}\"*"))

@@ -2,14 +2,16 @@ use std::sync::Arc;
 
 use sundaydeck_core::ids::SUNDAYDECK_NAMESPACE;
 use sundaydeck_core::{
-    DeckCursor, PresentationError, ReflowMode, ServiceItem, ServiceItemId, ServiceItemPayload,
-    Slide, SlideContent, SlideId, Song, Theme, ThemeId, ThemeTarget, reflow_song,
+    BilingualDisplayMode, DeckCursor, PresentationError, ReflowMode, ServiceItem, ServiceItemId,
+    ServiceItemPayload, Slide, SlideContent, SlideId, Song, Theme, ThemeId, ThemeTarget,
+    reflow_song_bilingual,
 };
 
 /// Resolves a [`ServiceItem`] against the loaded song & theme library into a presentation-ready [`DeckCursor`].
 pub fn build_deck_for_service_item(
     item: &ServiceItem,
     reflow_override: Option<ReflowMode>,
+    bilingual_mode: BilingualDisplayMode,
     songs: &[Song],
     themes: &[Arc<Theme>],
     fallback_theme: Arc<Theme>,
@@ -41,7 +43,12 @@ pub fn build_deck_for_service_item(
                 .and_then(find_theme)
                 .or_else(|| default_target(ThemeTarget::Song))
                 .unwrap_or(fallback_theme);
-            let slides = reflow_song(song, *arrangement_id, reflow_override.or(*item_reflow));
+            let slides = reflow_song_bilingual(
+                song,
+                *arrangement_id,
+                reflow_override.or(*item_reflow),
+                bilingual_mode,
+            );
             DeckCursor::try_new(Some(item.id), song.title.clone(), slides, theme)
         }
         ServiceItemPayload::Scripture {
@@ -82,6 +89,7 @@ pub fn build_deck_for_service_item(
                         section_kind: None,
                         footer: s.footer.clone(),
                     },
+                    transition_override: None,
                 })
                 .collect();
             DeckCursor::try_new(Some(item.id), item.title.clone(), slides, theme)
@@ -105,8 +113,34 @@ pub fn build_deck_for_service_item(
                     section_kind: None,
                     footer: footer.clone(),
                 },
+                transition_override: None,
             };
             DeckCursor::try_new(Some(item.id), item.title.clone(), vec![slide], theme)
+        }
+        ServiceItemPayload::CustomDeck {
+            slides: specs,
+            auto_advance_secs,
+        } => {
+            let theme = item
+                .theme_override_id
+                .and_then(find_theme)
+                .or_else(|| default_target(ThemeTarget::General))
+                .unwrap_or(fallback_theme);
+            let slides: Vec<Slide> = specs
+                .iter()
+                .map(|spec| Slide {
+                    id: spec.id,
+                    source_section_id: None,
+                    label: spec.label.clone(),
+                    content: SlideContent::Custom {
+                        revealed_steps: spec.layout.total_reveal_steps().map(|_| 1),
+                        layout: spec.layout.clone(),
+                    },
+                    transition_override: spec.transition_override,
+                })
+                .collect();
+            DeckCursor::try_new(Some(item.id), item.title.clone(), slides, theme)
+                .map(|cursor| cursor.with_loop_interval(*auto_advance_secs))
         }
         ServiceItemPayload::Presentation {
             slide_asset_ids,
@@ -165,6 +199,7 @@ fn build_image_slides(
                     uri,
                     caption: Some(format!("{title} — Slide {}", idx + 1)),
                 },
+                transition_override: None,
             }
         })
         .collect()
@@ -193,6 +228,7 @@ fn build_scripture_slides(
                 section_kind: None,
                 footer: footer.clone(),
             },
+            transition_override: None,
         })
         .collect()
 }

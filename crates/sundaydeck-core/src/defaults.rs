@@ -1,20 +1,15 @@
+use crate::custom_slide::SlideTransition;
+use crate::global_content::HymnalEntry;
 use crate::ids::{
-    ArrangementId, MediaAssetId, SUNDAYDECK_NAMESPACE, SectionId, ServiceId, ServiceItemId, SongId,
-    ThemeId,
+    ArrangementId, SUNDAYDECK_NAMESPACE, SectionId, ServiceId, ServiceItemId, SongId, ThemeId,
 };
 use crate::service::{ServiceItem, ServiceItemPayload, ServiceSchedule};
 use crate::song::{Arrangement, ReflowMode, SectionKind, Song, SongSection};
 use crate::theme::{
-    BackgroundSpec, HorizontalAlign, ImageFit, Rgba8, SafeMargins, TextShadow, Theme, ThemeTarget,
+    BackgroundSpec, HorizontalAlign, Rgba8, SafeMargins, TextShadow, Theme, ThemeTarget,
     VerticalAlign,
 };
-
-fn v5_media(tag: &str) -> MediaAssetId {
-    MediaAssetId::from_v5(
-        &SUNDAYDECK_NAMESPACE,
-        format!("seed:media:{tag}").as_bytes(),
-    )
-}
+use crate::theme_defaults::media_and_broadcast_themes;
 
 fn v5_theme(tag: &str) -> ThemeId {
     ThemeId::from_v5(
@@ -41,7 +36,7 @@ fn v5_arrangement(tag: &str) -> ArrangementId {
 /// Built-in curated sanctuary themes using the bundled SIL OFL projection font pack
 /// (`Manrope`, `Space Grotesk`, `Newsreader`, and `Syne`).
 pub fn default_themes() -> Vec<Theme> {
-    vec![
+    let mut themes = vec![
         Theme {
             id: v5_theme("sanctuary-dark"),
             name: "Classic Sanctuary Dark".to_owned(),
@@ -70,6 +65,7 @@ pub fn default_themes() -> Vec<Theme> {
             margins: SafeMargins::DEFAULT,
             footer_font_size_pt: 22.0,
             transition_ms: 280,
+            transition: SlideTransition::DEFAULT_CROSSFADE,
         },
         Theme {
             id: v5_theme("warm-amber-glow"),
@@ -98,7 +94,8 @@ pub fn default_themes() -> Vec<Theme> {
             }),
             margins: SafeMargins::DEFAULT,
             footer_font_size_pt: 22.0,
-            transition_ms: 300,
+            transition_ms: 260,
+            transition: SlideTransition::DEFAULT_SOFT_RISE,
         },
         Theme {
             id: v5_theme("scripture-clean"),
@@ -130,7 +127,8 @@ pub fn default_themes() -> Vec<Theme> {
                 left_pct: 0.10,
             },
             footer_font_size_pt: 24.0,
-            transition_ms: 240,
+            transition_ms: 280,
+            transition: SlideTransition::DEFAULT_ZOOM_DISSOLVE,
         },
         Theme {
             id: v5_theme("modern-display"),
@@ -152,105 +150,12 @@ pub fn default_themes() -> Vec<Theme> {
             shadow: None,
             margins: SafeMargins::DEFAULT,
             footer_font_size_pt: 22.0,
-            transition_ms: 260,
+            transition_ms: 280,
+            transition: SlideTransition::DEFAULT_GENTLE_SLIDE,
         },
-        Theme {
-            id: v5_theme("sanctuary-mountains"),
-            name: "Sanctuary Mountains".to_owned(),
-            target: ThemeTarget::Song,
-            is_default: false,
-            background: BackgroundSpec::Image {
-                asset_id: v5_media("sanctuary-mountains"),
-                uri: Some("backgrounds/sanctuary-mountains.jpg".to_owned()),
-                fit: ImageFit::Cover,
-                scrim_opacity: 0.48,
-            },
-            font_family: "Manrope".to_owned(),
-            font_size_pt: 76.0,
-            font_weight: 800,
-            line_height: 1.28,
-            text_color: Rgba8::from_rgb(245, 243, 239),
-            h_align: HorizontalAlign::Center,
-            v_align: VerticalAlign::Middle,
-            stroke_width_px: 2.0,
-            stroke_color: Rgba8::from_rgba(0, 0, 0, 190),
-            shadow: Some(TextShadow {
-                offset_x_px: 0.0,
-                offset_y_px: 6.0,
-                blur_radius_px: 16.0,
-                color: Rgba8::from_rgba(0, 0, 0, 210),
-            }),
-            margins: SafeMargins::DEFAULT,
-            footer_font_size_pt: 22.0,
-            transition_ms: 400,
-        },
-        Theme {
-            id: v5_theme("golden-light-motion"),
-            name: "Golden Light Motion".to_owned(),
-            target: ThemeTarget::Song,
-            is_default: false,
-            background: BackgroundSpec::VideoLoop {
-                asset_id: v5_media("golden-light-loop"),
-                uri: "video/golden-light-loop.mp4".to_owned(),
-                poster_uri: "backgrounds/golden-light.jpg".to_owned(),
-                fps: 1.0,
-                scrim_opacity: 0.46,
-            },
-            font_family: "Manrope".to_owned(),
-            font_size_pt: 76.0,
-            font_weight: 800,
-            line_height: 1.28,
-            text_color: Rgba8::from_rgb(247, 244, 238),
-            h_align: HorizontalAlign::Center,
-            v_align: VerticalAlign::Middle,
-            stroke_width_px: 2.0,
-            stroke_color: Rgba8::from_rgba(0, 0, 0, 190),
-            shadow: Some(TextShadow {
-                offset_x_px: 0.0,
-                offset_y_px: 6.0,
-                blur_radius_px: 16.0,
-                color: Rgba8::from_rgba(0, 0, 0, 210),
-            }),
-            margins: SafeMargins::DEFAULT,
-            footer_font_size_pt: 22.0,
-            transition_ms: 450,
-        },
-        Theme {
-            id: v5_theme("still-waters-scripture"),
-            name: "Still Waters Scripture".to_owned(),
-            target: ThemeTarget::Scripture,
-            is_default: false,
-            background: BackgroundSpec::Image {
-                asset_id: v5_media("still-waters"),
-                uri: Some("backgrounds/still-waters.jpg".to_owned()),
-                fit: ImageFit::Cover,
-                scrim_opacity: 0.54,
-            },
-            font_family: "Newsreader".to_owned(),
-            font_size_pt: 64.0,
-            font_weight: 400,
-            line_height: 1.40,
-            text_color: Rgba8::from_rgb(245, 243, 239),
-            h_align: HorizontalAlign::Left,
-            v_align: VerticalAlign::Middle,
-            stroke_width_px: 0.0,
-            stroke_color: Rgba8::TRANSPARENT,
-            shadow: Some(TextShadow {
-                offset_x_px: 0.0,
-                offset_y_px: 4.0,
-                blur_radius_px: 12.0,
-                color: Rgba8::from_rgba(0, 0, 0, 180),
-            }),
-            margins: SafeMargins {
-                top_pct: 0.09,
-                right_pct: 0.10,
-                bottom_pct: 0.11,
-                left_pct: 0.10,
-            },
-            footer_font_size_pt: 24.0,
-            transition_ms: 360,
-        },
-    ]
+    ];
+    themes.extend(media_and_broadcast_themes());
+    themes
 }
 
 /// Public-domain sample hymn 1 for out-of-the-box testing.
@@ -272,6 +177,21 @@ pub fn sample_amazing_grace() -> Song {
         default_theme_id: Some(v5_theme("sanctuary-dark")),
         default_arrangement_id: Some(default_arr),
         default_reflow_mode: ReflowMode::ByStanza,
+        primary_lang: "en".to_owned(),
+        secondary_lang: None,
+        hymnal_entries: vec![
+            HymnalEntry {
+                hymnal_code: "UMH".to_owned(),
+                hymnal_name: "United Methodist Hymnal".to_owned(),
+                hymn_number: 378,
+            },
+            HymnalEntry {
+                hymnal_code: "SS&S".to_owned(),
+                hymnal_name: "Sacred Songs & Solos".to_owned(),
+                hymn_number: 230,
+            },
+        ],
+        traditions: vec!["Traditional Hymns".to_owned(), "Methodist".to_owned()],
         sections: vec![
             SongSection {
                 id: v1,
@@ -279,6 +199,8 @@ pub fn sample_amazing_grace() -> Song {
                 label: "Verse 1".to_owned(),
                 ordinal: 0,
                 body: "Amazing grace! How sweet the sound\nThat saved a wretch like me!\nI once was lost, but now am found;\nWas blind, but now I see.".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
             SongSection {
                 id: v2,
@@ -286,6 +208,8 @@ pub fn sample_amazing_grace() -> Song {
                 label: "Verse 2".to_owned(),
                 ordinal: 1,
                 body: "'Twas grace that taught my heart to fear,\nAnd grace my fears relieved;\nHow precious did that grace appear\nThe hour I first believed.".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
             SongSection {
                 id: v3,
@@ -293,6 +217,8 @@ pub fn sample_amazing_grace() -> Song {
                 label: "Verse 3".to_owned(),
                 ordinal: 2,
                 body: "Through many dangers, toils, and snares,\nI have already come;\n'Tis grace hath brought me safe thus far,\nAnd grace will lead me home.".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
             SongSection {
                 id: v4,
@@ -300,6 +226,8 @@ pub fn sample_amazing_grace() -> Song {
                 label: "Verse 4".to_owned(),
                 ordinal: 3,
                 body: "When we've been there ten thousand years,\nBright shining as the sun,\nWe've no less days to sing God's praise\nThan when we'd first begun.".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
         ],
         arrangements: vec![
@@ -334,6 +262,14 @@ pub fn sample_come_thou_fount() -> Song {
         default_theme_id: Some(v5_theme("sanctuary-dark")),
         default_arrangement_id: Some(default_arr),
         default_reflow_mode: ReflowMode::ByStanza,
+        primary_lang: "en".to_owned(),
+        secondary_lang: None,
+        hymnal_entries: vec![HymnalEntry {
+            hymnal_code: "UMH".to_owned(),
+            hymnal_name: "United Methodist Hymnal".to_owned(),
+            hymn_number: 400,
+        }],
+        traditions: vec!["Traditional Hymns".to_owned(), "Methodist".to_owned()],
         sections: vec![
             SongSection {
                 id: v1,
@@ -341,6 +277,8 @@ pub fn sample_come_thou_fount() -> Song {
                 label: "Verse 1".to_owned(),
                 ordinal: 0,
                 body: "Come, Thou Fount of every blessing,\nTune my heart to sing Thy grace;\nStreams of mercy, never ceasing,\nCall for songs of loudest praise.".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
             SongSection {
                 id: v2,
@@ -348,6 +286,8 @@ pub fn sample_come_thou_fount() -> Song {
                 label: "Verse 2".to_owned(),
                 ordinal: 1,
                 body: "Here I raise my Ebenezer;\nHither by Thy help I'm come;\nAnd I hope, by Thy good pleasure,\nSafely to arrive at home.".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
             SongSection {
                 id: v3,
@@ -355,6 +295,8 @@ pub fn sample_come_thou_fount() -> Song {
                 label: "Verse 3".to_owned(),
                 ordinal: 2,
                 body: "O to grace how great a debtor\nDaily I'm constrained to be!\nLet Thy goodness, like a fetter,\nBind my wandering heart to Thee.".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
         ],
         arrangements: vec![Arrangement {
@@ -382,6 +324,14 @@ pub fn sample_it_is_well() -> Song {
         default_theme_id: Some(v5_theme("warm-amber-glow")),
         default_arrangement_id: Some(default_arr),
         default_reflow_mode: ReflowMode::ByStanza,
+        primary_lang: "en".to_owned(),
+        secondary_lang: None,
+        hymnal_entries: vec![HymnalEntry {
+            hymnal_code: "SS&S".to_owned(),
+            hymnal_name: "Sacred Songs & Solos".to_owned(),
+            hymn_number: 901,
+        }],
+        traditions: vec!["Traditional Hymns".to_owned()],
         sections: vec![
             SongSection {
                 id: v1,
@@ -389,6 +339,8 @@ pub fn sample_it_is_well() -> Song {
                 label: "Verse 1".to_owned(),
                 ordinal: 0,
                 body: "When peace, like a river, attendeth my way,\nWhen sorrows like sea billows roll;\nWhatever my lot, Thou hast taught me to say,\nIt is well, it is well with my soul.".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
             SongSection {
                 id: ch,
@@ -396,6 +348,8 @@ pub fn sample_it_is_well() -> Song {
                 label: "Chorus".to_owned(),
                 ordinal: 1,
                 body: "It is well with my soul,\nIt is well, it is well with my soul.".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
             SongSection {
                 id: v2,
@@ -403,6 +357,8 @@ pub fn sample_it_is_well() -> Song {
                 label: "Verse 2".to_owned(),
                 ordinal: 2,
                 body: "My sin—oh, the bliss of this glorious thought!—\nMy sin, not in part but the whole,\nIs nailed to the cross, and I bear it no more,\nPraise the Lord, praise the Lord, O my soul!".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
         ],
         arrangements: vec![Arrangement {

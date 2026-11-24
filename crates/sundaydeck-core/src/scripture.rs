@@ -158,6 +158,7 @@ pub fn paginate_scripture(verses: &[BibleVerse], budget: PaginationBudget) -> Ve
                 section_kind: None,
                 footer: Some(footer),
             },
+            transition_override: None,
         });
         pending_verses.clear();
         *slide_idx += 1;
@@ -200,6 +201,7 @@ pub fn paginate_scripture(verses: &[BibleVerse], budget: PaginationBudget) -> Ve
                         section_kind: None,
                         footer: Some(footer),
                     },
+                    transition_override: None,
                 });
                 slide_idx += 1;
             }
@@ -237,6 +239,58 @@ pub fn paginate_scripture(verses: &[BibleVerse], budget: PaginationBudget) -> Ve
         &mut slide_idx,
     );
     slides
+}
+
+/// Paginates a paired Primary + Secondary Bible passage (e.g. Yoruba *Bibeli Mimo* + English *KJV*,
+/// or Spanish *RVR1909* + English *WEB*) cleanly into dual-language stacked slides.
+pub fn paginate_parallel_scripture(
+    primary: &[BibleVerse],
+    secondary: &[BibleVerse],
+) -> Vec<Slide> {
+    primary
+        .iter()
+        .enumerate()
+        .map(|(idx, p)| {
+            let paired = secondary.iter().find(|s| {
+                s.book_number == p.book_number && s.chapter == p.chapter && s.verse == p.verse
+            });
+            let ref_label = format!("{} {}:{}", p.book_name, p.chapter, p.verse);
+            let (body, footer) = match paired {
+                Some(sec) => (
+                    format!(
+                        "{}  {}\n\u{2014}\n{}  {}",
+                        p.verse,
+                        p.text.trim(),
+                        sec.verse,
+                        sec.text.trim()
+                    ),
+                    format!(
+                        "{ref_label} ({} / {})",
+                        p.translation_code, sec.translation_code
+                    ),
+                ),
+                None => (
+                    format!("{}  {}", p.verse, p.text.trim()),
+                    format!("{ref_label} ({})", p.translation_code),
+                ),
+            };
+            Slide {
+                id: SlideId::from_v5(
+                    &SUNDAYDECK_NAMESPACE,
+                    format!("parallel:{}:{ref_label}:{idx}", p.translation_code).as_bytes(),
+                ),
+                source_section_id: None,
+                label: ref_label.clone(),
+                content: SlideContent::Text {
+                    body,
+                    section_label: Some(ref_label),
+                    section_kind: None,
+                    footer: Some(footer),
+                },
+                transition_override: None,
+            }
+        })
+        .collect()
 }
 
 fn format_verse_span(first: &BibleVerse, last: &BibleVerse) -> String {

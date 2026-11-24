@@ -3,7 +3,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use async_channel::{Receiver, Sender, bounded};
-use sundaydeck_core::Slide;
+use sundaydeck_core::{ScriptureRef, Slide, extract_scripture_refs_from_text};
 
 use crate::aligner::{DeckVoiceAligner, VoiceDecision};
 use crate::asr::{WhisperHttpClient, rehearsal_chunks_for_slide};
@@ -55,6 +55,12 @@ pub enum VoiceEvent {
         target_index: usize,
         confidence: f32,
         reason: String,
+    },
+    /// Detected spoken Bible reference during sermon preaching (queued for 1-click staging,
+    /// never auto-fired live).
+    ScriptureMentioned {
+        reference: ScriptureRef,
+        raw_excerpt: String,
     },
 }
 
@@ -108,6 +114,7 @@ struct WorkerState {
     whisper_online: bool,
     rehearsal_queue: Vec<(usize, String)>,
     next_rehearsal_tick: Instant,
+    last_scripture_ref: Option<ScriptureRef>,
 }
 
 fn voice_worker_loop(
@@ -141,6 +148,7 @@ fn voice_worker_loop(
         whisper_online,
         rehearsal_queue: Vec::new(),
         next_rehearsal_tick: Instant::now(),
+        last_scripture_ref: None,
     };
 
     emit_telemetry(&state.telemetry, &event_tx);
@@ -391,6 +399,17 @@ fn process_transcript(
     }
 
     emit_telemetry(&state.telemetry, event_tx);
+
+    // Sermon Scripture Listener: surface spoken Bible references into the 1-Click Staging Queue.
+    for sref in extract_scripture_refs_from_text(text) {
+        if state.last_scripture_ref != Some(sref) {
+            state.last_scripture_ref = Some(sref);
+            let _ = event_tx.try_send(VoiceEvent::ScriptureMentioned {
+                reference: sref,
+                raw_excerpt: text.to_owned(),
+            });
+        }
+    }
 }
 
 fn emit_telemetry(telemetry: &VoiceTelemetry, tx: &Sender<VoiceEvent>) {

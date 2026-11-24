@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use gpui::{Context, PathPromptOptions};
-use sundaydeck_core::{export_sdeck_bundle, import_bible_xml, import_sdeck_bundle};
+use sundaydeck_core::{
+    detect_and_import_bible, export_sdeck_bundle, import_sdeck_bundle, import_sdeck_pack,
+};
 
 use crate::deck_import::{
     build_sample_announcement_loop, import_presentation_or_loop_files, local_media_root,
@@ -19,7 +21,7 @@ impl SettingsModal {
             files: true,
             directories: false,
             multiple: false,
-            prompt: Some("Select Offline Bible (.xml OSIS/USFX/Zefania or .sqlite)".into()),
+            prompt: Some("Select Offline Bible (.usfm, .xml OSIS/USFX/Zefania, or .sqlite)".into()),
         });
         self.busy = true;
         self.error_message = None;
@@ -57,9 +59,13 @@ impl SettingsModal {
                 let parsed_res = cx
                     .background_executor()
                     .spawn(async move {
-                        let xml = std::fs::read_to_string(&path)
+                        let raw = std::fs::read_to_string(&path)
                             .map_err(|e| format!("Could not read Bible file: {e}"))?;
-                        import_bible_xml(&code, &name, &xml).map_err(|e| e.to_string())
+                        let fname = path
+                            .file_name()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("bible.xml");
+                        detect_and_import_bible(&code, &name, fname, &raw).map_err(|e| e.to_string())
                     })
                     .await;
                 match parsed_res {
@@ -89,6 +95,81 @@ impl SettingsModal {
                 }
                 cx.notify();
             });
+        })
+        .detach();
+    }
+
+    pub(crate) fn import_community_pack(&mut self, cx: &mut Context<Self>) {
+        let Some(db) = self.db.clone() else {
+            self.error_message = Some("Database worker unavailable for pack import.".to_owned());
+            cx.notify();
+            return;
+        };
+        let rx = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: Some("Select Church Starter or Hymnal Pack (.sdeck-pack)".into()),
+        });
+        self.busy = true;
+        self.error_message = None;
+        cx.notify();
+
+        let store = self.store.clone();
+        cx.spawn(async move |this, cx| {
+            let Ok(Ok(Some(paths))) = rx.await else {
+                let _ = this.update(cx, |m, cx| {
+                    m.busy = false;
+                    cx.notify();
+                });
+                return;
+            };
+            let Some(src) = paths.into_iter().next() else {
+                let _ = this.update(cx, |m, cx| {
+                    m.busy = false;
+                    cx.notify();
+                });
+                return;
+            };
+
+            let loaded = cx
+                .background_executor()
+                .spawn(async move { import_sdeck_pack(&src).map_err(|e| e.to_string()) })
+                .await;
+
+            match loaded {
+                Ok(pack) => {
+                    let pack_name = pack.manifest.name.clone();
+                    let songs_clone = pack.songs.clone();
+                    let res = db.install_sdeck_pack(pack).await.map_err(|e| e.to_string());
+                    let _ = this.update(cx, |m, cx| {
+                        m.busy = false;
+                        match res {
+                            Ok(report) => {
+                                for song in songs_clone {
+                                    store.update(cx, |s, cx| s.upsert_song_local(song, cx));
+                                }
+                                m.status_note = Some(format!(
+                                    "Installed \"{pack_name}\" ({} Bibles, {} songs, {} liturgies).",
+                                    report.bibles_installed,
+                                    report.songs_installed,
+                                    report.liturgies_installed
+                                ));
+                                m.error_message = None;
+                            }
+                            Err(err) => m.error_message = Some(err),
+                        }
+                        cx.notify();
+                    });
+                }
+                Err(err) => {
+                    let _ = this.update(cx, |m, cx| {
+                        m.busy = false;
+                        m.error_message = Some(err);
+                        cx.notify();
+                    });
+                }
+            }
         })
         .detach();
     }

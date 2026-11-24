@@ -19,7 +19,10 @@ pub(crate) fn render_projector_popover(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
 ) -> Div {
-    let direct_click = workspace.store.read(cx).snapshot().direct_click_live;
+    let store_ref = workspace.store.read(cx);
+    let direct_click = store_ref.snapshot().direct_click_live;
+    let overlay_url = store_ref.overlay_server.as_ref().map(|h| h.overlay_url());
+    let overlay_on = overlay_url.is_some();
     let wm = workspace.windows.read(cx);
     let audience_open = wm.is_audience_open();
     let stage_open = wm.is_stage_open();
@@ -228,6 +231,84 @@ pub(crate) fn render_projector_popover(
                                 .text_size(px(11.0))
                                 .font_weight(FontWeight::MEDIUM)
                                 .child(if direct_click { "On" } else { "Off" }),
+                        ),
+                ),
+        )
+        .child(
+            div()
+                .id("pop-toggle-obs-overlay")
+                .w_full()
+                .px(px(10.0))
+                .py(px(8.0))
+                .rounded(px(RADIUS_CONTROL))
+                .cursor_pointer()
+                .bg(if overlay_on {
+                    TOKENS.elevated
+                } else {
+                    rgba(0x0000_0000)
+                })
+                .hover(|s| s.bg(TOKENS.elevated_hover))
+                .border_1()
+                .border_color(if overlay_on {
+                    TOKENS.focus_border
+                } else {
+                    TOKENS.gridline
+                })
+                .flex()
+                .items_center()
+                .justify_between()
+                .gap(px(8.0))
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.store.update(cx, |s, cx| s.toggle_obs_overlay(cx));
+                }))
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(1.5))
+                        .child(
+                            div()
+                                .font_family(FONT_BODY)
+                                .text_color(TOKENS.ink_primary)
+                                .text_size(px(11.5))
+                                .font_weight(FontWeight::MEDIUM)
+                                .child("OBS Broadcast Overlay"),
+                        )
+                        .child(
+                            div()
+                                .font_family(crate::design::tokens::FONT_MONO)
+                                .text_color(TOKENS.ink_muted)
+                                .text_size(px(10.0))
+                                .child(
+                                    overlay_url.unwrap_or_else(|| {
+                                        "http://127.0.0.1:8787/overlay".to_owned()
+                                    }),
+                                ),
+                        ),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(5.0))
+                        .child(div().w(px(6.0)).h(px(6.0)).rounded(px(RADIUS_PILL)).bg(
+                            if overlay_on {
+                                TOKENS.signal_voice
+                            } else {
+                                rgb(0x565C6B)
+                            },
+                        ))
+                        .child(
+                            div()
+                                .font_family(FONT_BODY)
+                                .text_color(if overlay_on {
+                                    TOKENS.ink_primary
+                                } else {
+                                    TOKENS.ink_muted
+                                })
+                                .text_size(px(11.0))
+                                .font_weight(FontWeight::MEDIUM)
+                                .child(if overlay_on { "On" } else { "Off" }),
                         ),
                 ),
         )

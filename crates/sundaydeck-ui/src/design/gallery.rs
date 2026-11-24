@@ -7,7 +7,8 @@ use crate::design::gallery_console::{
     render_color_swatches, render_operator_typography, render_slide_tile_showcase,
 };
 use crate::design::gallery_projection::{
-    render_icon_catalog, render_projection_font_pack, render_switcher_and_voice_showcase,
+    render_custom_layouts_and_motions, render_icon_catalog, render_projection_font_pack,
+    render_switcher_and_voice_showcase,
 };
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::motion::MotionMode;
@@ -75,6 +76,8 @@ impl Render for DesignGalleryView {
                 .flex_col()
                 .gap(px(24.0))
                 .child(render_projection_font_pack())
+                .child(divider())
+                .child(render_custom_layouts_and_motions())
                 .child(divider())
                 .child(render_icon_catalog()),
         };

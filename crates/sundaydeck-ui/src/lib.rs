@@ -1,9 +1,11 @@
 pub mod actions;
 pub mod components;
+pub mod custom_slide_renderer;
 pub mod deck_builder;
 pub mod deck_import;
 pub mod design;
 pub mod media;
+pub mod overlay_badges;
 pub mod palette;
 pub mod renderer;
 pub mod store;

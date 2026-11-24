@@ -1,11 +1,13 @@
 use gpui::{Div, FontWeight, ObjectFit, ParentElement, Styled, StyledImage, div, img, px, rgba};
 
+use sundaydeck_core::{SlideTransition, default_custom_slide_templates};
+
 use crate::design::gallery_console::section_frame;
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::motion::MotionMode;
 use crate::design::primitives::{
     VoiceSyncMode, display_status_pill, native_screen_key_body, primary_ivory_deck_key_body,
-    render_auto_follow_pill,
+    render_auto_follow_pill, status_dot_label,
 };
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, FONT_DISPLAY_PROJ, FONT_LYRIC_BOLD, FONT_SCRIPTURE_SERIF,
@@ -244,6 +246,92 @@ pub(crate) fn render_projection_font_pack() -> Div {
         "Bundled SIL OFL typefaces over real Unsplash photography and looping motion video backgrounds",
     )
     .child(grid)
+}
+
+pub(crate) fn render_custom_layouts_and_motions() -> Div {
+    let mut motion_row = div().w_full().flex().flex_wrap().gap(px(8.0));
+    for tr in SlideTransition::ALL_PRESETS {
+        let timing = if tr.duration_ms() == 0 {
+            "0ms".to_owned()
+        } else {
+            format!("{}ms", tr.duration_ms())
+        };
+        motion_row = motion_row.child(
+            div()
+                .px(px(12.0))
+                .py(px(7.0))
+                .rounded(px(RADIUS_CONTROL))
+                .bg(TOKENS.pane)
+                .border_1()
+                .border_color(TOKENS.gridline)
+                .flex()
+                .items_center()
+                .gap(px(8.0))
+                .child(status_dot_label(
+                    tr.label(),
+                    if tr == SlideTransition::Instant {
+                        TOKENS.ink_muted
+                    } else {
+                        TOKENS.signal_preview
+                    },
+                    TOKENS.ink_primary,
+                ))
+                .child(
+                    div()
+                        .font_family(crate::design::tokens::FONT_MONO)
+                        .text_color(TOKENS.ink_muted)
+                        .text_size(px(10.5))
+                        .child(timing),
+                ),
+        );
+    }
+
+    let mut tpl_row = div().w_full().flex().flex_wrap().gap(px(10.0));
+    for spec in default_custom_slide_templates() {
+        tpl_row = tpl_row.child(
+            div()
+                .w(px(214.0))
+                .p(px(10.0))
+                .rounded(px(RADIUS_TILE))
+                .bg(TOKENS.pane)
+                .border_1()
+                .border_color(TOKENS.hairline)
+                .flex()
+                .flex_col()
+                .gap(px(5.0))
+                .child(status_dot_label(
+                    spec.layout.template_label(),
+                    TOKENS.signal_voice,
+                    TOKENS.ink_secondary,
+                ))
+                .child(
+                    div()
+                        .font_family(FONT_DISPLAY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(12.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(spec.label),
+                )
+                .child(
+                    div()
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_muted)
+                        .text_size(px(10.5))
+                        .child(
+                            spec.transition_override
+                                .unwrap_or(SlideTransition::DEFAULT_CROSSFADE)
+                                .label(),
+                        ),
+                ),
+        );
+    }
+
+    section_frame(
+        "Structured Custom Slide Layouts & Layer-Aware Motions",
+        "6 curated zero-clutter templates paired with 5 GPU-accelerated slide transitions",
+    )
+    .child(motion_row)
+    .child(tpl_row)
 }
 
 pub(crate) fn render_icon_catalog() -> Div {

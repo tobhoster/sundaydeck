@@ -1,4 +1,6 @@
-/// Metadata for one canonical book of the 66-book Bible.
+use crate::bible_aliases::{DEUTEROCANON_BOOKS, lookup_localized_alias, strip_diacritics};
+
+/// Metadata for one canonical book of the Bible (66 Protestant + 7 Catholic Deuterocanon + ESG/DAG).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BibleBookMeta {
     pub number: u8,
@@ -6,6 +8,7 @@ pub struct BibleBookMeta {
     pub osis_id: &'static str,
     pub usfx_id: &'static str,
     pub single_chapter: bool,
+    pub is_deuterocanon: bool,
     pub aliases: &'static [&'static str],
 }
 
@@ -17,6 +20,7 @@ macro_rules! book {
             osis_id: $osis,
             usfx_id: $usfx,
             single_chapter: $single,
+            is_deuterocanon: false,
             aliases: &[$($alias),*],
         }
     };
@@ -303,64 +307,66 @@ pub const CANONICAL_BOOKS: &[BibleBookMeta] = &[
     ),
 ];
 
+/// Iterates across all 75 supported USFM canonical books (66 Protestant + 7 Catholic Deuterocanon + ESG/DAG).
+pub fn all_canonical_books() -> impl Iterator<Item = &'static BibleBookMeta> {
+    CANONICAL_BOOKS.iter().chain(DEUTEROCANON_BOOKS.iter())
+}
+
 pub fn book_by_number(number: u8) -> Option<&'static BibleBookMeta> {
-    CANONICAL_BOOKS.iter().find(|b| b.number == number)
+    all_canonical_books().find(|b| b.number == number)
 }
 
 pub fn book_by_osis(osis_id: &str) -> Option<&'static BibleBookMeta> {
-    CANONICAL_BOOKS
-        .iter()
+    all_canonical_books()
         .find(|b| b.osis_id.eq_ignore_ascii_case(osis_id))
         .or_else(|| match_book_name(osis_id))
 }
 
 pub fn book_by_usfx(usfx_id: &str) -> Option<&'static BibleBookMeta> {
-    CANONICAL_BOOKS
-        .iter()
+    all_canonical_books()
         .find(|b| b.usfx_id.eq_ignore_ascii_case(usfx_id))
         .or_else(|| book_by_osis(usfx_id))
 }
 
-/// Resolves a user-typed book name or shorthand (`jn`, `1cor`, `1 cor`, `ps`, `gen`)
-/// by exact normalized match first, then alias match, then unique/best prefix match.
+/// Resolves a user-typed book name or shorthand (`jn`, `1cor`, `wis`, `sir`, `sab`, `sal`, `orin dafidi`)
+/// across English, Spanish, Yoruba/African, and French aliases with diacritic folding.
 pub fn match_book_name(raw: &str) -> Option<&'static BibleBookMeta> {
     let norm = normalize_book_token(raw);
     if norm.is_empty() {
         return None;
     }
 
-    // 1. Exact full name or alias match
-    for meta in CANONICAL_BOOKS {
-        if normalize_book_token(meta.name) == norm {
-            return Some(meta);
-        }
-        if meta.aliases.iter().any(|alias| *alias == norm) {
-            return Some(meta);
-        }
-    }
-
-    // 2. Prefix match on full normalized name or alias
-    for meta in CANONICAL_BOOKS {
-        if normalize_book_token(meta.name).starts_with(&norm) {
-            return Some(meta);
-        }
-        if meta.aliases.iter().any(|alias| alias.starts_with(&norm)) {
+    // 1. Exact full name, USFM code, OSIS ID, or canonical alias match
+    for meta in all_canonical_books() {
+        if normalize_book_token(meta.name) == norm
+            || meta.usfx_id.eq_ignore_ascii_case(&norm)
+            || meta.osis_id.eq_ignore_ascii_case(&norm)
+            || meta.aliases.iter().any(|alias| *alias == norm)
+        {
             return Some(meta);
         }
     }
 
-    None
+    // 2. Exact localized alias match (Spanish, Yoruba, French)
+    if let Some(book_num) = lookup_localized_alias(&norm) {
+        return book_by_number(book_num);
+    }
+
+    // 3. Prefix match on full normalized name or alias
+    all_canonical_books().find(|meta| {
+        normalize_book_token(meta.name).starts_with(&norm)
+            || meta.aliases.iter().any(|alias| alias.starts_with(&norm))
+    })
 }
 
 /// Returns up to `limit` matching Bible books for shorthand autocomplete.
 pub fn autocomplete_books(prefix: &str, limit: usize) -> Vec<&'static BibleBookMeta> {
     let norm = normalize_book_token(prefix);
     if norm.is_empty() {
-        return CANONICAL_BOOKS.iter().take(limit).collect();
+        return all_canonical_books().take(limit).collect();
     }
 
-    let mut matches: Vec<&'static BibleBookMeta> = CANONICAL_BOOKS
-        .iter()
+    let mut matches: Vec<&'static BibleBookMeta> = all_canonical_books()
         .filter(|meta| {
             normalize_book_token(meta.name).starts_with(&norm)
                 || meta.aliases.iter().any(|alias| alias.starts_with(&norm))
@@ -368,9 +374,15 @@ pub fn autocomplete_books(prefix: &str, limit: usize) -> Vec<&'static BibleBookM
         .take(limit)
         .collect();
 
+    if matches.is_empty()
+        && let Some(num) = lookup_localized_alias(&norm)
+        && let Some(meta) = book_by_number(num)
+    {
+        matches.push(meta);
+    }
+
     if matches.is_empty() {
-        matches = CANONICAL_BOOKS
-            .iter()
+        matches = all_canonical_books()
             .filter(|meta| normalize_book_token(meta.name).contains(&norm))
             .take(limit)
             .collect();
@@ -379,7 +391,7 @@ pub fn autocomplete_books(prefix: &str, limit: usize) -> Vec<&'static BibleBookM
 }
 
 pub(crate) fn normalize_book_token(raw: &str) -> String {
-    let trimmed = raw.trim().to_ascii_lowercase();
+    let trimmed = strip_diacritics(raw.trim());
     let replaced = if let Some(rest) = trimmed.strip_prefix("iii ") {
         format!("3{rest}")
     } else if let Some(rest) = trimmed.strip_prefix("ii ") {

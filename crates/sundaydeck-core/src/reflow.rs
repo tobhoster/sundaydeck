@@ -1,3 +1,4 @@
+use crate::global_content::{BilingualDisplayMode, format_bilingual_body};
 use crate::ids::{ArrangementId, SUNDAYDECK_NAMESPACE, SlideId};
 use crate::slide::{Slide, SlideContent};
 use crate::song::{ReflowMode, Song, SongSection};
@@ -9,13 +10,37 @@ pub fn reflow_song(
     arrangement_id: Option<ArrangementId>,
     mode_override: Option<ReflowMode>,
 ) -> Vec<Slide> {
+    reflow_song_bilingual(
+        song,
+        arrangement_id,
+        mode_override,
+        BilingualDisplayMode::BilingualStacked,
+    )
+}
+
+/// Expands a [`Song`] honoring the active [`BilingualDisplayMode`] (`PrimaryOnly`,
+/// `SecondaryOnly`, or `BilingualStacked`) for global / bilingual congregations.
+pub fn reflow_song_bilingual(
+    song: &Song,
+    arrangement_id: Option<ArrangementId>,
+    mode_override: Option<ReflowMode>,
+    bilingual_mode: BilingualDisplayMode,
+) -> Vec<Slide> {
     let mode = mode_override.unwrap_or(song.default_reflow_mode);
     let footer = song.formatted_footer();
     let ordered_sections = resolve_ordered_sections(song, arrangement_id);
 
     let mut slides = Vec::new();
     for (occurrence_idx, section) in ordered_sections.into_iter().enumerate() {
-        let chunks = paginate_section_body(&section.body, mode);
+        let rendered_body =
+            format_bilingual_body(&section.body, section.secondary_body.as_deref(), bilingual_mode);
+        let chunks = if section.secondary_body.is_some()
+            && bilingual_mode == BilingualDisplayMode::BilingualStacked
+        {
+            vec![rendered_body]
+        } else {
+            paginate_section_body(&rendered_body, mode)
+        };
         let chunk_count = chunks.len();
 
         for (chunk_idx, body) in chunks.into_iter().enumerate() {
@@ -31,6 +56,7 @@ pub fn reflow_song(
                     section_kind: Some(section.kind),
                     footer: footer.clone(),
                 },
+                transition_override: None,
             });
         }
     }

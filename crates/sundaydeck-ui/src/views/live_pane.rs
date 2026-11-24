@@ -16,7 +16,10 @@ use crate::design::tokens::{
 use crate::media::load_background_image;
 use crate::renderer::render_audience_canvas;
 use crate::views::operator_workspace::OperatorWorkspace;
-use crate::views::override_controls::{render_override_buttons, render_stage_cue_strip};
+use crate::views::override_controls::{
+    render_override_buttons, render_scripture_queue_strip, render_stage_cue_strip,
+    render_voice_transcript_strip,
+};
 
 /// Right Pane (On Screen Now):
 /// Realistic 16:9 Live Preview framed with a crisp `1.5px` deep crimson ring (or amber-terracotta
@@ -29,6 +32,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
     let motion_mode = store_ref.motion_mode;
     let voice_mode = store_ref.voice_sync_mode;
     let voice_telemetry = store_ref.voice_telemetry.clone();
+    let queued_scriptures = store_ref.queued_scriptures.clone();
     let live = snapshot.live.clone();
     let active_override = snapshot.output_override;
     let stage_note = snapshot.stage.stage_message.clone();
@@ -432,59 +436,14 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                 .child(render_override_buttons(active_override, has_live, cx));
 
             if voice_mode != VoiceSyncMode::Off && !voice_telemetry.last_transcript.is_empty() {
-                let dot_col = if voice_mode == VoiceSyncMode::Auto {
-                    TOKENS.signal_voice
-                } else {
-                    TOKENS.signal_preview
-                };
-                deck_top = deck_top.child(
-                    div()
-                        .w_full()
-                        .px(px(10.0))
-                        .py(px(6.5))
-                        .rounded(px(RADIUS_CONTROL))
-                        .bg(TOKENS.recessed)
-                        .border_1()
-                        .border_color(TOKENS.hairline)
-                        .flex()
-                        .items_center()
-                        .justify_between()
-                        .gap(px(8.0))
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .overflow_hidden()
-                                .whitespace_nowrap()
-                                .flex()
-                                .items_center()
-                                .gap(px(6.0))
-                                .child(
-                                    div()
-                                        .w(px(6.0))
-                                        .h(px(6.0))
-                                        .flex_shrink_0()
-                                        .rounded(px(RADIUS_PILL))
-                                        .bg(dot_col),
-                                )
-                                .child(
-                                    div()
-                                        .font_family(FONT_BODY)
-                                        .text_color(TOKENS.ink_secondary)
-                                        .text_size(px(11.0))
-                                        .child(format!("\"{}\"", voice_telemetry.last_transcript)),
-                                ),
-                        )
-                        .child(
-                            div()
-                                .flex_shrink_0()
-                                .font_family(FONT_BODY)
-                                .text_color(TOKENS.ink_muted)
-                                .text_size(px(10.5))
-                                .font_weight(FontWeight::MEDIUM)
-                                .child(format!("{:.0}%", voice_telemetry.confidence * 100.0)),
-                        ),
-                );
+                deck_top = deck_top.child(render_voice_transcript_strip(
+                    voice_mode,
+                    &voice_telemetry.last_transcript,
+                    voice_telemetry.confidence,
+                ));
+            }
+            if !queued_scriptures.is_empty() {
+                deck_top = deck_top.child(render_scripture_queue_strip(&queued_scriptures, cx));
             }
             deck_top
         })

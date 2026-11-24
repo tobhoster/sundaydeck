@@ -217,7 +217,7 @@ fn render_engine_bar(modal: &PlanImportModal, cx: &mut Context<PlanImportModal>)
             }
             PlannerEngineKind::LocalLlm => (
                 DeckIcon::Broadcast,
-                "Local AI Server",
+                "Offline Companion",
                 TOKENS.signal_preview,
             ),
             PlannerEngineKind::Embedded => {

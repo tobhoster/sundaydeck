@@ -2,10 +2,12 @@ use std::sync::Arc;
 
 use gpui::Context;
 use sundaydeck_core::{
-    BibleTranslation, OutputOverride, PresentationCommand, SdeckBundle, ServiceId, ServiceItem,
-    ServiceItemId, ServiceSchedule, Song, Theme,
+    BibleTranslation, CustomSlideSpec, DeckCursor, OutputOverride, PresentationCommand,
+    ScriptureRef, SdeckBundle, ServiceId, ServiceItem, ServiceItemId, ServiceItemPayload,
+    ServiceSchedule, Slide, SlideContent, SlideId, Song, Theme, ThemeTarget,
 };
 use sundaydeck_db::AppSettings;
+use sundaydeck_overlay::{DEFAULT_OVERLAY_BIND_ADDR, OverlayPayload, OverlayServerHandle};
 use sundaydeck_voice::VoiceCommand;
 
 use crate::design::motion::MotionMode;
@@ -221,6 +223,96 @@ impl PresentationStore {
         }
         self.active_translation_code = code;
         self.set_status(format!("Imported offline Bible: {label}"), cx);
+    }
+
+    /// Starts or stops the lightweight local OBS Browser Source HTTP + WebSocket overlay server.
+    pub fn toggle_obs_overlay(&mut self, cx: &mut Context<Self>) {
+        if let Some(handle) = self.overlay_server.take() {
+            handle.shutdown();
+            self.set_status("OBS Broadcast Overlay stopped", cx);
+            return;
+        }
+        match OverlayServerHandle::start(DEFAULT_OVERLAY_BIND_ADDR) {
+            Ok(handle) => {
+                let url = handle.overlay_url();
+                handle.publish(&OverlayPayload::from_snapshot(&self.snapshot()));
+                self.overlay_server = Some(handle);
+                self.set_status(format!("OBS Broadcast Overlay live at {url}"), cx);
+            }
+            Err(err) => {
+                self.set_status(format!("Could not start OBS Overlay: {err}"), cx);
+            }
+        }
+    }
+
+    /// Saves a structured Custom Slide into the reusable library, stages it in Preview,
+    /// and optionally appends it to the active Service Order.
+    pub fn upsert_custom_slide(
+        &mut self,
+        spec: CustomSlideSpec,
+        add_to_service: bool,
+        auto_advance_secs: Option<u16>,
+        cx: &mut Context<Self>,
+    ) -> Option<ServiceSchedule> {
+        let id = spec.id;
+        if let Some(existing) = self.custom_slides.iter_mut().find(|s| s.id == id) {
+            *existing = spec.clone();
+        } else {
+            self.custom_slides.insert(0, spec.clone());
+        }
+        if add_to_service {
+            let item = ServiceItem {
+                id: ServiceItemId::new_v7(),
+                title: spec.label.clone(),
+                theme_override_id: None,
+                payload: ServiceItemPayload::CustomDeck {
+                    slides: vec![spec],
+                    auto_advance_secs,
+                },
+            };
+            return Some(self.add_service_item(item, true, cx));
+        }
+        self.stage_custom_slide(id, cx);
+        None
+    }
+
+    /// Stages a reusable structured Custom Slide directly into Preview (or Live if direct-click is on).
+    pub fn stage_custom_slide(&mut self, slide_id: SlideId, cx: &mut Context<Self>) {
+        let Some(spec) = self
+            .custom_slides
+            .iter()
+            .find(|s| s.id == slide_id)
+            .cloned()
+        else {
+            return;
+        };
+        let theme = self
+            .default_theme_for(ThemeTarget::General)
+            .unwrap_or_else(|| self.active_theme());
+        let slide = Slide {
+            id: spec.id,
+            source_section_id: None,
+            label: spec.label.clone(),
+            content: SlideContent::Custom {
+                revealed_steps: spec.layout.total_reveal_steps().map(|_| 1),
+                layout: spec.layout,
+            },
+            transition_override: spec.transition_override,
+        };
+        if let Ok(deck) = DeckCursor::try_new(None, spec.label, vec![slide], theme) {
+            let cmd = if self.snapshot().direct_click_live {
+                PresentationCommand::GoLiveDirect(deck)
+            } else {
+                PresentationCommand::StagePreview(deck)
+            };
+            let _ = self.dispatch(cmd, cx);
+        }
+    }
+
+    /// Removes a spoken Bible reference chip from the 1-Click Auto-Follow Scripture Queue.
+    pub fn dismiss_queued_scripture(&mut self, reference: ScriptureRef, cx: &mut Context<Self>) {
+        self.queued_scriptures.retain(|r| *r != reference);
+        cx.notify();
     }
 
     fn sync_active_service_in_list(&mut self) {

@@ -1,22 +1,16 @@
-use std::sync::Arc;
-
 use gpui::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, px, rgb, rgba,
 };
-use sundaydeck_core::{BackgroundSpec, PresentationCommand};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
-use crate::design::primitives::status_dot_label;
-use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, TOKENS, rgba8_to_gpui,
-};
-use crate::media::apply_theme_background;
+use crate::design::tokens::{FONT_BODY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, TOKENS};
+use crate::views::library_custom_slides::{render_custom_slides_library, render_themes_library};
 use crate::views::operator_workspace::{LibraryTab, OperatorWorkspace};
 use crate::views::song_editor_modal::EditorTab;
 
 /// Bottom docked drawer of the Center Pane:
-/// Offline browser for Songs, Bible, and Sanctuary Themes (with live Unsplash photo & motion video previews).
+/// Offline browser for Songs, Bible, Structured Custom Slides, and Sanctuary Themes / Media.
 pub fn render_library_section(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
@@ -24,6 +18,7 @@ pub fn render_library_section(
     let active_tab = workspace.active_library_tab;
     let store = workspace.store.read(cx);
     let song_count = store.songs.len();
+    let custom_count = store.custom_slides.len();
     let theme_count = store.themes.len();
     let bible_count = store.bible_translations.len();
 
@@ -100,9 +95,15 @@ pub fn render_library_section(
                     cx,
                 ))
                 .child(tab_button(
+                    LibraryTab::CustomSlides,
+                    DeckIcon::Stack,
+                    format!("Custom ({custom_count})"),
+                    cx,
+                ))
+                .child(tab_button(
                     LibraryTab::Themes,
                     DeckIcon::Palette,
-                    format!("Themes ({theme_count})"),
+                    format!("Media ({theme_count})"),
                     cx,
                 )),
         )
@@ -118,26 +119,27 @@ pub fn render_library_section(
                     cx,
                     |t, cx| t.open_song_editor(None, EditorTab::Edit, cx),
                 ))
-                .child(drawer_icon_btn(
-                    "btn-import-song",
-                    DeckIcon::UploadSimple,
-                    TOKENS.ink_secondary,
+                .child(drawer_btn(
+                    "btn-new-custom-slide",
+                    DeckIcon::Stack,
+                    "New Slide",
+                    TOKENS.signal_preview,
                     cx,
-                    |t, cx| t.open_song_editor(None, EditorTab::Import, cx),
+                    |t, cx| t.open_custom_slide_builder(None, cx),
                 ))
                 .child(drawer_btn(
                     "btn-add-background",
                     DeckIcon::Image,
-                    "Add Media",
+                    "Media",
                     rgb(0x6B9BF2),
                     cx,
                     |t, cx| t.open_background_picker(cx),
                 ))
                 .child(drawer_btn(
                     "btn-import-plan-drawer",
-                    DeckIcon::Stack,
+                    DeckIcon::UploadSimple,
                     "Import Plan",
-                    TOKENS.signal_preview,
+                    TOKENS.ink_primary,
                     cx,
                     |t, cx| t.open_plan_importer(cx),
                 )),
@@ -146,6 +148,7 @@ pub fn render_library_section(
     let body: AnyElement = match active_tab {
         LibraryTab::Songs => render_songs_library(workspace, cx),
         LibraryTab::Bible => workspace.bible_browser.clone().into_any_element(),
+        LibraryTab::CustomSlides => render_custom_slides_library(workspace, cx),
         LibraryTab::Themes => render_themes_library(workspace, cx),
     };
 
@@ -323,119 +326,6 @@ fn render_songs_library(
         )
         .child(list)
         .into_any_element()
-}
-
-fn render_themes_library(
-    workspace: &OperatorWorkspace,
-    cx: &mut Context<OperatorWorkspace>,
-) -> AnyElement {
-    let store = workspace.store.read(cx);
-    let themes = store.themes.clone();
-    let active_id = store.active_theme().id;
-    let now_ms = store.now_epoch_ms();
-
-    let mut row = div()
-        .id("themes-library-grid")
-        .flex_1()
-        .overflow_y_scroll()
-        .p(px(10.0))
-        .flex()
-        .flex_wrap()
-        .items_start()
-        .content_start()
-        .gap(px(9.0));
-
-    for theme in themes {
-        let is_active = theme.id == active_id;
-        let theme_click = Arc::clone(&theme);
-        let (kind_label, kind_dot) = match &theme.background {
-            BackgroundSpec::VideoLoop { .. } => ("Motion", TOKENS.signal_preview),
-            BackgroundSpec::Image { .. } => ("Photo", rgb(0x6B9BF2)),
-            BackgroundSpec::LinearGradient { .. } => ("Gradient", TOKENS.ink_muted),
-            BackgroundSpec::Solid { .. } => ("Matte", TOKENS.ink_muted),
-        };
-
-        let preview_thumb = apply_theme_background(
-            div()
-                .relative()
-                .w_full()
-                .h(px(52.0))
-                .rounded(px(RADIUS_CONTROL))
-                .overflow_hidden()
-                .border_1()
-                .border_color(TOKENS.gridline)
-                .flex()
-                .items_center()
-                .justify_center(),
-            &theme.background,
-            now_ms,
-        )
-        .child(
-            div()
-                .relative()
-                .font_family(theme.font_family.clone())
-                .text_color(rgba8_to_gpui(theme.text_color))
-                .text_size(px(15.0))
-                .font_weight(FontWeight::BOLD)
-                .child("Aa Bb"),
-        );
-
-        let card = div()
-            .id(format!("lib-theme-{}", theme.id))
-            .w(px(184.0))
-            .p(px(7.0))
-            .rounded(px(RADIUS_TILE))
-            .cursor_pointer()
-            .bg(if is_active {
-                TOKENS.elevated
-            } else {
-                TOKENS.status_surface
-            })
-            .hover(|s| s.bg(TOKENS.elevated_hover))
-            .border(px(if is_active { 1.5 } else { 1.0 }))
-            .border_color(if is_active {
-                TOKENS.signal_preview
-            } else {
-                TOKENS.gridline
-            })
-            .flex()
-            .flex_col()
-            .gap(px(5.0))
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.store.update(cx, |s, cx| {
-                    let _ = s.dispatch(
-                        PresentationCommand::ApplyLiveTheme(Arc::clone(&theme_click)),
-                        cx,
-                    );
-                });
-            }))
-            .child(preview_thumb)
-            .child(
-                div()
-                    .font_family(FONT_DISPLAY)
-                    .text_color(TOKENS.ink_primary)
-                    .text_size(px(11.5))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(theme.name.clone()),
-            )
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .child(status_dot_label(kind_label, kind_dot, TOKENS.ink_secondary))
-                    .child(
-                        div()
-                            .font_family(FONT_BODY)
-                            .text_color(TOKENS.ink_muted)
-                            .text_size(px(10.0))
-                            .child(theme.font_family.clone()),
-                    ),
-            );
-
-        row = row.child(card);
-    }
-    row.into_any_element()
 }
 
 fn drawer_icon_btn(

@@ -18,7 +18,7 @@ fn seed_is_idempotent_and_populates_starter_library() {
     assert!(!seed_defaults_if_empty(db.conn_mut()).expect("second seed is noop"));
 
     let themes = list_themes(db.conn()).expect("list themes");
-    assert_eq!(themes.len(), 7);
+    assert_eq!(themes.len(), 8);
 
     let songs = search_songs(db.conn(), "").expect("list all songs");
     assert_eq!(songs.len(), 3);
@@ -84,6 +84,10 @@ fn non_destructive_arrangement_preserves_repeated_section_order() {
         default_theme_id: None,
         default_arrangement_id: Some(arr_id),
         default_reflow_mode: ReflowMode::Lines2,
+        primary_lang: "en".to_owned(),
+        secondary_lang: None,
+        hymnal_entries: Vec::new(),
+        traditions: Vec::new(),
         sections: vec![
             SongSection {
                 id: v1,
@@ -91,6 +95,8 @@ fn non_destructive_arrangement_preserves_repeated_section_order() {
                 label: "Verse 1".to_owned(),
                 ordinal: 0,
                 body: "Line one\nLine two".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
             SongSection {
                 id: ch,
@@ -98,6 +104,8 @@ fn non_destructive_arrangement_preserves_repeated_section_order() {
                 label: "Chorus".to_owned(),
                 ordinal: 1,
                 body: "Chorus line".to_owned(),
+                secondary_body: None,
+                stage_chords: None,
             },
         ],
         arrangements: vec![Arrangement {
@@ -198,7 +206,7 @@ fn media_assets_deduplicate_by_sha256_and_settings_roundtrip() {
 fn async_db_worker_loads_bootstrap_and_searches_off_thread() {
     let worker = DbWorker::spawn_in_memory().expect("spawn worker");
     let boot = futures_lite_block_on(worker.load_bootstrap()).expect("bootstrap");
-    assert_eq!(boot.themes.len(), 7);
+    assert_eq!(boot.themes.len(), 8);
     assert_eq!(boot.loaded_songs.len(), 3);
 
     let hits = futures_lite_block_on(worker.search_songs("river")).expect("fts search");

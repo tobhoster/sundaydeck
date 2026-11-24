@@ -4,8 +4,8 @@ use std::thread;
 use async_channel::{Receiver, Sender, bounded};
 use sundaydeck_core::song::SongSummary;
 use sundaydeck_core::{
-    BibleTranslation, BibleVerse, GeneratedServicePlan, ParsedBible, ScriptureRef, ServiceId,
-    ServiceItemId, ServiceSchedule, Song, SongId, Theme,
+    BibleTranslation, BibleVerse, GeneratedServicePlan, ParsedBible, ScriptureRef, SdeckPack,
+    ServiceId, ServiceItemId, ServiceSchedule, Song, SongId, Theme,
 };
 
 use crate::bible_repo::{
@@ -13,6 +13,7 @@ use crate::bible_repo::{
     search_bible_verses,
 };
 use crate::connection::Database;
+use crate::content_pack_repo::{PackInstallReport, install_sdeck_pack};
 use crate::error::DbError;
 use crate::plan_service::{build_plan_from_file_sync, build_plan_from_text_sync};
 use crate::seed::seed_defaults_if_empty;
@@ -109,6 +110,10 @@ enum DbRequest {
         text: String,
         translation_code: String,
         reply: Sender<Result<GeneratedServicePlan, DbError>>,
+    },
+    InstallSdeckPack {
+        pack: Box<SdeckPack>,
+        reply: Sender<Result<PackInstallReport, DbError>>,
     },
 }
 
@@ -307,6 +312,14 @@ impl DbWorker {
         .await
     }
 
+    pub async fn install_sdeck_pack(&self, pack: SdeckPack) -> Result<PackInstallReport, DbError> {
+        self.call(|reply| DbRequest::InstallSdeckPack {
+            pack: Box::new(pack),
+            reply,
+        })
+        .await
+    }
+
     async fn call<T>(
         &self,
         build: impl FnOnce(Sender<Result<T, DbError>>) -> DbRequest,
@@ -459,6 +472,9 @@ fn worker_loop(mut db: Database, rx: Receiver<DbRequest>) {
                     &text,
                     &translation_code,
                 ));
+            }
+            DbRequest::InstallSdeckPack { pack, reply } => {
+                let _ = reply.send_blocking(install_sdeck_pack(db.conn_mut(), &pack));
             }
         }
     }

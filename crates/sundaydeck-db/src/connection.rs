@@ -9,6 +9,11 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (1, include_str!("../migrations/0001_initial.sql")),
     (2, include_str!("../migrations/0002_scripture.sql")),
     (3, include_str!("../migrations/0003_video_backgrounds.sql")),
+    (
+        4,
+        include_str!("../migrations/0004_camera_and_transitions.sql"),
+    ),
+    (5, include_str!("../migrations/0005_global_content.sql")),
 ];
 
 /// Managed SQLite database handle configured in WAL mode with foreign keys enabled.
@@ -76,9 +81,9 @@ fn run_migrations(conn: &mut Connection) -> Result<(), DbError> {
             continue;
         }
 
-        // Migration 3 rebuilds the `themes` table to widen the CHECK constraint for `video_loop`;
+        // Migrations 3, 4, and 5 rebuild tables with wider CHECK constraints;
         // SQLite requires disabling foreign_keys outside the transaction during table swap.
-        let defer_fk = version == 3;
+        let defer_fk = version == 3 || version == 4 || version == 5;
         if defer_fk {
             conn.execute_batch("PRAGMA foreign_keys = OFF;")?;
         }

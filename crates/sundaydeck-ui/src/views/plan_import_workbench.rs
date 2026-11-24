@@ -255,6 +255,7 @@ fn render_item_inspector(
     let deck = build_deck_for_service_item(
         &planned.item,
         None,
+        store.active_bilingual_mode(),
         &store.songs,
         &store.themes,
         fallback_theme,
@@ -348,7 +349,9 @@ fn render_item_inspector(
         ServiceItemPayload::Song { .. } => "Linked Song from Library",
         ServiceItemPayload::Scripture { .. } => "Offline Bible Passage",
         ServiceItemPayload::TextDeck { .. } => "Auto-Split Sermon Slides",
-        ServiceItemPayload::CustomSlide { .. } => "Themed Projection Slide",
+        ServiceItemPayload::CustomSlide { .. } | ServiceItemPayload::CustomDeck { .. } => {
+            "Themed Projection Slide"
+        }
         _ => "Service Item",
     };
 

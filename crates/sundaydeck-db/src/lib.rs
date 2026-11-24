@@ -1,6 +1,8 @@
 pub mod bible_repo;
 pub mod connection;
+pub mod content_pack_repo;
 pub mod error;
+pub mod legacy_importers;
 pub mod media_repo;
 pub mod plan_service;
 pub mod seed;
@@ -11,6 +13,7 @@ pub mod theme_repo;
 pub mod worker;
 
 pub use connection::Database;
+pub use content_pack_repo::{ContentPackRecord, PackInstallReport};
 pub use error::DbError;
 pub use media_repo::{MediaAsset, MediaKind};
 pub use settings_repo::AppSettings;

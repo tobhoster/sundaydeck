@@ -1,11 +1,16 @@
 pub mod alerts;
+pub mod bible_aliases;
 pub mod bible_books;
 pub mod bible_defaults;
 pub mod bible_import;
+pub mod custom_slide;
 pub mod defaults;
 pub mod docx_outline_import;
 pub mod error;
+pub mod global_content;
+pub mod hymnal_importers;
 pub mod ids;
+pub mod legacy_formats;
 pub mod live_state;
 pub mod ooxml_import;
 pub mod openlyrics;
@@ -20,14 +25,35 @@ pub mod snapshot;
 pub mod song;
 pub mod song_import;
 pub mod theme;
+pub mod theme_defaults;
 pub mod timer;
+pub mod usfm_import;
 
 pub use alerts::{AlertPosition, AlertTimeout, AudienceAlert};
-pub use bible_books::{BibleBookMeta, CANONICAL_BOOKS, autocomplete_books, book_by_number};
+pub use bible_aliases::{DEUTEROCANON_BOOKS, strip_diacritics};
+pub use bible_books::{
+    BibleBookMeta, CANONICAL_BOOKS, all_canonical_books, autocomplete_books, book_by_number,
+};
 pub use bible_import::{ParsedBible, ParsedVerse, import_bible_xml};
+pub use custom_slide::{
+    CustomSlideLayout, CustomSlideSpec, SlideTransition, TransitionDirection,
+    chroma_key_green_theme, default_custom_slide_templates,
+};
 pub use docx_outline_import::{extract_docx_bytes, extract_plain_outline};
 pub use error::{
     IdParseError, ImportError, PresentationError, ScriptureParseError, ValidationError,
+};
+pub use global_content::{
+    BilingualDisplayMode, ChurchProfile, HymnalEntry, LiturgyLine, LiturgySpeaker, LiturgyTemplate,
+    PackBiblePayload, SdeckPack, SdeckPackManifest, export_sdeck_pack, format_bilingual_body,
+    import_sdeck_pack, parse_hymn_jump_query, public_domain_liturgies, sample_wesley_hymn_pd,
+};
+pub use hymnal_importers::{
+    SongImporter, UniversalSongImporter, import_chordpro_song, import_numbered_hymnal_json,
+    import_numbered_hymnal_text,
+};
+pub use legacy_formats::{
+    import_freeshow_or_videopsalm_json, import_propresenter6_xml, strip_rtf_to_plain_text,
 };
 pub use ids::{
     AlertId, ArrangementId, BibleTranslationId, MediaAssetId, SectionId, ServiceId, ServiceItemId,
@@ -44,10 +70,10 @@ pub use plan_builder::{
     build_service_plan,
 };
 pub use plan_matchers::{extract_scripture_refs_from_text, sample_pastor_sermon_outline};
-pub use reflow::reflow_song;
+pub use reflow::{reflow_song, reflow_song_bilingual};
 pub use scripture::{
-    BibleTranslation, BibleVerse, PaginationBudget, ScriptureRef, paginate_scripture,
-    parse_scripture_ref,
+    BibleTranslation, BibleVerse, PaginationBudget, ScriptureRef, paginate_parallel_scripture,
+    paginate_scripture, parse_scripture_ref,
 };
 pub use sdeck_bundle::{
     SdeckBundle, SdeckExportReport, SdeckManifest, export_sdeck_bundle, import_sdeck_bundle,
@@ -60,7 +86,10 @@ pub use snapshot::{
 pub use song::{Arrangement, ReflowMode, SectionKind, Song, SongSection};
 pub use song_import::{detect_and_import_song, import_plain_text_song, import_songselect_usr};
 pub use theme::{
-    BackgroundSpec, HorizontalAlign, ImageFit, Rgba8, SafeMargins, TextShadow, Theme, ThemeTarget,
-    VerticalAlign,
+    BackgroundSource, BackgroundSpec, HorizontalAlign, ImageFit, Rgba8, SafeMargins, TextShadow,
+    Theme, ThemeTarget, VerticalAlign,
 };
 pub use timer::{ServiceTimer, TimerDisplay, TimerKind, TimerUrgency};
+pub use usfm_import::{
+    BibleImporter, UsfmBibleImporter, XmlBibleImporter, detect_and_import_bible, import_usfm_text,
+};

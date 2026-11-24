@@ -3,8 +3,8 @@ use gpui::{
     ParentElement, Render, StatefulInteractiveElement, Styled, Window, div, px, rgba,
 };
 use sundaydeck_core::{
-    Arrangement, ArrangementId, ReflowMode, SectionId, SectionKind, Song, SongId, SongSection,
-    detect_and_import_song, reflow_song,
+    Arrangement, ArrangementId, ReflowMode, SectionId, SectionKind, Song, SongId, SongImporter,
+    SongSection, UniversalSongImporter, reflow_song,
 };
 use sundaydeck_db::DbWorker;
 
@@ -134,6 +134,8 @@ impl SongEditorModal {
             label,
             ordinal: self.draft.sections.len() as u32,
             body: String::new(),
+            secondary_body: None,
+            stage_chords: None,
         };
         let new_id = new_sec.id;
         self.draft.sections.push(new_sec);
@@ -193,16 +195,18 @@ impl SongEditorModal {
 
     fn import_pasted_song(&mut self, cx: &mut Context<Self>) {
         let raw = self.import_text_input.read(cx).value().to_owned();
-        match detect_and_import_song("pasted.txt", &raw) {
-            Ok(imported) => {
+        match UniversalSongImporter.import_text("pasted.txt", &raw) {
+            Ok(imported_list) => {
                 self.import_error = None;
-                self.store
-                    .update(cx, |s, cx| s.upsert_song_local(imported.clone(), cx));
-                if let Some(db) = self.db.clone() {
-                    cx.spawn(async move |_, _| {
-                        let _ = db.upsert_song(imported).await;
-                    })
-                    .detach();
+                for imported in imported_list {
+                    self.store
+                        .update(cx, |s, cx| s.upsert_song_local(imported.clone(), cx));
+                    if let Some(db) = self.db.clone() {
+                        cx.spawn(async move |_, _| {
+                            let _ = db.upsert_song(imported).await;
+                        })
+                        .detach();
+                    }
                 }
                 cx.emit(ModalClosed);
             }
@@ -391,12 +395,18 @@ fn blank_song_template() -> Song {
         default_theme_id: None,
         default_arrangement_id: Some(arr),
         default_reflow_mode: ReflowMode::ByStanza,
+        primary_lang: "en".to_owned(),
+        secondary_lang: None,
+        hymnal_entries: Vec::new(),
+        traditions: Vec::new(),
         sections: vec![SongSection {
             id: v1,
             kind: SectionKind::Verse,
             label: "Verse 1".to_owned(),
             ordinal: 0,
             body: String::new(),
+            secondary_body: None,
+            stage_chords: None,
         }],
         arrangements: vec![Arrangement {
             id: arr,

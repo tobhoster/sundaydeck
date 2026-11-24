@@ -3,12 +3,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use gpui::{Context, Entity, EventEmitter, Global};
 use sundaydeck_core::{
-    BibleTranslation, BibleVerse, DeckCursor, PresentationCommand, PresentationEngine,
-    PresentationError, PresentationSnapshot, ReflowMode, ServiceId, ServiceItem, ServiceItemId,
-    ServiceItemPayload, ServiceSchedule, SlideId, Song, SongId, Theme, ThemeId, ThemeTarget,
-    reflow_song,
+    BibleTranslation, BibleVerse, BilingualDisplayMode, CustomSlideSpec, DeckCursor,
+    PresentationCommand, PresentationEngine, PresentationError, PresentationSnapshot, ReflowMode,
+    ScriptureRef, ServiceId, ServiceItem, ServiceItemId, ServiceItemPayload, ServiceSchedule,
+    SlideId, Song, SongId, Theme, ThemeId, ThemeTarget, default_custom_slide_templates,
+    reflow_song_bilingual,
 };
 use sundaydeck_db::{AppSettings, BootstrapData, DbWorker};
+use sundaydeck_overlay::{OverlayPayload, OverlayServerHandle};
 use sundaydeck_voice::{AudioInputDevice, VoiceEngineHandle, VoiceTelemetry};
 
 use crate::deck_builder::build_deck_for_service_item;
@@ -44,6 +46,7 @@ pub struct PresentationStore {
     pub settings: AppSettings,
     pub themes: Vec<Arc<Theme>>,
     pub songs: Vec<Song>,
+    pub custom_slides: Vec<CustomSlideSpec>,
     pub filtered_song_ids: Option<Vec<SongId>>,
     pub song_search_query: String,
     pub services: Vec<ServiceSchedule>,
@@ -55,6 +58,7 @@ pub struct PresentationStore {
     pub bible_browse_mode: BibleBrowseMode,
     pub bible_verses: Vec<BibleVerse>,
     pub selected_verse_range: Option<(usize, usize)>,
+    pub queued_scriptures: Vec<ScriptureRef>,
     pub status_banner: Option<String>,
     pub clock_override_ms: Option<i64>,
     pub fixed_clock_label: Option<String>,
@@ -63,6 +67,7 @@ pub struct PresentationStore {
     pub voice_telemetry: VoiceTelemetry,
     pub voice_devices: Vec<AudioInputDevice>,
     pub(crate) voice_engine: Option<VoiceEngineHandle>,
+    pub overlay_server: Option<OverlayServerHandle>,
     pub(crate) last_loop_advance_ms: i64,
 }
 
@@ -105,6 +110,7 @@ impl PresentationStore {
             settings: data.settings,
             themes,
             songs: data.loaded_songs,
+            custom_slides: default_custom_slide_templates(),
             filtered_song_ids: None,
             song_search_query: String::new(),
             services,
@@ -119,6 +125,7 @@ impl PresentationStore {
             },
             bible_verses: data.initial_chapter_verses,
             selected_verse_range: Some((0, 0)),
+            queued_scriptures: Vec::new(),
             status_banner: None,
             clock_override_ms: None,
             fixed_clock_label: None,
@@ -127,6 +134,7 @@ impl PresentationStore {
             voice_telemetry: VoiceTelemetry::default(),
             voice_devices: Vec::new(),
             voice_engine: None,
+            overlay_server: None,
             last_loop_advance_ms: 0,
         };
 
@@ -197,6 +205,9 @@ impl PresentationStore {
             self.voice_telemetry.suggested_slide_index = None;
             self.voice_telemetry.active_slide_progress = 0.0;
             self.sync_voice_engine_state();
+        }
+        if let Some(overlay) = &self.overlay_server {
+            overlay.publish(&OverlayPayload::from_snapshot(&transition.snapshot));
         }
         cx.emit(StoreEvent {
             kind: transition.kind,
@@ -361,10 +372,11 @@ impl PresentationStore {
             .and_then(|id| self.theme_by_id(id))
             .or_else(|| self.default_theme_for(ThemeTarget::Song))
             .unwrap_or_else(|| self.active_theme());
-        let slides = reflow_song(
+        let slides = reflow_song_bilingual(
             &song,
             song.default_arrangement_id,
             Some(self.preview_reflow_mode),
+            self.active_bilingual_mode(),
         );
 
         match DeckCursor::try_new(None, song.title, slides, theme) {
@@ -398,7 +410,12 @@ impl PresentationStore {
                 .find(|s| s.title == preview.title)
                 .cloned()
         {
-            let slides = reflow_song(&song, song.default_arrangement_id, Some(mode));
+            let slides = reflow_song_bilingual(
+                &song,
+                song.default_arrangement_id,
+                Some(mode),
+                self.active_bilingual_mode(),
+            );
             if let Ok(deck) =
                 DeckCursor::try_new(None, song.title, slides, Arc::clone(&preview.theme))
             {
@@ -449,6 +466,14 @@ impl PresentationStore {
         Some((self.service.id, ordered_ids))
     }
 
+    pub fn active_bilingual_mode(&self) -> BilingualDisplayMode {
+        match self.settings.bilingual_mode.as_str() {
+            "primary_only" => BilingualDisplayMode::PrimaryOnly,
+            "secondary_only" => BilingualDisplayMode::SecondaryOnly,
+            _ => BilingualDisplayMode::BilingualStacked,
+        }
+    }
+
     fn build_deck_for_item(
         &self,
         item: &ServiceItem,
@@ -457,6 +482,7 @@ impl PresentationStore {
         build_deck_for_service_item(
             item,
             reflow_override,
+            self.active_bilingual_mode(),
             &self.songs,
             &self.themes,
             self.active_theme(),

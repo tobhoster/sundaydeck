@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::custom_slide::CustomSlideSpec;
 use crate::error::ValidationError;
 use crate::ids::{ArrangementId, MediaAssetId, ServiceId, ServiceItemId, SongId, ThemeId};
 use crate::song::ReflowMode;
@@ -49,6 +50,11 @@ pub enum ServiceItemPayload {
         body: String,
         footer: Option<String>,
     },
+    CustomDeck {
+        slides: Vec<CustomSlideSpec>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        auto_advance_secs: Option<u16>,
+    },
 }
 
 impl ServiceItemPayload {
@@ -58,7 +64,7 @@ impl ServiceItemPayload {
             Self::Scripture { .. } => "scripture",
             Self::Presentation { .. } | Self::TextDeck { .. } => "presentation",
             Self::AnnouncementLoop { .. } => "announcement_loop",
-            Self::CustomSlide { .. } => "custom_slide",
+            Self::CustomSlide { .. } | Self::CustomDeck { .. } => "custom_slide",
         }
     }
 
@@ -69,7 +75,7 @@ impl ServiceItemPayload {
             Self::Presentation { .. } => "DECK",
             Self::TextDeck { .. } => "SERMON",
             Self::AnnouncementLoop { .. } => "LOOP",
-            Self::CustomSlide { .. } => "SLIDE",
+            Self::CustomSlide { .. } | Self::CustomDeck { .. } => "CUSTOM",
         }
     }
 }
