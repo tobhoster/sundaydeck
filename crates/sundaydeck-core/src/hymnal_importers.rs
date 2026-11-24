@@ -185,7 +185,7 @@ pub fn import_chordpro_song(raw: &str) -> Result<Song, ImportError> {
     ))
 }
 
-/// Parses bulk numbered hymnbook sheets (`CCC 315 — Title`, `CAC 120`, `MHB 1`, `UMH 378`, `Himno 42`)
+/// Parses bulk numbered hymnbook sheets (`BH 330 — Title`, `UMH 378`, `HC 15`, `HGT 42`, `Himno 42`)
 /// supporting optional paired bilingual lines (`Primary line || English translation`).
 pub fn import_numbered_hymnal_text(raw: &str) -> Result<Vec<Song>, ImportError> {
     let mut songs = Vec::new();
@@ -254,7 +254,7 @@ fn default_stanza_label() -> String {
     "Verse".to_owned()
 }
 
-/// Parses structured JSON hymnbook arrays (`[{ "hymnal_code": "CAC", "hymn_number": 120, ... }]`).
+/// Parses structured JSON hymnbook arrays (`[{ "hymnal_code": "BH", "hymn_number": 330, ... }]`).
 pub fn import_numbered_hymnal_json(raw: &str) -> Result<Vec<Song>, ImportError> {
     let entries: Vec<JsonHymnEntry> =
         serde_json::from_str(raw).map_err(|e| ImportError::UnsupportedFormat {
@@ -375,8 +375,8 @@ fn build_hymnal_song(entry: HymnalEntry, title: String, body: &str) -> Option<So
         return None;
     }
     let tradition = match entry.hymnal_code.as_str() {
-        "CCC" => "CCC",
-        "CAC" => "CAC",
+        "BH" => "Baptist",
+        "HC" | "CC" => "Portuguese / Brazil",
         "MHB" | "UMH" => "Methodist",
         "HGT" | "HIMNO" => "Spanish / Alabanza",
         _ => "Traditional Hymns",

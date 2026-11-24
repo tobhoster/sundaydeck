@@ -101,17 +101,17 @@ SCENES: list[AdScene] = [
         ),
     ),
     AdScene(
-        slug="06-global-churches",
+        slug="06-americas-churches",
         images=[
             "35-global-audience-liturgy-response.png",
             "36-global-settings-church-style-packs.png",
         ],
-        headline="Made for Churches Worldwide",
-        subline="Protestant & Catholic Bibles · Numbered Hymnbooks · Bilingual Lyrics",
+        headline="Made for Every Church Tradition",
+        subline="Protestant & Catholic Bibles · Numbered Hymnbooks · English, Spanish & Portuguese",
         voiceover=(
-            "Built for congregations everywhere — with Catholic and Protestant Bibles, "
-            "numbered hymnbooks, bilingual lyrics, call-and-response readings, and "
-            "portable service packs."
+            "Built for churches across North and South America — with Catholic and "
+            "Protestant Bibles, numbered hymnbooks, English, Spanish, and Portuguese "
+            "bilingual lyrics, call-and-response readings, and portable service packs."
         ),
     ),
     AdScene(

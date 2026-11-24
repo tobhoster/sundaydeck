@@ -186,9 +186,9 @@ pub fn sample_amazing_grace() -> Song {
                 hymn_number: 378,
             },
             HymnalEntry {
-                hymnal_code: "SS&S".to_owned(),
-                hymnal_name: "Sacred Songs & Solos".to_owned(),
-                hymn_number: 230,
+                hymnal_code: "BH".to_owned(),
+                hymnal_name: "Baptist Hymnal".to_owned(),
+                hymn_number: 330,
             },
         ],
         traditions: vec!["Traditional Hymns".to_owned(), "Methodist".to_owned()],
@@ -327,9 +327,9 @@ pub fn sample_it_is_well() -> Song {
         primary_lang: "en".to_owned(),
         secondary_lang: None,
         hymnal_entries: vec![HymnalEntry {
-            hymnal_code: "SS&S".to_owned(),
-            hymnal_name: "Sacred Songs & Solos".to_owned(),
-            hymn_number: 901,
+            hymnal_code: "BH".to_owned(),
+            hymnal_name: "Baptist Hymnal".to_owned(),
+            hymn_number: 410,
         }],
         traditions: vec!["Traditional Hymns".to_owned()],
         sections: vec![

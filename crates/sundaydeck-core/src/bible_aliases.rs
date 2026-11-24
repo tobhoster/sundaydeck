@@ -1,34 +1,33 @@
 use crate::bible_books::BibleBookMeta;
 
-/// Folds Latin accents, Spanish diacritics, and Yoruba/African tonal & sub-dot marks
-/// (`ẹ/ọ/ṣ`, acute/grave/macron/circumflex/tilde) into lowercase ASCII so search and book
-/// matching work regardless of keyboard layout.
+/// Folds Latin, Spanish, Portuguese, and French accents and diacritics
+/// (acute, grave, circumflex, tilde, diaeresis, cedilla) into lowercase ASCII
+/// so Scripture search and book matching work regardless of keyboard layout.
 pub fn strip_diacritics(raw: &str) -> String {
     let mut out = String::with_capacity(raw.len());
     for ch in raw.chars() {
         let lower = ch.to_lowercase().next().unwrap_or(ch);
-        // Drop Unicode combining diacritical marks (U+0300..=U+036F, U+1AB0..=U+1AFF, U+1DC0..=U+1DFF).
-        if matches!(lower as u32, 0x0300..=0x036F | 0x1AB0..=0x1AFF | 0x1DC0..=0x1DFF) {
+        // Drop Unicode combining diacritical marks (U+0300..=U+036F).
+        if matches!(lower as u32, 0x0300..=0x036F) {
             continue;
         }
         let folded = match lower {
-            'á' | 'à' | 'â' | 'ä' | 'ã' | 'å' | 'ā' | 'ă' | 'ą' | 'ạ' => 'a',
-            'é' | 'è' | 'ê' | 'ë' | 'ē' | 'ĕ' | 'ė' | 'ę' | 'ě' | 'ẹ' => 'e',
-            'í' | 'ì' | 'î' | 'ï' | 'ĩ' | 'ī' | 'ĭ' | 'į' | 'ı' | 'ị' => 'i',
-            'ó' | 'ò' | 'ô' | 'ö' | 'õ' | 'ø' | 'ō' | 'ŏ' | 'ő' | 'ọ' => 'o',
-            'ú' | 'ù' | 'û' | 'ü' | 'ũ' | 'ū' | 'ŭ' | 'ů' | 'ű' | 'ų' | 'ụ' => 'u',
+            'á' | 'à' | 'â' | 'ä' | 'ã' | 'å' | 'ā' | 'ă' | 'ą' => 'a',
+            'é' | 'è' | 'ê' | 'ë' | 'ē' | 'ĕ' | 'ė' | 'ę' | 'ě' => 'e',
+            'í' | 'ì' | 'î' | 'ï' | 'ĩ' | 'ī' | 'ĭ' | 'į' | 'ı' => 'i',
+            'ó' | 'ò' | 'ô' | 'ö' | 'õ' | 'ø' | 'ō' | 'ŏ' | 'ő' => 'o',
+            'ú' | 'ù' | 'û' | 'ü' | 'ũ' | 'ū' | 'ŭ' | 'ů' | 'ű' | 'ų' => 'u',
             'ý' | 'ÿ' | 'ŷ' | 'ỳ' => 'y',
             'ñ' | 'ń' | 'ņ' | 'ň' | 'ǹ' => 'n',
             'ç' | 'ć' | 'ĉ' | 'ċ' | 'č' => 'c',
-            'ś' | 'ŝ' | 'ş' | 'š' | 'ṣ' => 's',
+            'ś' | 'ŝ' | 'ş' | 'š' => 's',
             'ź' | 'ż' | 'ž' => 'z',
             'ŕ' | 'ŗ' | 'ř' => 'r',
             'ĺ' | 'ļ' | 'ľ' | 'ł' => 'l',
-            'ď' | 'đ' | 'ḍ' => 'd',
-            'ť' | 'ţ' | 'ṭ' => 't',
-            'ḿ' => 'm',
+            'ď' | 'đ' => 'd',
+            'ť' | 'ţ' => 't',
             'ğ' | 'ĝ' | 'ġ' | 'ģ' => 'g',
-            'ĥ' | 'ħ' | 'ḥ' => 'h',
+            'ĥ' | 'ħ' => 'h',
             'ĵ' => 'j',
             'ķ' => 'k',
             'ŵ' => 'w',
@@ -58,7 +57,7 @@ pub const DEUTEROCANON_BOOKS: &[BibleBookMeta] = &[
         usfx_id: "JDT",
         single_chapter: false,
         is_deuterocanon: true,
-        aliases: &["jdt", "judith", "judit", "jdth"],
+        aliases: &["jdt", "judith", "judit", "judite", "jdth"],
     },
     BibleBookMeta {
         number: 69,
@@ -73,6 +72,7 @@ pub const DEUTEROCANON_BOOKS: &[BibleBookMeta] = &[
             "wisdomofsolomon",
             "sab",
             "sabiduria",
+            "sabedoria",
             "sagesse",
             "sag",
         ],
@@ -101,7 +101,7 @@ pub const DEUTEROCANON_BOOKS: &[BibleBookMeta] = &[
         usfx_id: "BAR",
         single_chapter: false,
         is_deuterocanon: true,
-        aliases: &["bar", "baruch", "baruc"],
+        aliases: &["bar", "baruch", "baruc", "baruque"],
     },
     BibleBookMeta {
         number: 72,
@@ -116,6 +116,7 @@ pub const DEUTEROCANON_BOOKS: &[BibleBookMeta] = &[
             "1macc",
             "1maccabees",
             "1macabeos",
+            "1macabeus",
             "imacc",
         ],
     },
@@ -132,6 +133,7 @@ pub const DEUTEROCANON_BOOKS: &[BibleBookMeta] = &[
             "2macc",
             "2maccabees",
             "2macabeos",
+            "2macabeus",
             "iimacc",
         ],
     },
@@ -155,7 +157,8 @@ pub const DEUTEROCANON_BOOKS: &[BibleBookMeta] = &[
     },
 ];
 
-/// Localized Spanish, Yoruba/African, and French book aliases (pre-folded to lowercase ASCII).
+/// Localized Spanish, Portuguese (Brazil / South America), and French (Canada) book aliases
+/// pre-folded to lowercase ASCII.
 pub const LOCALIZED_BOOK_ALIASES: &[(&str, u8)] = &[
     // Spanish (Reina-Valera / Biblia Católica)
     ("genesis", 1),
@@ -242,44 +245,41 @@ pub const LOCALIZED_BOOK_ALIASES: &[(&str, u8)] = &[
     ("apocalipsis", 66),
     ("apoc", 66),
     ("ap", 66),
-    // Yoruba & African Church aliases (folded from tonal/sub-dot Unicode)
-    ("genesisi", 1),
-    ("eksodu", 2),
-    ("lefitiku", 3),
-    ("numeri", 4),
-    ("deuteronomi", 5),
-    ("josua", 6),
-    ("onidajo", 7),
-    ("rutu", 8),
-    ("orindafidi", 19),
-    ("iwemimo", 19),
-    ("owe", 20),
-    ("oniwaasu", 21),
-    ("orinsolomoni", 22),
-    ("aisaya", 23),
-    ("jeremaya", 24),
-    ("esekieli", 26),
-    ("matiu", 40),
-    ("maaku", 41),
-    ("luku", 42),
-    ("johanu", 43),
-    ("iseawonaposteli", 44),
-    ("romu", 45),
-    ("1korinti", 46),
-    ("2korinti", 47),
-    ("galatia", 48),
-    ("efesu", 49),
-    ("filipi", 50),
-    ("kolose", 51),
-    ("heberu", 58),
-    ("jakobu", 59),
-    ("1peteru", 60),
-    ("2peteru", 61),
-    ("1johanu", 62),
-    ("2johanu", 63),
-    ("3johanu", 64),
-    ("ifihan", 66),
-    // French
+    // Portuguese (Brazil & South America — Almeida / Bíblia Católica)
+    ("juizes", 7),
+    ("jz", 7),
+    ("rute", 8),
+    ("1reis", 11),
+    ("2reis", 12),
+    ("1rs", 11),
+    ("2rs", 12),
+    ("neemias", 16),
+    ("canticos", 22),
+    ("ct", 22),
+    ("lamentacoes", 25),
+    ("oseias", 28),
+    ("obadias", 31),
+    ("miqueias", 33),
+    ("naum", 34),
+    ("habacuque", 35),
+    ("ageu", 37),
+    ("mateus", 40),
+    ("joao", 43),
+    ("jo", 43),
+    ("atos", 44),
+    ("at", 44),
+    ("colossenses", 51),
+    ("1tessalonicenses", 52),
+    ("2tessalonicenses", 53),
+    ("filemom", 57),
+    ("hebreus", 58),
+    ("tiago", 59),
+    ("tg", 59),
+    ("1joao", 62),
+    ("2joao", 63),
+    ("3joao", 64),
+    ("apocalipse", 66),
+    // French (Canada / Québec)
     ("genese", 1),
     ("psaumes", 19),
     ("psa", 19),

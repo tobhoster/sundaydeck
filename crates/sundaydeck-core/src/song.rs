@@ -133,7 +133,7 @@ pub struct SongSection {
     pub label: String,
     pub ordinal: u32,
     pub body: String,
-    /// Optional paired second-language lyrics (e.g. Yoruba + English or Spanish + English).
+    /// Optional paired second-language lyrics (e.g. Spanish + English or Portuguese + English).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secondary_body: Option<String>,
     /// Optional chord-annotated lyrics surfaced only on the Stage Confidence Monitor.

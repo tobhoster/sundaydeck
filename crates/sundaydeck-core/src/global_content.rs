@@ -13,7 +13,7 @@ use crate::song::{Arrangement, ReflowMode, SectionKind, Song, SongSection};
 
 pub const SDECK_PACK_SCHEMA_VERSION: u32 = 1;
 
-/// First-class hymnal indexing entry (e.g. `CCC #315`, `CAC #120`, `MHB #1`, `UMH #378`, `HGT #82`).
+/// First-class hymnal indexing entry (e.g. `BH #330`, `UMH #378`, `HC #15`, `HGT #42`).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HymnalEntry {
     pub hymnal_code: String,
@@ -27,7 +27,7 @@ impl HymnalEntry {
     }
 }
 
-/// Parses instant hymn-number search queries like `#120`, `cac 120`, `ccc #315`, `mhb 1`, `himno 42`.
+/// Parses instant hymn-number search queries like `#330`, `bh 330`, `umh 378`, `hc #15`, `himno 42`.
 /// Returns `(optional_hymnal_code, hymn_number)`.
 pub fn parse_hymn_jump_query(raw: &str) -> Option<(Option<String>, u32)> {
     let trimmed = raw.trim();
@@ -67,7 +67,7 @@ pub fn parse_hymn_jump_query(raw: &str) -> Option<(Option<String>, u32)> {
     None
 }
 
-/// Display policy for native bilingual songs (`Yoruba + English`, `Spanish + English`, etc.).
+/// Display policy for native bilingual songs (`Spanish + English`, `Portuguese + English`, etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BilingualDisplayMode {
@@ -105,8 +105,8 @@ pub fn format_bilingual_body(
     }
 }
 
-/// Speaker role for Catholic Order of Mass, Methodist Responsive Readings, Anglican Creeds,
-/// and CCC / CAC call-and-response liturgical slides.
+/// Speaker role for Catholic Order of Mass, Methodist Responsive Readings, Anglican/Lutheran
+/// Creeds, and congregational call-and-response liturgical slides.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LiturgySpeaker {
@@ -150,43 +150,44 @@ pub struct LiturgyTemplate {
     pub lines: Vec<LiturgyLine>,
 }
 
-/// Calm, volunteer-friendly onboarding profile ("Choose Your Church Style", Section 4).
+/// Calm, volunteer-friendly onboarding profile ("Choose Your Church Style") for
+/// popular North & South American worship traditions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ChurchProfile {
     #[default]
     Contemporary,
-    AfricanDiaspora,
+    BaptistEvangelical,
     MethodistMainline,
     CatholicParish,
-    SpanishBilingual,
+    SpanishPortugueseBilingual,
 }
 
 impl ChurchProfile {
     pub const ALL: [Self; 5] = [
         Self::Contemporary,
-        Self::AfricanDiaspora,
+        Self::BaptistEvangelical,
         Self::MethodistMainline,
         Self::CatholicParish,
-        Self::SpanishBilingual,
+        Self::SpanishPortugueseBilingual,
     ];
 
     pub const fn as_db_str(self) -> &'static str {
         match self {
             Self::Contemporary => "contemporary",
-            Self::AfricanDiaspora => "african_diaspora",
+            Self::BaptistEvangelical => "baptist_evangelical",
             Self::MethodistMainline => "methodist_mainline",
             Self::CatholicParish => "catholic_parish",
-            Self::SpanishBilingual => "spanish_bilingual",
+            Self::SpanishPortugueseBilingual => "spanish_bilingual",
         }
     }
 
     pub fn from_db_str(raw: &str) -> Self {
         match raw {
-            "african_diaspora" => Self::AfricanDiaspora,
+            "baptist_evangelical" => Self::BaptistEvangelical,
             "methodist_mainline" => Self::MethodistMainline,
             "catholic_parish" => Self::CatholicParish,
-            "spanish_bilingual" => Self::SpanishBilingual,
+            "spanish_bilingual" => Self::SpanishPortugueseBilingual,
             _ => Self::Contemporary,
         }
     }
@@ -194,10 +195,10 @@ impl ChurchProfile {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Contemporary => "Contemporary",
-            Self::AfricanDiaspora => "African & Diaspora (CCC / CAC / RCCG)",
+            Self::BaptistEvangelical => "Baptist & Evangelical",
             Self::MethodistMainline => "Methodist / Mainline",
             Self::CatholicParish => "Catholic Parish",
-            Self::SpanishBilingual => "Spanish / Bilingual",
+            Self::SpanishPortugueseBilingual => "Spanish / Portuguese",
         }
     }
 
@@ -206,11 +207,11 @@ impl ChurchProfile {
     }
 
     pub const fn enables_bilingual_stacked(self) -> bool {
-        matches!(self, Self::AfricanDiaspora | Self::SpanishBilingual)
+        matches!(self, Self::SpanishPortugueseBilingual)
     }
 
     pub const fn pins_hymn_number_search(self) -> bool {
-        matches!(self, Self::AfricanDiaspora | Self::MethodistMainline)
+        matches!(self, Self::BaptistEvangelical | Self::MethodistMainline)
     }
 }
 

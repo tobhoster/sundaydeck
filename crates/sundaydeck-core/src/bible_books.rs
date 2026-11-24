@@ -328,8 +328,8 @@ pub fn book_by_usfx(usfx_id: &str) -> Option<&'static BibleBookMeta> {
         .or_else(|| book_by_osis(usfx_id))
 }
 
-/// Resolves a user-typed book name or shorthand (`jn`, `1cor`, `wis`, `sir`, `sab`, `sal`, `orin dafidi`)
-/// across English, Spanish, Yoruba/African, and French aliases with diacritic folding.
+/// Resolves a user-typed book name or shorthand (`jn`, `1cor`, `wis`, `sir`, `sab`, `sal`, `joao`)
+/// across English, Spanish, Portuguese, and French aliases with diacritic folding.
 pub fn match_book_name(raw: &str) -> Option<&'static BibleBookMeta> {
     let norm = normalize_book_token(raw);
     if norm.is_empty() {
@@ -347,7 +347,7 @@ pub fn match_book_name(raw: &str) -> Option<&'static BibleBookMeta> {
         }
     }
 
-    // 2. Exact localized alias match (Spanish, Yoruba, French)
+    // 2. Exact localized alias match (Spanish, Portuguese, French)
     if let Some(book_num) = lookup_localized_alias(&norm) {
         return book_by_number(book_num);
     }

@@ -45,7 +45,7 @@ SundayDeck is designed around quiet, predictable Sunday morning craft:
 - **Pastor Notes to Service Order** — Drop a pastor's PowerPoint (`.pptx`), Word document (`.docx`), or plain sermon outline to build a reviewable service order in seconds — matching songs, pulling Scriptures offline, and laying out sermon points.
 - **Sanctuary, Stage & Livestream Ready** — Independent Audience Projector and Stage Confidence Monitor windows (with current + next slide, clock, speaker timers, and private stage cues), plus a built-in local **OBS Studio** transparent lower-third overlay and chroma-key theme.
 - **Hands-Free Microphone Auto-Follow** — Listens locally to your room mic or soundboard to follow sung lyrics in safe Suggest/Auto modes and queues spoken sermon Bible verses for one click — completely offline.
-- **Built for Global Congregations** — Full **66-book Protestant & 73-book Catholic Bibles**, accent-tolerant search (Yoruba, Spanish, French, English), **parallel dual-translation Scripture**, **numbered hymnbooks** (`CAC 120`, `CCC 315`, `MHB 1`, `#42`), **bilingual stacked lyrics**, and portable **`.sdeck` / `.sdeck-pack`** offline bundles.
+- **Built for Churches Across the Americas** — Full **66-book Protestant & 73-book Catholic Bibles**, accent-tolerant search (English, Spanish, Portuguese, French), **parallel dual-translation Scripture**, **numbered hymnbooks** (`BH 330`, `UMH 378`, `HC 15`, `#42`), **bilingual stacked lyrics**, and portable **`.sdeck` / `.sdeck-pack`** offline bundles.
 - **Easy Library Migration** — Import existing libraries from EasyWorship, OpenLP, ProPresenter, VideoPsalm, FreeShow, ChordPro, OpenLyrics, SongSelect, and standard USFM/USFX/OSIS/Zefania/SQLite Bibles.
 
 ---
@@ -103,9 +103,9 @@ Pick curated sanctuary photography, load local looping worship videos with custo
 | :---: | :---: |
 | <img src="docs/media/unsplash-mountains.png" alt="Sanctuary mountain photography background" width="100%" /> | <img src="docs/media/stage-monitor.png" alt="Stage Confidence Monitor" width="100%" /> |
 
-### 3. Global Churches, Numbered Hymnbooks & Bilingual Worship
+### 3. Protestant, Catholic & Bilingual Churches Across the Americas
 
-Open **Settings → Bibles & Packs** to choose your **Church Tradition** (`Contemporary`, `African & Diaspora`, `Methodist / Mainline`, `Catholic Parish`, `Spanish / Bilingual`), toggle **Bilingual Stacked / Primary / Secondary** lyrics, import 66- or 73-book offline Bibles, or install verified Public Domain `.sdeck-pack` starter packs.
+Open **Settings → Bibles & Packs** to choose your **Church Tradition** (`Contemporary`, `Baptist & Evangelical`, `Methodist / Mainline`, `Catholic Parish`, `Spanish / Portuguese`), toggle **Bilingual Stacked / Primary / Secondary** lyrics, import 66- or 73-book offline Bibles, or install verified Public Domain `.sdeck-pack` starter packs.
 
 > **Copyright Respect:** SundayDeck never bundles copyrighted contemporary worship songs or copyrighted Bible translations. Verified Public Domain starter packs can be generated reproducibly with `python3 scripts/build-starter-packs.py`, and churches can import their own legally licensed hymnbooks and Bibles in seconds.
 
@@ -136,6 +136,15 @@ Click **Auto-Follow** in the top bar, choose your microphone or soundboard input
 | Fix a typo live (Quick Edit) | `Cmd/Ctrl + E` |
 | Toggle Audience Projector window | `Cmd/Ctrl + Shift + A` |
 | Toggle Stage Confidence Monitor | `Cmd/Ctrl + Shift + S` |
+
+---
+
+## Church Software Should Be Free — Open to Contributions
+
+We believe church presentation software should be **free, simple, and accessible to every congregation** — from a church plant meeting in a school cafeteria to a full sanctuary with a volunteer media team.
+
+- **Completely free — no seat licenses, no activation keys, no annual renewals, no paywalls, and no watermarks.** Install SundayDeck on as many church computers and volunteer laptops as you need.
+- **Open to contributions:** We warmly welcome pull requests, bug reports, usability feedback from Sunday volunteers, English / Spanish / Portuguese / French translations, and verified public-domain starter packs. If something feels confusing ten minutes before service, open an issue and help us make it simpler for every church.
 
 ---
 

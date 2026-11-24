@@ -7,15 +7,15 @@ use sundaydeck_core::{
     parse_scripture_ref, public_domain_liturgies, reflow_song_bilingual, sample_wesley_hymn_pd,
     strip_rtf_to_plain_text,
 };
+use sundaydeck_db::Database;
 use sundaydeck_db::bible_repo::{get_passage, import_parsed_bible, search_bible_verses};
 use sundaydeck_db::content_pack_repo::{install_sdeck_pack, list_content_packs, list_liturgies};
 use sundaydeck_db::legacy_importers::{import_easyworship_sqlite, import_openlp_sqlite};
 use sundaydeck_db::song_repo::{get_song, search_songs, upsert_song};
-use sundaydeck_db::Database;
 
 #[test]
-fn catholic_73_book_usfm_import_and_multilingual_reference_parsing() {
-    // 73-book Catholic + Spanish + Yoruba + French localized book aliases
+fn catholic_73_book_usfm_import_and_americas_reference_parsing() {
+    // 73-book Catholic + Spanish + Portuguese (Brazil) + French (Canada) localized aliases
     let sir = parse_scripture_ref("Sirach 2:1").expect("Sirach 2:1");
     assert_eq!((sir.book_number, sir.chapter, sir.verse_start), (70, 2, Some(1)));
 
@@ -28,16 +28,25 @@ fn catholic_73_book_usfm_import_and_multilingual_reference_parsing() {
     let sab = parse_scripture_ref("Sabiduría 3:1").expect("Spanish Sabiduría");
     assert_eq!((sab.book_number, sab.chapter, sab.verse_start), (69, 3, Some(1)));
 
-    let eclo = parse_scripture_ref("eclo 2:1").expect("Spanish Eclesiástico");
+    let pt_sab = parse_scripture_ref("Sabedoria 3:1").expect("Portuguese Sabedoria");
+    assert_eq!((pt_sab.book_number, pt_sab.chapter, pt_sab.verse_start), (69, 3, Some(1)));
+
+    let eclo = parse_scripture_ref("eclo 2:1").expect("Spanish/Portuguese Eclesiástico");
     assert_eq!((eclo.book_number, eclo.chapter, eclo.verse_start), (70, 2, Some(1)));
 
-    let sal = parse_scripture_ref("Sal 23:1-3").expect("Spanish Salmos");
-    assert_eq!((sal.book_number, sal.chapter, sal.verse_start, sal.verse_end), (19, 23, Some(1), Some(3)));
+    let sal = parse_scripture_ref("Sal 23:1-3").expect("Spanish/Portuguese Salmos");
+    assert_eq!(
+        (sal.book_number, sal.chapter, sal.verse_start, sal.verse_end),
+        (19, 23, Some(1), Some(3))
+    );
 
-    let yoruba_ps = parse_scripture_ref("Orin Dafidi 23:1").expect("Yoruba Psalm");
-    assert_eq!((yoruba_ps.book_number, yoruba_ps.chapter, yoruba_ps.verse_start), (19, 23, Some(1)));
+    let pt_joao = parse_scripture_ref("João 3:16").expect("Portuguese João");
+    assert_eq!((pt_joao.book_number, pt_joao.chapter, pt_joao.verse_start), (43, 3, Some(16)));
 
-    let ap = parse_scripture_ref("Ap 21:4").expect("Spanish Apocalipsis");
+    let fr_ps = parse_scripture_ref("Psaumes 23:1").expect("French Psaumes");
+    assert_eq!((fr_ps.book_number, fr_ps.chapter, fr_ps.verse_start), (19, 23, Some(1)));
+
+    let ap = parse_scripture_ref("Apocalipse 21:4").expect("Portuguese Apocalipse");
     assert_eq!((ap.book_number, ap.chapter, ap.verse_start), (66, 21, Some(4)));
 
     // USFM parser handles Deuterocanonical \id WIS + \id SIR and strips footnotes cleanly
@@ -67,17 +76,17 @@ fn catholic_73_book_usfm_import_and_multilingual_reference_parsing() {
 }
 
 #[test]
-fn diacritic_insensitive_fts5_search_matches_yoruba_and_spanish_without_accents() {
+fn diacritic_insensitive_fts5_search_matches_spanish_and_portuguese_without_accents() {
     let mut db = Database::open_in_memory().expect("open db");
-    let yoruba_usfm = r#"
-\id PSA Bibeli Mimo
+    let pt_usfm = r#"
+\id PSA Almeida Classica
 \c 23
-\v 1 Olúwa ni olùṣọ́-àgùntàn mi; èmi kì yóò ṣe aláìní. Ọlọ́run mi ń tọ́ mi sọ́nà.
-\v 2 Bíbélì Mímọ́ fi Ẹlẹ́rìí òtítọ́ hàn fún gbogbo ènìyàn.
+\v 1 O Senhor é o meu pastor; nada me faltará. Sua bênção renova o meu coração.
+\v 2 A sabedoria do Senhor guia os passos da congregação.
 "#;
-    let yo_parsed = detect_and_import_bible("YCB", "Bíbélì Mímọ́", "yoruba.usfm", yoruba_usfm)
-        .expect("parse yoruba");
-    import_parsed_bible(db.conn_mut(), &yo_parsed).expect("import yoruba");
+    let pt_parsed = detect_and_import_bible("ACF", "Almeida Clássica", "almeida.usfm", pt_usfm)
+        .expect("parse portuguese");
+    import_parsed_bible(db.conn_mut(), &pt_parsed).expect("import portuguese");
 
     let es_usfm = r#"
 \id PRO Reina-Valera 1909
@@ -88,25 +97,21 @@ fn diacritic_insensitive_fts5_search_matches_yoruba_and_spanish_without_accents(
         .expect("parse spanish");
     import_parsed_bible(db.conn_mut(), &es_parsed).expect("import spanish");
 
-    // Plain ASCII queries match Yoruba diacritics & underdots
-    let h1 = search_bible_verses(db.conn(), "YCB", "Olorun", 10).expect("Olorun search");
+    // Plain ASCII queries match Portuguese accents & cedillas
+    let h1 = search_bible_verses(db.conn(), "ACF", "bencao coracao", 10).expect("Portuguese search");
     assert_eq!(h1.len(), 1);
-    assert!(h1[0].text.contains("Ọlọ́run"));
+    assert!(h1[0].text.contains("coração"));
 
-    let h2 = search_bible_verses(db.conn(), "YCB", "Bibeli Mimo", 10).expect("Bibeli Mimo search");
+    let h2 = search_bible_verses(db.conn(), "ACF", "congregacao", 10).expect("congregacao search");
     assert_eq!(h2.len(), 1);
-    assert!(h2[0].text.contains("Bíbélì Mímọ́"));
-
-    let h3 = search_bible_verses(db.conn(), "YCB", "Eleri", 10).expect("Eleri search");
-    assert_eq!(h3.len(), 1);
-    assert!(h3[0].text.contains("Ẹlẹ́rìí"));
+    assert!(h2[0].text.contains("congregação"));
 
     // Plain ASCII queries match Spanish accents
     let s1 = search_bible_verses(db.conn(), "RV1909", "Corazon Sabiduria", 10).expect("Spanish search");
     assert_eq!(s1.len(), 1);
     assert!(s1[0].text.contains("corazón"));
 
-    // Parallel dual-translation pagination (Yoruba + English)
+    // Parallel dual-translation pagination (Portuguese + English)
     let en_usfm = r#"
 \id PSA World English Bible
 \c 23
@@ -117,12 +122,12 @@ fn diacritic_insensitive_fts5_search_matches_yoruba_and_spanish_without_accents(
     import_parsed_bible(db.conn_mut(), &en_parsed).expect("import english");
 
     let ps23 = parse_scripture_ref("Psalm 23:1").expect("ps 23:1");
-    let yo_v = get_passage(db.conn(), "YCB", &ps23).expect("yo verse");
+    let pt_v = get_passage(db.conn(), "ACF", &ps23).expect("pt verse");
     let en_v = get_passage(db.conn(), "WEB", &ps23).expect("en verse");
-    let parallel_slides = paginate_parallel_scripture(&yo_v, &en_v);
+    let parallel_slides = paginate_parallel_scripture(&pt_v, &en_v);
     assert_eq!(parallel_slides.len(), 1);
     let body = parallel_slides[0].content.primary_text();
-    assert!(body.contains("Olúwa ni olùṣọ́-àgùntàn mi"));
+    assert!(body.contains("O Senhor é o meu pastor"));
     assert!(body.contains("Yahweh is my shepherd"));
 }
 
@@ -130,19 +135,19 @@ fn diacritic_insensitive_fts5_search_matches_yoruba_and_spanish_without_accents(
 fn hymn_number_instant_jump_and_bilingual_stacked_reflow() {
     let mut db = Database::open_in_memory().expect("open db");
 
-    // Import numbered CAC, CCC, and MHB hymns via bulk numbered hymnal parser (with bilingual lines!)
+    // Import numbered BH (Baptist Hymnal), HC (Harpa Cristã), and UMH hymns with bilingual lines
     let bulk_txt = "\
-CAC 120 — Iyin Fun Olorun
-Ọlọ́run wa tí ó ga jùlọ || Our God who reigns on high
-Àwa ń yìn Ọ́ lónìí || We lift our praise today
+HGT 42 — Sublime Gracia
+Sublime gracia del Señor || Amazing grace, how sweet the sound
+Que a un infeliz salvó || That saved a wretch like me
 
-CCC 315 — Mimo Mimo Mimo
-Mímọ́ mímọ́ mímọ́ Olúwa || Holy holy holy Lord
-Ayé àti ọ̀run kún fún ògo Rẹ || Earth and heaven are full of Your glory
+HC 15 — Conversão
+Oh! quão cego andei e perdido vaguei || How blind I wandered, lost and alone
+Longe, longe do meu Salvador || Far, far away from my Savior
 
-MHB 1 — O For a Thousand Tongues
-O for a thousand tongues to sing
-My great Redeemer's praise
+BH 330 — Amazing Grace
+Amazing grace! How sweet the sound
+That saved a wretch like me
 ";
     let imported = import_numbered_hymnal_text(bulk_txt).expect("parse bulk hymnal");
     assert_eq!(imported.len(), 3);
@@ -151,47 +156,47 @@ My great Redeemer's praise
     }
 
     // Exact hymnal-code + number jumps must return exact match at index 0
-    let cac_hits = search_songs(db.conn(), "CAC 120").expect("CAC 120 jump");
-    assert!(!cac_hits.is_empty());
-    assert_eq!(cac_hits[0].title, "Iyin Fun Olorun");
+    let hgt_hits = search_songs(db.conn(), "HGT 42").expect("HGT 42 jump");
+    assert!(!hgt_hits.is_empty());
+    assert_eq!(hgt_hits[0].title, "Sublime Gracia");
 
-    let ccc_hits = search_songs(db.conn(), "ccc 315").expect("ccc 315 jump");
-    assert!(!ccc_hits.is_empty());
-    assert_eq!(ccc_hits[0].title, "Mimo Mimo Mimo");
+    let hc_hits = search_songs(db.conn(), "hc 15").expect("hc 15 jump");
+    assert!(!hc_hits.is_empty());
+    assert_eq!(hc_hits[0].title, "Conversão");
 
-    let hash_hits = search_songs(db.conn(), "#315").expect("#315 jump");
+    let hash_hits = search_songs(db.conn(), "#15").expect("#15 jump");
     assert!(!hash_hits.is_empty());
-    assert_eq!(hash_hits[0].title, "Mimo Mimo Mimo");
+    assert_eq!(hash_hits[0].title, "Conversão");
 
-    let mhb_hits = search_songs(db.conn(), "MHB 1").expect("MHB 1 jump");
-    assert!(!mhb_hits.is_empty());
-    assert_eq!(mhb_hits[0].title, "O For a Thousand Tongues");
+    let bh_hits = search_songs(db.conn(), "BH 330").expect("BH 330 jump");
+    assert!(!bh_hits.is_empty());
+    assert_eq!(bh_hits[0].title, "Amazing Grace");
 
     // Round-trip hymnal entries & bilingual lyrics from SQLite
-    let loaded_cac = get_song(db.conn(), cac_hits[0].id)
+    let loaded_hgt = get_song(db.conn(), hgt_hits[0].id)
         .expect("load song")
         .expect("exists");
     assert_eq!(
-        loaded_cac.hymnal_entries,
+        loaded_hgt.hymnal_entries,
         vec![HymnalEntry {
-            hymnal_code: "CAC".to_owned(),
-            hymnal_name: "CAC".to_owned(),
-            hymn_number: 120,
+            hymnal_code: "HGT".to_owned(),
+            hymnal_name: "HGT".to_owned(),
+            hymn_number: 42,
         }]
     );
 
     // Bilingual display modes
-    let stacked = reflow_song_bilingual(&loaded_cac, None, None, BilingualDisplayMode::BilingualStacked);
-    assert!(stacked[0].content.primary_text().contains("Ọlọ́run wa"));
-    assert!(stacked[0].content.primary_text().contains("Our God who reigns on high"));
+    let stacked = reflow_song_bilingual(&loaded_hgt, None, None, BilingualDisplayMode::BilingualStacked);
+    assert!(stacked[0].content.primary_text().contains("Sublime gracia"));
+    assert!(stacked[0].content.primary_text().contains("Amazing grace, how sweet"));
 
-    let primary_only = reflow_song_bilingual(&loaded_cac, None, None, BilingualDisplayMode::PrimaryOnly);
-    assert!(primary_only[0].content.primary_text().contains("Ọlọ́run wa"));
-    assert!(!primary_only[0].content.primary_text().contains("Our God who reigns on high"));
+    let primary_only = reflow_song_bilingual(&loaded_hgt, None, None, BilingualDisplayMode::PrimaryOnly);
+    assert!(primary_only[0].content.primary_text().contains("Sublime gracia"));
+    assert!(!primary_only[0].content.primary_text().contains("Amazing grace, how sweet"));
 
-    let secondary_only = reflow_song_bilingual(&loaded_cac, None, None, BilingualDisplayMode::SecondaryOnly);
-    assert!(secondary_only[0].content.primary_text().contains("Our God who reigns on high"));
-    assert!(!secondary_only[0].content.primary_text().contains("Ọlọ́run wa"));
+    let secondary_only = reflow_song_bilingual(&loaded_hgt, None, None, BilingualDisplayMode::SecondaryOnly);
+    assert!(secondary_only[0].content.primary_text().contains("Amazing grace, how sweet"));
+    assert!(!secondary_only[0].content.primary_text().contains("Sublime gracia"));
 }
 
 #[test]
@@ -202,7 +207,6 @@ fn easyworship_rtf_openlp_sqlite_chordpro_and_freeshow_importers() {
     ));
     let _ = std::fs::create_dir_all(&dir);
 
-    // 1. EasyWorship Songs.db + SongWords.db with RTF lyrics
     let ew_songs = dir.join("Songs.db");
     let ew_words = dir.join("SongWords.db");
     let _ = std::fs::remove_file(&ew_songs);
@@ -229,7 +233,6 @@ fn easyworship_rtf_openlp_sqlite_chordpro_and_freeshow_importers() {
     assert!(!ew_out[0].sections[0].body.contains("\\rtf1"));
     assert_eq!(strip_rtf_to_plain_text("{\\rtf1\\ansi Hello\\par World}"), "Hello\nWorld");
 
-    // 2. OpenLP songs.sqlite with XML <verse> payloads
     let olp_path = dir.join("openlp_songs.sqlite");
     let _ = std::fs::remove_file(&olp_path);
     {
@@ -252,7 +255,6 @@ fn easyworship_rtf_openlp_sqlite_chordpro_and_freeshow_importers() {
     assert_eq!(olp_out[0].sections.len(), 2);
     assert!(olp_out[0].sections[1].body.contains("Love so amazing"));
 
-    // 3. ChordPro strips sanctuary chords & retains stage_chords
     let cho = "{title: Doxology}\n{artist: Thomas Ken}\n[G]Praise God from [D]whom all [Em]blessings [C]flow\n";
     let cho_song = import_chordpro_song(cho).expect("chordpro");
     assert_eq!(cho_song.sections[0].body, "Praise God from whom all blessings flow");
@@ -264,7 +266,6 @@ fn easyworship_rtf_openlp_sqlite_chordpro_and_freeshow_importers() {
             .contains("[G]Praise")
     );
 
-    // 4. FreeShow JSON via UniversalSongImporter
     let freeshow = r#"{"name":"Be Thou My Vision","slides":{"s1":{"items":[{"lines":[{"text":[{"value":"Be Thou my vision, O Lord of my heart"}]}]}]}}}"#;
     let fs_songs = import_freeshow_or_videopsalm_json(freeshow).expect("freeshow");
     assert_eq!(fs_songs[0].title, "Be Thou My Vision");
@@ -277,13 +278,13 @@ fn easyworship_rtf_openlp_sqlite_chordpro_and_freeshow_importers() {
 fn sdeck_pack_roundtrip_installs_bibles_hymns_liturgies_and_license_attribution() {
     let dir = std::env::temp_dir().join(format!("sundaydeck-pack-test-{}", std::process::id()));
     let _ = std::fs::create_dir_all(&dir);
-    let pack_path = dir.join("global-starter.sdeck-pack");
+    let pack_path = dir.join("americas-starter.sdeck-pack");
 
     let pack = SdeckPack {
         manifest: SdeckPackManifest {
             schema_version: 1,
             pack_id: "sundaydeck-catholic-methodist-pd".to_owned(),
-            name: "Public Domain Global Starter Pack".to_owned(),
+            name: "Public Domain Americas Starter Pack".to_owned(),
             version: "1.0.0".to_owned(),
             tradition: "Catholic & Methodist".to_owned(),
             languages: vec!["en".to_owned(), "es".to_owned()],
@@ -329,12 +330,10 @@ fn sdeck_pack_roundtrip_installs_bibles_hymns_liturgies_and_license_attribution(
     assert!(!liturgies.is_empty());
     assert!(liturgies[0].lines.len() >= 2);
 
-    // MHB 1 from Charles Wesley starter hymn should jump immediately
-    let wesley_hits = search_songs(db.conn(), "MHB 1").expect("MHB 1 lookup");
+    let wesley_hits = search_songs(db.conn(), "UMH 57").expect("UMH 57 lookup");
     assert!(!wesley_hits.is_empty());
     assert!(wesley_hits[0].title.contains("Thousand Tongues"));
 
-    // Verify all 4 Python-built Public Domain starter packs load and install cleanly if present
     let starter_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../dist/starter-packs");
     if starter_dir.is_dir() {

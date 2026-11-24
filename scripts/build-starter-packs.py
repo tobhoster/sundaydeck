@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Reproducible Public-Domain Starter Pack Builder for SundayDeck (.sdeck-pack).
+Reproducible Public-Domain Starter Pack Builder for SundayDeck (.sdeck-pack)
+serving churches across North America and South America.
 
 Strictly copyright-compliant: compiles ONLY verified Public Domain / CC0 / open-licensed
 Bibles, classic hymns, and traditional liturgical responses with explicit license &
@@ -117,7 +118,7 @@ def write_pack(
 def build_all_packs(out_dir: Path) -> list[Path]:
     built: list[Path] = []
 
-    # 1. Protestant & Methodist Classic Hymns (100% Public Domain)
+    # 1. North America Classic Hymns — Baptist, Methodist & Mainline (100% Public Domain)
     protestant_songs = [
         make_song(
             "o-for-a-thousand-tongues",
@@ -126,10 +127,10 @@ def build_all_packs(out_dir: Path) -> list[Path]:
             "en",
             None,
             [
-                {"hymnal_code": "MHB", "hymnal_name": "Methodist Hymn Book", "hymn_number": 1},
                 {"hymnal_code": "UMH", "hymnal_name": "United Methodist Hymnal", "hymn_number": 57},
+                {"hymnal_code": "BH", "hymnal_name": "Baptist Hymnal", "hymn_number": 216},
             ],
-            ["Methodist", "Traditional Hymns"],
+            ["Methodist", "Baptist", "Traditional Hymns"],
             [
                 (
                     "verse",
@@ -152,10 +153,10 @@ def build_all_packs(out_dir: Path) -> list[Path]:
             "en",
             None,
             [
-                {"hymnal_code": "MHB", "hymnal_name": "Methodist Hymn Book", "hymn_number": 36},
-                {"hymnal_code": "SS&S", "hymnal_name": "Sacred Songs & Solos", "hymn_number": 7},
+                {"hymnal_code": "UMH", "hymnal_name": "United Methodist Hymnal", "hymn_number": 64},
+                {"hymnal_code": "BH", "hymnal_name": "Baptist Hymnal", "hymn_number": 1},
             ],
-            ["Traditional Hymns", "Anglican", "Methodist"],
+            ["Baptist", "Methodist", "Mainline"],
             [
                 (
                     "verse",
@@ -166,12 +167,12 @@ def build_all_packs(out_dir: Path) -> list[Path]:
             ],
         ),
     ]
-    p1 = out_dir / "protestant-classic-hymns.sdeck-pack"
+    p1 = out_dir / "north-america-classic-hymns.sdeck-pack"
     write_pack(
         p1,
-        "sundaydeck-protestant-hymns-pd",
-        "Classic Public Domain Hymns & Methodist Starter",
-        "Protestant / Methodist",
+        "sundaydeck-north-america-hymns-pd",
+        "Classic Public Domain Hymns (Baptist, Methodist & Mainline)",
+        "Baptist & Methodist",
         ["en"],
         "Verified Public Domain hymns (Charles Wesley, Reginald Heber).",
         [],
@@ -180,7 +181,7 @@ def build_all_packs(out_dir: Path) -> list[Path]:
             {
                 "id": "methodist-apostles-creed",
                 "title": "The Apostles' Creed (Responsive)",
-                "tradition": "Methodist",
+                "tradition": "Methodist / Mainline",
                 "language": "en",
                 "lines": [
                     {
@@ -197,8 +198,8 @@ def build_all_packs(out_dir: Path) -> list[Path]:
     )
     built.append(p1)
 
-    # 2. Catholic Parish 73-Book Canon + Order of Mass Responses (Public Domain)
-    p2 = out_dir / "catholic-order-of-mass-73book.sdeck-pack"
+    # 2. Catholic Parish 73-Book Canon + Order of Mass Responses (North & South America)
+    p2 = out_dir / "catholic-parish-73book.sdeck-pack"
     write_pack(
         p2,
         "sundaydeck-catholic-73book-pd",
@@ -221,7 +222,7 @@ def build_all_packs(out_dir: Path) -> list[Path]:
         ],
         [
             make_song(
-                "immaculate-mary",
+                "holy-god-we-praise-thy-name",
                 "Holy God, We Praise Thy Name",
                 "Clarence A. Walworth (1853)",
                 "en",
@@ -271,58 +272,10 @@ def build_all_packs(out_dir: Path) -> list[Path]:
     )
     built.append(p2)
 
-    # 3. African & Diaspora Starter (Public Domain SS&S + Bilingual Yoruba/English PD)
-    p3 = out_dir / "african-diaspora-starter.sdeck-pack"
+    # 3. Spanish / Bilingual Himnario & Reina-Valera 1909 (Latin America & US Hispanic)
+    p3 = out_dir / "spanish-himnario-rv1909.sdeck-pack"
     write_pack(
         p3,
-        "sundaydeck-african-diaspora-pd",
-        "African & Diaspora Starter (SS&S Classics & Yoruba/English Bilingual)",
-        "African & Diaspora",
-        ["yo", "en"],
-        "Public Domain Sacred Songs & Solos classics and open-licensed Yoruba Scripture excerpt.",
-        [
-            {
-                "code": "YOBPD",
-                "name": "Bíbélì Mímọ́ (Yoruba Starter)",
-                "language": "yo",
-                "copyright": "Public Domain",
-                "verses": [
-                    [19, 23, 1, "Olúwa ni olùṣọ́-àgùntàn mi; èmi kì yóò ṣe aláìní."],
-                    [19, 23, 2, "Ó mú mi dùbúlẹ̀ ní pápá oko tútù: ó mú mi lọ síhà omi dídákẹ́ rọ́rọ́."],
-                    [43, 3, 16, "Nítorí Ọlọ́run fẹ́ aráyé tó bẹ́ẹ̀ gẹ́, tí ó fi Ọmọ bíbí rẹ̀ kanṣoṣo fúnni."],
-                ],
-            }
-        ],
-        [
-            make_song(
-                "all-hail-the-power-yoruba",
-                "Gbogbo Ayé Gbé Jésù Ga (All Hail the Power)",
-                "Edward Perronet (1779) · Public Domain",
-                "yo",
-                "en",
-                [
-                    {"hymnal_code": "SS&S", "hymnal_name": "Sacred Songs & Solos", "hymn_number": 203},
-                    {"hymnal_code": "MHB", "hymnal_name": "Methodist Hymn Book", "hymn_number": 91},
-                ],
-                ["African & Diaspora", "Traditional Hymns"],
-                [
-                    (
-                        "verse",
-                        "Verse 1",
-                        "Gbogbo ayé gbé Jésù ga,\nẸ wólẹ̀ f'ọba wa;\nẸ mú adé ọba Rẹ̀ wá,\nṢe É l'Ọba gbogbo ayé.",
-                        "All hail the power of Jesus' name!\nLet angels prostrate fall;\nBring forth the royal diadem,\nAnd crown Him Lord of all.",
-                    )
-                ],
-            )
-        ],
-        [],
-    )
-    built.append(p3)
-
-    # 4. Spanish / Bilingual Himnario & Reina-Valera 1909 (Public Domain)
-    p4 = out_dir / "spanish-himnario-rv1909.sdeck-pack"
-    write_pack(
-        p4,
         "sundaydeck-spanish-rv1909-pd",
         "Español / Bilingual Starter (Reina-Valera 1909 & Himnario Clásico)",
         "Spanish / Bilingual",
@@ -348,7 +301,7 @@ def build_all_packs(out_dir: Path) -> list[Path]:
                 "John Newton (1779) · Public Domain",
                 "es",
                 "en",
-                [{"hymnal_code": "HIMNO", "hymnal_name": "Himnario Clásico", "hymn_number": 42}],
+                [{"hymnal_code": "HGT", "hymnal_name": "Himnario Clásico", "hymn_number": 42}],
                 ["Spanish / Alabanza", "Traditional Hymns"],
                 [
                     (
@@ -356,6 +309,54 @@ def build_all_packs(out_dir: Path) -> list[Path]:
                         "Estrofa 1",
                         "Sublime gracia del Señor\nQue a un infeliz salvó;\nFui ciego mas hoy miro yo,\nPerdido y Él me halló.",
                         "Amazing grace! How sweet the sound\nThat saved a wretch like me!\nI once was lost, but now am found;\nWas blind, but now I see.",
+                    )
+                ],
+            )
+        ],
+        [],
+    )
+    built.append(p3)
+
+    # 4. Portuguese / Brazil Starter (Almeida Public Domain & Classic Hinário PT/EN)
+    p4 = out_dir / "portuguese-almeida-hinos.sdeck-pack"
+    write_pack(
+        p4,
+        "sundaydeck-portuguese-brazil-pd",
+        "Português / Brasil Starter (Almeida Clássica & Hinos Tradicionais)",
+        "Portuguese / Brazil",
+        ["pt", "en"],
+        "Public Domain João Ferreira de Almeida classic text & Public Domain hymns.",
+        [
+            {
+                "code": "ALMPD",
+                "name": "Almeida Clássica (Starter)",
+                "language": "pt",
+                "copyright": "Public Domain",
+                "verses": [
+                    [19, 23, 1, "O Senhor é o meu pastor; nada me faltará."],
+                    [19, 23, 2, "Deitar-me faz em verdes pastos, guia-me mansamente a águas tranquilas."],
+                    [43, 3, 16, "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna."],
+                ],
+            }
+        ],
+        [
+            make_song(
+                "santo-santo-santo-pt",
+                "Santo! Santo! Santo! (Holy, Holy, Holy)",
+                "Reginald Heber (1826) · Public Domain",
+                "pt",
+                "en",
+                [
+                    {"hymnal_code": "CC", "hymnal_name": "Cantor Cristão", "hymn_number": 1},
+                    {"hymnal_code": "HC", "hymnal_name": "Hinário Clássico", "hymn_number": 15},
+                ],
+                ["Portuguese / Brazil", "Baptist", "Pentecostal"],
+                [
+                    (
+                        "verse",
+                        "Estrofe 1",
+                        "Santo! Santo! Santo! Deus Onipotente!\nCedo de manhã cantaremos Teu louvor;\nSanto! Santo! Santo! Deus Jeová Triúno,\nÉs um só Deus, excelso Criador.",
+                        "Holy, holy, holy! Lord God Almighty!\nEarly in the morning our song shall rise to Thee;\nHoly, holy, holy! Merciful and mighty!\nGod in three Persons, blessed Trinity!",
                     )
                 ],
             )

@@ -40,10 +40,10 @@ pub const LOOP_INTERVAL_CHOICES: &[u16] = &[5, 6, 8, 12];
 
 pub const CHURCH_PROFILE_CHOICES: &[(&str, &str)] = &[
     ("contemporary", "Contemporary"),
-    ("african_diaspora", "African & Diaspora"),
+    ("baptist_evangelical", "Baptist & Evangelical"),
     ("methodist_mainline", "Methodist / Mainline"),
     ("catholic_parish", "Catholic Parish (73-Book)"),
-    ("spanish_bilingual", "Spanish / Bilingual"),
+    ("spanish_bilingual", "Spanish / Portuguese"),
 ];
 
 pub const BILINGUAL_MODE_CHOICES: &[(&str, &str)] = &[

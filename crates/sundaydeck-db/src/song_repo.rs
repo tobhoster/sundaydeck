@@ -20,7 +20,7 @@ pub fn list_songs(conn: &Connection) -> Result<Vec<SongSummary>, DbError> {
     collect_summaries(stmt.query_map([], map_summary_row)?)
 }
 
-/// Instant hymnbook number jump (`#120`, `cac 120`, `ccc 315`, `mhb 1`) + sub-millisecond
+/// Instant hymnbook number jump (`#330`, `bh 330`, `umh 378`, `hc 15`) + sub-millisecond
 /// diacritic-insensitive FTS5 prefix search across title, author, CCLI, hymnals, and lyrics.
 pub fn search_songs(conn: &Connection, query: &str) -> Result<Vec<SongSummary>, DbError> {
     let trimmed = query.trim();
