@@ -146,6 +146,17 @@ We believe church presentation software should be **free, simple, and accessible
 - **Completely free — no seat licenses, no activation keys, no annual renewals, no paywalls, and no watermarks.** Install SundayDeck on as many church computers and volunteer laptops as you need.
 - **Open to contributions:** We warmly welcome pull requests, bug reports, usability feedback from Sunday volunteers, English / Spanish / Portuguese / French translations, and verified public-domain starter packs. If something feels confusing ten minutes before service, open an issue and help us make it simpler for every church.
 
+### Support the Movement (Optional)
+
+SundayDeck will always remain 100% free with zero locked features. If it blesses your church on Sunday mornings and you'd like to help cover Apple & Windows code-signing certificates, hosting, and ongoing maintenance:
+
+- **[Buy Me a Coffee](https://buymeacoffee.com/OWNER)** — one-time coffee or encouragement
+- **[GitHub Sponsors](https://github.com/sponsors/OWNER)** — zero-fee monthly or one-time church & community sponsorship
+- **[Ko-fi](https://ko-fi.com/OWNER)** — zero-platform-fee tip jar alternative
+- **Or simply share SundayDeck** with a neighboring church or volunteer team!
+
+> Replace `OWNER` in [`README.md`](README.md), [`docs/index.html`](docs/index.html), and [`.github/FUNDING.yml`](.github/FUNDING.yml) with your handle before publishing.
+
 ---
 
 ## Publishing Releases, Homebrew & Custom Domain
