@@ -133,6 +133,9 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Build Verified Public Domain Starter Packs (.sdeck-pack)
+        run: python3 scripts/build-starter-packs.py --out-dir release-assets
+
       - name: Generate SHA256SUMS and updated Homebrew Cask
         run: |
           cd release-assets
@@ -163,5 +166,6 @@ jobs:
             release-assets/*.zip
             release-assets/*.deb
             release-assets/*.tar.gz
+            release-assets/*.sdeck-pack
             release-assets/SHA256SUMS.txt
             release-assets/sundaydeck.rb

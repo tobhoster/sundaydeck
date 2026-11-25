@@ -59,6 +59,8 @@ pub struct AppSettings {
     pub bilingual_mode: String,
     #[serde(default)]
     pub enable_catholic_canon: bool,
+    #[serde(default)]
+    pub onboarding_completed: bool,
 }
 
 impl Default for AppSettings {
@@ -79,6 +81,7 @@ impl Default for AppSettings {
             church_profile: default_church_profile(),
             bilingual_mode: default_bilingual_mode(),
             enable_catholic_canon: false,
+            onboarding_completed: false,
         }
     }
 }

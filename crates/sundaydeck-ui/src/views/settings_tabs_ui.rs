@@ -267,6 +267,37 @@ pub(crate) fn render_bibles_bundles_tab(
                 ),
         ))
         .child(section_card(
+            "Migrate Songs From Another App",
+            div()
+                .flex()
+                .items_center()
+                .justify_between()
+                .gap(px(10.0))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_secondary)
+                        .text_size(px(11.5))
+                        .child("Import EasyWorship (Songs.db), OpenLP (songs.sqlite), ProPresenter (.pro6), FreeShow, VideoPsalm, ChordPro, or SongSelect files."),
+                )
+                .child(
+                    div()
+                        .id("settings-migrate-songs")
+                        .flex_shrink_0()
+                        .cursor_pointer()
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.migrate_external_songs(cx);
+                        }))
+                        .child(sculpted_secondary_button_body(
+                            Some(DeckIcon::UploadSimple),
+                            "Migrate Library",
+                            TOKENS.ink_primary,
+                        )),
+                ),
+        ))
+        .child(section_card(
             "Portable .sdeck Service Bundles",
             div()
                 .flex()

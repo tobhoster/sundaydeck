@@ -22,6 +22,7 @@ pub mod plan_import_workbench;
 pub mod preview_pane;
 pub mod quick_edit_modal;
 pub mod schedule_pane;
+pub mod settings_migration;
 pub mod settings_modal;
 pub mod settings_packs;
 pub mod settings_tabs_ui;
@@ -29,6 +30,7 @@ pub mod settings_ui;
 pub mod song_editor_body;
 pub mod song_editor_modal;
 pub mod stage_window;
+pub mod welcome_modal;
 pub mod workspace_actions;
 
 pub use audience_window::AudienceOutputView;

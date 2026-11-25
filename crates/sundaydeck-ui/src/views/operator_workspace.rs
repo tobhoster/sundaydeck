@@ -31,6 +31,7 @@ use crate::views::quick_edit_modal::{ModalClosed, QuickEditModal};
 use crate::views::schedule_pane::render_schedule_pane;
 use crate::views::settings_modal::SettingsModal;
 use crate::views::song_editor_modal::{EditorTab, SongEditorModal};
+use crate::views::welcome_modal::WelcomeModal;
 use crate::windows::WindowManager;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,6 +56,7 @@ pub enum ActiveModal {
     BackgroundPicker(Entity<BackgroundPickerModal>),
     CustomSlideBuilder(Entity<CustomSlideModal>),
     Settings(Entity<SettingsModal>),
+    Welcome(Entity<WelcomeModal>),
 }
 
 /// Primary 3-Pane Operator Workspace composing Service Schedule (Left),
@@ -407,6 +409,7 @@ impl Render for OperatorWorkspace {
                     ("modal-custom-slide", m.clone().into_any_element())
                 }
                 ActiveModal::Settings(m) => ("modal-settings", m.clone().into_any_element()),
+                ActiveModal::Welcome(m) => ("modal-welcome", m.clone().into_any_element()),
             };
             root = root.child(
                 div()

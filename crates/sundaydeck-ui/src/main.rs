@@ -36,6 +36,7 @@ fn main() -> anyhow::Result<()> {
                 lock_during_override: bootstrap.settings.voice_lock_during_override,
                 ..VoiceConfig::default()
             };
+            let show_first_run = !bootstrap.settings.onboarding_completed;
             let voice_handle = VoiceEngineHandle::spawn(voice_cfg);
             let voice_for_close = voice_handle.clone();
             let store = cx.new(|_| {
@@ -69,7 +70,13 @@ fn main() -> anyhow::Result<()> {
                     cx.quit();
                     true
                 });
-                cx.new(|cx| OperatorWorkspace::new(store, windows, Some(db_worker), cx))
+                cx.new(|cx| {
+                    let mut ws = OperatorWorkspace::new(store, windows, Some(db_worker), cx);
+                    if show_first_run {
+                        ws.open_welcome_modal(cx);
+                    }
+                    ws
+                })
             }) {
                 eprintln!("SundayDeck failed to open operator window: {err}");
                 cx.quit();

@@ -9,6 +9,7 @@ use crate::views::custom_slide_modal::CustomSlideModal;
 use crate::views::operator_workspace::{ActiveModal, OperatorWorkspace};
 use crate::views::quick_edit_modal::ModalClosed;
 use crate::views::settings_modal::{SettingsModal, SettingsTab};
+use crate::views::welcome_modal::WelcomeModal;
 
 impl OperatorWorkspace {
     /// Opens the structured Custom Slide Builder modal (6 curated layouts + live 16:9 preview).
@@ -96,6 +97,19 @@ impl OperatorWorkspace {
             this.close_modal(cx);
         }));
         self.active_modal = Some(ActiveModal::Settings(modal));
+        self.active_popover = None;
+        cx.notify();
+    }
+
+    /// Opens the calm 30-second first-run Welcome Setup ("Choose Your Church Style").
+    pub fn open_welcome_modal(&mut self, cx: &mut Context<Self>) {
+        let store = self.store.clone();
+        let db = self.db.clone();
+        let modal = cx.new(|cx| WelcomeModal::new(store, db, cx));
+        self.modal_sub = Some(cx.subscribe(&modal, |this, _, _: &ModalClosed, cx| {
+            this.close_modal(cx);
+        }));
+        self.active_modal = Some(ActiveModal::Welcome(modal));
         self.active_popover = None;
         cx.notify();
     }

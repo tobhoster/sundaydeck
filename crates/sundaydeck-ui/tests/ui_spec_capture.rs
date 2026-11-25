@@ -189,4 +189,20 @@ fn render_master_spec_custom_slides_scripture_queue_obs_and_gallery() {
         .image
         .save(out_dir.join("36-global-settings-church-style-packs.png"))
         .expect("save 36");
+
+    // 37. First-Run Welcome Setup modal ("Choose Your Church Style")
+    app.update_window(op_win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, |this, cx| {
+                this.open_welcome_modal(cx);
+            });
+        }
+    })
+    .expect("open welcome modal");
+
+    app.capture(op_win)
+        .expect("capture 37 first-run welcome modal")
+        .image
+        .save(out_dir.join("37-first-run-welcome-modal.png"))
+        .expect("save 37");
 }
