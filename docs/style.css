@@ -240,6 +240,44 @@ header {
   border-color: #545b6e;
 }
 
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  background: var(--recessed);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.lang-btn {
+  background: transparent;
+  border: none;
+  color: var(--ink-muted);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.14s ease, background-color 0.14s ease;
+}
+
+.lang-btn:hover {
+  color: var(--ink-secondary);
+}
+
+.lang-btn.is-active {
+  background: var(--pane);
+  color: var(--ink);
+}
+
 .link-editorial {
   display: inline-flex;
   align-items: center;

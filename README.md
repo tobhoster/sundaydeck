@@ -144,7 +144,8 @@ Click **Auto-Follow** in the top bar, choose your microphone or soundboard input
 We believe church presentation software should be **free, simple, and accessible to every congregation** — from a church plant meeting in a school cafeteria to a full sanctuary with a volunteer media team.
 
 - **Completely free — no seat licenses, no activation keys, no annual renewals, no paywalls, and no watermarks.** Install SundayDeck on as many church computers and volunteer laptops as you need.
-- **Open to contributions:** We warmly welcome pull requests, bug reports, usability feedback from Sunday volunteers, English / Spanish / Portuguese / French translations, and verified public-domain starter packs. If something feels confusing ten minutes before service, open an issue and help us make it simpler for every church.
+- **Open to contributions:** Read [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md) — pull requests, volunteer feedback, Spanish / Portuguese / French translations, and verified public-domain starter packs are all warmly welcome.
+- **Helpful Resources for Your Booth:** [1-Page Printable Sunday Volunteer Cheat Sheet](docs/cheat-sheet.html) · [Public Domain Starter Packs & Migration Guide](docs/packs.html).
 
 ### Support the Movement (Optional)
 

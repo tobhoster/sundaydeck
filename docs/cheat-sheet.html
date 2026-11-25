@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sunday Volunteer Cheat Sheet — SundayDeck</title>
+  <meta
+    name="description"
+    content="One-page printable Sunday morning quick reference for church media booth volunteers using SundayDeck."
+  />
+  <meta property="og:title" content="Sunday Volunteer Cheat Sheet — SundayDeck" />
+  <meta property="og:description" content="Print and tape next to your media booth laptop. Every shortcut and recovery key on one clean page." />
+  <meta property="og:image" content="media/og-card.png" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .sheet-wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 72px; }
+    .sheet-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px; padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+    .sheet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 22px; }
+    .sheet-box { background: var(--pane); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+    .sheet-box h3 { font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 9px; }
+    .sheet-list { list-style: none; display: flex; flex-direction: column; gap: 9px; font-size: 14px; color: var(--ink-secondary); }
+    .sheet-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(40, 44, 54, 0.7); }
+    .sheet-list li:last-child { border-bottom: none; padding-bottom: 0; }
+    .sheet-steps { list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 14px; color: var(--ink-secondary); }
+    .sheet-steps strong { color: var(--ink); }
+    .sheet-full { grid-column: 1 / -1; }
+    @media (max-width: 760px) { .sheet-grid { grid-template-columns: 1fr; } }
+    @media print {
+      @page { margin: 0.45in; }
+      header, .no-print { display: none !important; }
+      html, body { background: #ffffff !important; color: #111111 !important; }
+      .sheet-wrap { padding: 0; max-width: 100%; }
+      .sheet-head { border-bottom: 2px solid #222222; margin-bottom: 16px; padding-bottom: 12px; }
+      .sheet-box { background: #ffffff !important; border: 1px solid #cccccc !important; padding: 14px; break-inside: avoid; }
+      .sheet-list, .sheet-steps, p { color: #222222 !important; }
+      .sheet-list li { border-bottom-color: #e5e5e5 !important; }
+      h1, h2, h3, strong { color: #000000 !important; }
+      kbd { background: #f2f2f2 !important; border: 1px solid #999999 !important; color: #000000 !important; }
+      .ic { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="no-print">
+    <div class="wrap nav">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">
+          <span class="ic ic-sm" style="--ic: url('icons/monitor.svg');"></span>
+        </span>
+        <span>SundayDeck</span>
+      </a>
+      <nav class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="packs.html">Starter Packs</a>
+        <a href="cheat-sheet.html" class="active">Volunteer Cheat Sheet</a>
+      </nav>
+      <button class="btn-primary" type="button" onclick="window.print()" style="height: 36px; padding: 0 14px; font-size: 13px;">
+        <span class="ic ic-sm" style="--ic: url('icons/check.svg');"></span>
+        <span>Print 1-Page Sheet</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="sheet-wrap">
+    <div class="sheet-head">
+      <div>
+        <div class="kicker" style="margin-bottom: 10px;">
+          <span class="ic ic-sm ic-amber" style="--ic: url('icons/clock.svg');"></span>
+          <span>Media Booth Quick Reference</span>
+        </div>
+        <h1 style="font-size: clamp(26px, 3.6vw, 36px); margin-bottom: 6px;">Sunday Volunteer Cheat Sheet</h1>
+        <p style="color: var(--ink-secondary); font-size: 14.5px;">
+          Print this single page and tape it next to your booth laptop — everything a first-time volunteer needs.
+        </p>
+      </div>
+      <div class="no-print" style="display: flex; gap: 10px;">
+        <button class="btn-primary" type="button" onclick="window.print()">Print 1-Page Sheet</button>
+        <a class="btn-secondary" href="index.html">Back to Home</a>
+      </div>
+    </div>
+
+    <div class="sheet-grid">
+      <section class="sheet-box">
+        <h3>
+          <span class="ic ic-emerald" style="--ic: url('icons/play-fill.svg');"></span>
+          <span>Running Live Slides</span>
+        </h3>
+        <ul class="sheet-list">
+          <span>Click any item on the left to preview it safely without disturbing the sanctuary screen.</span>
+          <li><span>Next slide (or reveal next bullet)</span><kbd>Space</kbd></li>
+          <li><span>Previous slide</span><kbd>Left Arrow</kbd></li>
+          <li><span>Show staged preview on screen</span><kbd>Cmd/Ctrl + Enter</kbd></li>
+          <li><span>Fix a lyric typo live (no flash)</span><kbd>Cmd/Ctrl + E</kbd></li>
+        </ul>
+      </section>
+
+      <section class="sheet-box">
+        <h3>
+          <span class="ic ic-amber" style="--ic: url('icons/eye-slash.svg');"></span>
+          <span>Calm Recovery Keys (Press Again to Resume)</span>
+        </h3>
+        <ul class="sheet-list">
+          <li><span><strong>Hide Words</strong> (keeps background)</span><kbd>F1</kbd></li>
+          <li><span><strong>Black Screen</strong> (prayer or video)</span><kbd>F2</kbd></li>
+          <li><span><strong>Show Church Logo</strong> (welcome/end)</span><kbd>F3</kbd></li>
+          <li><span>Instant hard cut (no fade)</span><kbd>Shift + F1 / F2 / F3</kbd></li>
+        </ul>
+      </section>
+
+      <section class="sheet-box">
+        <h3>
+          <span class="ic" style="--ic: url('icons/book-open-text.svg');"></span>
+          <span>Fast Lookup During Service</span>
+        </h3>
+        <ul class="sheet-steps">
+          <li><strong>Bible Shorthand:</strong> Type <code>jn 3:16</code>, <code>ps 23:1-3</code>, <code>sal 23</code>, <code>joao 3:16</code>, or <code>wis 3:1</code> and press Enter.</li>
+          <li><strong>Hymnbook Jump:</strong> Type <code>BH 330</code>, <code>UMH 378</code>, <code>HC 15</code>, or <code>#42</code> in the Songs search box.</li>
+          <li><strong>Spoken Verses:</strong> When Auto-Follow is on, spoken Bible references wait safely in the right-hand queue — click once to stage.</li>
+        </ul>
+      </section>
+
+      <section class="sheet-box">
+        <h3>
+          <span class="ic ic-emerald" style="--ic: url('icons/monitor.svg');"></span>
+          <span>5-Minute Pre-Service Checklist</span>
+        </h3>
+        <ul class="sheet-steps">
+          <li><strong>1. Displays:</strong> Click <em>Projector</em> in the top bar → open Audience Screen (and Stage Screen if used).</li>
+          <li><strong>2. Logo Check:</strong> Press <code>F3</code> to confirm your church logo appears cleanly on the sanctuary screen.</li>
+          <li><strong>3. Review Order:</strong> Click through the Service Order on the left to verify songs, Scriptures, and announcements.</li>
+          <li><strong>4. Peace of Mind:</strong> You cannot break anything — Preview never changes what the room sees until you click <em>Show on Screen</em>.</li>
+        </ul>
+      </section>
+
+      <section class="sheet-box sheet-full">
+        <h3>
+          <span class="ic ic-amber" style="--ic: url('icons/microphone.svg');"></span>
+          <span>Using Microphone Auto-Follow Safely</span>
+        </h3>
+        <p style="font-size: 14px; color: var(--ink-secondary);">
+          Click <strong>Auto-Follow</strong> in the top bar → pick your room mic or soundboard feed → start in
+          <strong>Suggest next slide</strong> (highlights the upcoming slide with an amber ring without moving automatically).
+          Auto-Follow automatically pauses whenever <strong>Black Screen (F2)</strong> or <strong>Show Logo (F3)</strong> is active.
+        </p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
