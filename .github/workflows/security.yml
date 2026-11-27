@@ -22,10 +22,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install cargo-audit (prebuilt binary)
+        uses: taiki-e/install-action@cargo-audit
+
       - name: Audit Cargo.lock against RustSec Advisory DB
-        uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: cargo audit
 
       - name: Enforce cargo-deny policy (advisories, licenses, trusted sources)
         uses: EmbarkStudios/cargo-deny-action@v2

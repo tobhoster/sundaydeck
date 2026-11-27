@@ -39,11 +39,15 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Import Apple Developer ID certificate (optional)
-        if: ${{ secrets.APPLE_CERTIFICATE_P12 != '' && secrets.APPLE_SIGNING_IDENTITY != '' }}
         env:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
+          if [[ -z "${APPLE_CERTIFICATE_P12:-}" || -z "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+            echo "No Apple Developer ID secrets configured — using ad-hoc signing."
+            exit 0
+          fi
           KEYCHAIN_PATH="$RUNNER_TEMP/sundaydeck-signing.keychain-db"
           KEYCHAIN_PASS="$(openssl rand -hex 24)"
           CERT_PATH="$RUNNER_TEMP/developer-id.p12"
