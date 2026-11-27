@@ -1,0 +1,73 @@
+name: Nightly Endurance Soak
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  soak-linux:
+    name: Release Endurance Soak (3× Rounds + RSS Tracking)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install Linux GPUI & audio system dependencies
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev \
+            libfontconfig1-dev \
+            libfreetype-dev \
+            libvulkan1 \
+            libvulkan-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            mesa-vulkan-drivers \
+            pkg-config \
+            vulkan-tools \
+            time
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: linux-nightly-soak
+
+      - name: Run 3× release soak iterations and record peak RSS
+        run: |
+          chmod +x scripts/verify-gates.sh
+          {
+            echo "## Nightly Endurance Soak"
+            echo ""
+            echo "| Round | Wall (s) | Max RSS (KB) | Status |"
+            echo "|---:|---:|---:|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for round in 1 2 3; do
+            echo "=== Soak Round $round / 3 ==="
+            stats_file="$(mktemp)"
+            /usr/bin/time -f "%e %M" -o "$stats_file" ./scripts/verify-gates.sh --release-perf
+            read -r wall_s max_rss_kb < "$stats_file"
+            rm -f "$stats_file"
+            echo "| $round | \`$wall_s\` | \`$max_rss_kb\` | PASS |" >> "$GITHUB_STEP_SUMMARY"
+          done

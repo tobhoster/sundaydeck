@@ -56,6 +56,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+      - name: Run static quality & perf-footgun gates
+        run: |
+          chmod +x scripts/verify-gates.sh
+          ./scripts/verify-gates.sh --static-only
+
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
@@ -68,3 +73,78 @@ jobs:
             export VK_DRIVER_FILES="$LVP_ICD"
           fi
           cargo test --workspace -- --test-threads=1
+
+  perf-stress-linux:
+    name: Perf & Stress Gate (Linux Release)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install Linux GPUI & audio system dependencies
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev \
+            libfontconfig1-dev \
+            libfreetype-dev \
+            libvulkan1 \
+            libvulkan-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            mesa-vulkan-drivers \
+            pkg-config \
+            vulkan-tools
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: linux-release-perf
+
+      - name: Run release performance & stress gate
+        env:
+          PERF_METRICS_OUT: perf-metrics-linux.txt
+        run: |
+          chmod +x scripts/verify-gates.sh
+          ./scripts/verify-gates.sh --release-perf
+
+      - name: Upload performance metrics artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-metrics-linux
+          path: perf-metrics-linux.txt
+          if-no-files-found: warn
+
+  perf-stress-macos:
+    name: Apple Silicon Build & Stress (macOS)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-arm64-stress
+
+      - name: Run Apple Silicon clippy and release stress tests
+        run: |
+          chmod +x scripts/verify-gates.sh
+          ./scripts/verify-gates.sh --macos-stress

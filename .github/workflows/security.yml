@@ -67,7 +67,7 @@ jobs:
 
       - name: Lint installer and release shell scripts with ShellCheck
         run: |
-          shellcheck -S warning docs/install.sh scripts/build-macos-dmg.sh scripts/build-linux-packages.sh scripts/update-homebrew-cask.sh
+          shellcheck -S warning docs/install.sh scripts/build-macos-dmg.sh scripts/build-linux-packages.sh scripts/update-homebrew-cask.sh scripts/verify-gates.sh
 
       - name: Verify strict Content-Security-Policy and JSON-LD across docs/
         run: |

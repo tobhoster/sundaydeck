@@ -17,6 +17,47 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  verify-gates:
+    name: Pre-Release Stress & Perf Gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install Linux GPUI & audio system dependencies
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev \
+            libfontconfig1-dev \
+            libfreetype-dev \
+            libvulkan1 \
+            libvulkan-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            mesa-vulkan-drivers \
+            pkg-config \
+            vulkan-tools
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: release-preflight-gates
+
+      - name: Run static, performance & stress verification gates
+        run: |
+          chmod +x scripts/verify-gates.sh
+          ./scripts/verify-gates.sh --all
+
   build-macos:
     name: macOS DMG (${{ matrix.arch_label }})
     timeout-minutes: 40
@@ -162,7 +203,7 @@ jobs:
 
   publish-release:
     name: Publish GitHub Release & Homebrew Cask
-    needs: [build-macos, build-linux, build-windows]
+    needs: [verify-gates, build-macos, build-linux, build-windows]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
