@@ -68,6 +68,7 @@ pub struct SettingsModal {
     pub(crate) logo_uri: Option<String>,
     pub(crate) motion_mode: String,
     pub(crate) direct_click_live: bool,
+    pub(crate) auto_check_updates: bool,
     pub(crate) llm_url_input: Entity<TextInput>,
     pub(crate) llm_model_preset: String,
     pub(crate) whisper_url_input: Entity<TextInput>,
@@ -135,6 +136,7 @@ impl SettingsModal {
             logo_uri: cur.logo_uri,
             motion_mode: cur.motion_mode,
             direct_click_live: cur.direct_click_live,
+            auto_check_updates: cur.auto_check_updates,
             llm_url_input,
             llm_model_preset: cur.local_llm_model,
             whisper_url_input,
@@ -161,6 +163,7 @@ impl SettingsModal {
         settings.logo_uri = self.logo_uri.clone();
         settings.motion_mode = self.motion_mode.clone();
         settings.direct_click_live = self.direct_click_live;
+        settings.auto_check_updates = self.auto_check_updates;
         let llm_url = self.llm_url_input.read(cx).value().trim().to_owned();
         if !llm_url.is_empty() {
             settings.local_llm_url = llm_url;

@@ -10,6 +10,7 @@ use sundaydeck_ui::content_downloader::spawn_first_run_bible_sync;
 use sundaydeck_ui::design::{DeckAssetSource, DesignGalleryView, register_fonts};
 use sundaydeck_ui::menus::register_app_menus;
 use sundaydeck_ui::store::{AppServices, PresentationStore};
+use sundaydeck_ui::updater::spawn_auto_update_check;
 use sundaydeck_ui::views::OperatorWorkspace;
 use sundaydeck_ui::windows::WindowManager;
 use sundaydeck_voice::{VoiceCommand, VoiceConfig, VoiceEngineHandle};
@@ -81,8 +82,9 @@ fn main() -> anyhow::Result<()> {
             .detach();
 
             let store_for_sync = store.clone();
+            let store_for_updates = store.clone();
             let db_for_sync = db_worker.clone();
-            if let Err(err) = cx.open_window(options, |window, cx| {
+            match cx.open_window(options, |window, cx| {
                 window.on_window_should_close(cx, |_, cx| {
                     cx.quit();
                     true
@@ -98,10 +100,16 @@ fn main() -> anyhow::Result<()> {
                 window.focus(&focus_handle, cx);
                 ws
             }) {
-                eprintln!("SundayDeck failed to open operator window: {err}");
-                cx.quit();
-            } else {
-                spawn_first_run_bible_sync(store_for_sync, db_for_sync, cx);
+                Err(err) => {
+                    eprintln!("SundayDeck failed to open operator window: {err}");
+                    cx.quit();
+                }
+                Ok(op_win) => {
+                    spawn_first_run_bible_sync(store_for_sync, db_for_sync, cx);
+                    if let Ok(ws_entity) = op_win.entity(cx) {
+                        spawn_auto_update_check(ws_entity.downgrade(), store_for_updates, cx);
+                    }
+                }
             }
             cx.activate(true);
         });

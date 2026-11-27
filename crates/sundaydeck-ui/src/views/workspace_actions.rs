@@ -121,7 +121,12 @@ impl OperatorWorkspace {
     pub fn open_settings_on_tab(&mut self, tab: SettingsTab, cx: &mut Context<Self>) {
         let store = self.store.clone();
         let db = self.db.clone();
-        let modal = cx.new(|cx| SettingsModal::new(store, db, tab, cx));
+        let detected_update = self.available_update.clone();
+        let modal = cx.new(|cx| {
+            let mut m = SettingsModal::new(store, db, tab, cx);
+            m.update_url = detected_update;
+            m
+        });
         self.modal_sub = Some(cx.subscribe(&modal, |this, _, _: &ModalClosed, cx| {
             this.close_modal(cx);
         }));

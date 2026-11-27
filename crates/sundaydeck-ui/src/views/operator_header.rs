@@ -60,6 +60,39 @@ pub fn render_operator_header(
         "Projector Ready"
     };
 
+    let available_update = workspace.available_update.clone();
+    let header_update_pill = available_update.clone().map(|(ver, url)| {
+        div()
+            .id("hdr-download-update")
+            .h(px(30.0))
+            .px(px(10.0))
+            .rounded(px(RADIUS_PILL))
+            .cursor_pointer()
+            .bg(TOKENS.status_surface)
+            .hover(|s| s.bg(TOKENS.elevated_hover))
+            .border_1()
+            .border_color(TOKENS.signal_voice)
+            .flex()
+            .items_center()
+            .gap(px(6.0))
+            .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url)))
+            .child(
+                div()
+                    .w(px(6.0))
+                    .h(px(6.0))
+                    .rounded(px(RADIUS_PILL))
+                    .bg(TOKENS.signal_voice),
+            )
+            .child(
+                div()
+                    .font_family(FONT_BODY)
+                    .text_color(TOKENS.ink_primary)
+                    .text_size(px(11.5))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child(format!("Update v{ver}")),
+            )
+    });
+
     let mut wrapper = div().w_full().flex().flex_col();
 
     let bar = div()
@@ -268,6 +301,7 @@ pub fn render_operator_header(
                         )),
                 )
                 .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.hairline))
+                .children(header_update_pill)
                 .child(
                     div()
                         .flex()
@@ -309,8 +343,6 @@ pub fn render_operator_header(
         );
 
     wrapper = wrapper.child(bar);
-
-    let available_update = workspace.available_update.clone();
 
     if let Some(msg) = notice {
         let mut right_actions = div().flex().items_center().gap(px(10.0));

@@ -24,18 +24,18 @@ pub(crate) fn render_settings_modal(modal: &SettingsModal, cx: &mut Context<Sett
                    label: &'static str,
                    tab: SettingsTab,
                    cx: &mut Context<SettingsModal>| {
-        let active = modal.active_tab == tab;
+        let (bg, icon_fg, text_fg) = if modal.active_tab == tab {
+            (TOKENS.elevated, TOKENS.ink_primary, TOKENS.ink_primary)
+        } else {
+            (rgba(0x0000_0000), TOKENS.ink_muted, TOKENS.ink_secondary)
+        };
         div()
             .id(id)
             .px(px(11.0))
             .py(px(5.5))
             .rounded(px(RADIUS_CONTROL))
             .cursor_pointer()
-            .bg(if active {
-                TOKENS.elevated
-            } else {
-                rgba(0x0000_0000)
-            })
+            .bg(bg)
             .hover(|s| s.bg(TOKENS.elevated_hover))
             .flex()
             .items_center()
@@ -45,23 +45,11 @@ pub(crate) fn render_settings_modal(modal: &SettingsModal, cx: &mut Context<Sett
                 this.error_message = None;
                 cx.notify();
             }))
-            .child(deck_icon(
-                icon,
-                IconSize::Sm,
-                if active {
-                    TOKENS.ink_primary
-                } else {
-                    TOKENS.ink_muted
-                },
-            ))
+            .child(deck_icon(icon, IconSize::Sm, icon_fg))
             .child(
                 div()
                     .font_family(FONT_BODY)
-                    .text_color(if active {
-                        TOKENS.ink_primary
-                    } else {
-                        TOKENS.ink_secondary
-                    })
+                    .text_color(text_fg)
                     .text_size(px(12.0))
                     .font_weight(FontWeight::MEDIUM)
                     .child(label),
@@ -419,6 +407,22 @@ fn render_church_display_tab(modal: &SettingsModal, cx: &mut Context<SettingsMod
                     )
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.direct_click_live = !this.direct_click_live;
+                        cx.notify();
+                    })),
+                )
+                .child(
+                    neutral_option_chip(
+                        "settings-auto-updates",
+                        if modal.auto_check_updates {
+                            "Check for updates automatically: On (Silent when offline)"
+                        } else {
+                            "Check for updates automatically: Off (Manual only)"
+                        },
+                        modal.auto_check_updates,
+                        TOKENS.signal_voice,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.auto_check_updates = !this.auto_check_updates;
                         cx.notify();
                     })),
                 ),

@@ -31,6 +31,9 @@ fn default_church_profile() -> String {
 fn default_bilingual_mode() -> String {
     "bilingual_stacked".to_owned()
 }
+const fn default_auto_check_updates() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppSettings {
@@ -61,6 +64,8 @@ pub struct AppSettings {
     pub enable_catholic_canon: bool,
     #[serde(default)]
     pub onboarding_completed: bool,
+    #[serde(default = "default_auto_check_updates")]
+    pub auto_check_updates: bool,
 }
 
 impl Default for AppSettings {
@@ -82,6 +87,7 @@ impl Default for AppSettings {
             bilingual_mode: default_bilingual_mode(),
             enable_catholic_canon: false,
             onboarding_completed: false,
+            auto_check_updates: default_auto_check_updates(),
         }
     }
 }
@@ -115,4 +121,34 @@ pub fn save_settings(conn: &Connection, settings: &AppSettings) -> Result<(), Db
         params![KEY_APP_SETTINGS, json, now_epoch_ms()],
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AppSettings, load_settings, save_settings};
+    use crate::Database;
+
+    #[test]
+    fn auto_check_updates_defaults_true_for_legacy_json_and_round_trips() {
+        let db = Database::open_in_memory().expect("in-memory db");
+        // Simulate a v0.0.4 settings JSON without `auto_check_updates`.
+        db.conn()
+            .execute(
+                "INSERT INTO app_settings (key, value_json, updated_at) VALUES (?1, ?2, 1)",
+                rusqlite::params![
+                    super::KEY_APP_SETTINGS,
+                    r#"{"church_name":"Grace","logo_asset_id":null,"direct_click_live":false,"audience_display_uuid":null,"stage_display_uuid":null}"#
+                ],
+            )
+            .expect("insert legacy json");
+        let loaded = load_settings(db.conn()).expect("load legacy settings");
+        assert!(loaded.auto_check_updates);
+
+        let updated = AppSettings {
+            auto_check_updates: false,
+            ..loaded
+        };
+        save_settings(db.conn(), &updated).expect("save updated settings");
+        assert!(!load_settings(db.conn()).expect("reload").auto_check_updates);
+    }
 }
