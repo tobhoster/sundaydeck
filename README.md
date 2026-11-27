@@ -52,34 +52,24 @@ SundayDeck is designed around quiet, predictable Sunday morning craft:
 
 ## Download & Install
 
-### macOS (Homebrew — Apple Silicon & Intel)
+Visit the **[Download Page](https://tobhoster.github.io/sundaydeck/download.html)** or install in one line:
+
+### macOS & Linux (One-Line Installer)
 
 ```bash
-brew tap tobhoster/sundaydeck
-brew install --cask sundaydeck
+curl -fsSL https://tobhoster.github.io/sundaydeck/install.sh | sh
 ```
 
-Or download `SundayDeck-<version>-macOS-arm64.dmg` (Apple Silicon M1–M4) or `SundayDeck-<version>-macOS-x86_64.dmg` (Intel) from **GitHub Releases**, open the disk image, and drag **SundayDeck** into **Applications**.
+### Windows (PowerShell One-Line Installer)
 
-### Windows (64-bit)
+```powershell
+irm https://tobhoster.github.io/sundaydeck/install.ps1 | iex
+```
 
-Download from **GitHub Releases**:
-- **Installer (recommended):** `SundayDeck-<version>-windows-x86_64-setup.exe` (adds Start Menu shortcut and `.sdeck` bundle support)
-- **Portable ZIP:** `SundayDeck-<version>-windows-x86_64.zip` (unzip and run `SundayDeck.exe` with zero installation)
-
-### Linux
-
-Download from **GitHub Releases**:
-- **Debian / Ubuntu:**
-  ```bash
-  sudo apt install ./sundaydeck_<version>_amd64.deb
-  ```
-- **Portable Archive (Fedora, Arch, openSUSE, etc.):**
-  ```bash
-  tar -xzf SundayDeck-<version>-linux-x86_64.tar.gz
-  cd SundayDeck-<version>-linux-x86_64
-  ./sundaydeck
-  ```
+Or download installers directly from **[GitHub Releases](https://github.com/tobhoster/sundaydeck/releases/latest)**:
+- **macOS:** `SundayDeck-<version>-macOS-arm64.dmg` (Apple Silicon M1–M4) or `SundayDeck-<version>-macOS-x86_64.dmg` (Intel)
+- **Windows:** `SundayDeck-<version>-windows-x86_64-setup.exe` (installer) or `SundayDeck-<version>-windows-x86_64.zip` (portable)
+- **Linux:** `sundaydeck_<version>_amd64.deb` (Debian/Ubuntu) or `SundayDeck-<version>-linux-x86_64.tar.gz` (portable)
 
 ---
 

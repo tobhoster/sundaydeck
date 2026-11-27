@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=SundayDeck
-GenericName=Church Presentation Studio
-Comment=Fast, offline-first church presentation studio with local AI and voice auto-follow
+GenericName=Church Presentation Software
+Comment=Calm, free, offline church presentation software for Sunday volunteers
 Exec=sundaydeck %f
 Icon=sundaydeck
 Terminal=false

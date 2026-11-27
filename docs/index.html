@@ -64,7 +64,7 @@
         >
           <span class="ic" style="--ic: url('icons/github.svg');"></span>
         </a>
-        <a class="btn-nav" href="#install">
+        <a class="btn-nav" href="download.html">
           <span class="ic ic-sm" style="--ic: url('icons/download-simple.svg');"></span>
           <span data-i18n="nav.download">Download</span>
         </a>
@@ -106,7 +106,7 @@
           internet required.
         </p>
         <div class="cta-row" data-reveal data-delay="3">
-          <a class="btn-primary" href="#install">
+          <a class="btn-primary" href="download.html">
             <span class="ic" style="--ic: url('icons/download-simple.svg');"></span>
             <span data-i18n="hero.ctaDownload">Download Free</span>
           </a>
@@ -635,9 +635,8 @@
               </span>
               <h3>macOS (Apple Silicon &amp; Intel)</h3>
             </div>
-            <p>Download the macOS installer disk image from <a href="https://github.com/tobhoster/sundaydeck/releases/latest" target="_blank" rel="noopener noreferrer" style="text-decoration: underline;">GitHub Releases</a> and drag SundayDeck into Applications.</p>
-            <pre><code>SundayDeck-0.0.1-macOS-arm64.dmg
-SundayDeck-0.0.1-macOS-x86_64.dmg</code></pre>
+            <p>Install in one line from Terminal, or grab the <code>.dmg</code> from the <a href="download.html" style="text-decoration: underline;">Download page</a>.</p>
+            <pre><code>curl -fsSL https://tobhoster.github.io/sundaydeck/install.sh | sh</code></pre>
           </div>
 
           <div class="card" data-reveal data-delay="1">
@@ -647,9 +646,8 @@ SundayDeck-0.0.1-macOS-x86_64.dmg</code></pre>
               </span>
               <h3>Windows (64-bit)</h3>
             </div>
-            <p>Standard Windows installer with Start Menu shortcut and <code>.sdeck</code> bundle support, or a portable zip from <a href="https://github.com/tobhoster/sundaydeck/releases/latest" target="_blank" rel="noopener noreferrer" style="text-decoration: underline;">GitHub Releases</a>.</p>
-            <pre><code>SundayDeck-0.0.1-windows-x86_64-setup.exe
-SundayDeck-0.0.1-windows-x86_64.zip</code></pre>
+            <p>Install in one line from PowerShell, or download the <code>.exe</code> / portable <code>.zip</code> on the <a href="download.html" style="text-decoration: underline;">Download page</a>.</p>
+            <pre><code>irm https://tobhoster.github.io/sundaydeck/install.ps1 | iex</code></pre>
           </div>
 
           <div class="card" data-reveal data-delay="2">
@@ -659,10 +657,15 @@ SundayDeck-0.0.1-windows-x86_64.zip</code></pre>
               </span>
               <h3>Linux</h3>
             </div>
-            <p>Debian / Ubuntu package or portable archive from <a href="https://github.com/tobhoster/sundaydeck/releases/latest" target="_blank" rel="noopener noreferrer" style="text-decoration: underline;">GitHub Releases</a> for any sound booth laptop.</p>
-            <pre><code>sudo apt install ./sundaydeck_0.0.1_amd64.deb
-tar -xzf SundayDeck-0.0.1-linux-x86_64.tar.gz</code></pre>
+            <p>No-sudo shell install (Wayland &amp; X11), or Debian/Ubuntu <code>.deb</code> on the <a href="download.html" style="text-decoration: underline;">Download page</a>.</p>
+            <pre><code>curl -fsSL https://tobhoster.github.io/sundaydeck/install.sh | sh</code></pre>
           </div>
+        </div>
+        <div class="cta-row" style="margin-top: 22px; margin-bottom: 0;" data-reveal data-delay="2">
+          <a class="btn-primary" href="download.html">
+            <span class="ic" style="--ic: url('icons/download-simple.svg');"></span>
+            <span>All Installers &amp; Checksums</span>
+          </a>
         </div>
       </div>
     </section>

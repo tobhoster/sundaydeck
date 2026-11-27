@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Download SundayDeck — Free for macOS, Windows &amp; Linux</title>
+  <meta
+    name="description"
+    content="Download SundayDeck free for macOS (Apple Silicon & Intel), Windows, and Linux — or install in one line from your terminal. Zero licenses, 100% offline."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://tobhoster.github.io/sundaydeck/download.html" />
+  <meta property="og:title" content="Download SundayDeck — Free for macOS, Windows &amp; Linux" />
+  <meta property="og:description" content="Installers and one-line scripts for macOS, Windows, and Linux — plus Public Domain starter packs." />
+  <meta property="og:image" content="https://tobhoster.github.io/sundaydeck/media/og-card.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://tobhoster.github.io/sundaydeck/media/og-card.png" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .dl-hero {
+      position: relative;
+      overflow: hidden;
+      padding: 68px 0 54px;
+      border-bottom: 1px solid var(--border);
+    }
+    .dl-primary-box {
+      margin-top: 26px;
+      padding: 22px 24px;
+      border-radius: 10px;
+      background: var(--pane);
+      border: 1px solid var(--border-strong);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .dl-primary-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .dl-primary-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--emerald);
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .dl-primary-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .dl-primary-sub {
+      font-size: 13.5px;
+      color: var(--ink-secondary);
+    }
+    .cmd-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--recessed);
+      border: 1px solid var(--border-strong);
+      border-radius: 7px;
+      padding: 10px 12px 10px 15px;
+      margin-top: 14px;
+    }
+    .cmd-bar code {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--ink);
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: none;
+    }
+    .cmd-bar code::-webkit-scrollbar { display: none; }
+    .copy-btn {
+      appearance: none;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 11px;
+      border-radius: 5px;
+      background: var(--pane);
+      border: 1px solid var(--border-strong);
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.14s ease, border-color 0.14s ease;
+    }
+    .copy-btn:hover {
+      background: var(--elevated);
+      border-color: #5a6276;
+    }
+    .copy-btn.is-copied {
+      border-color: var(--emerald);
+      color: var(--emerald);
+    }
+    .dl-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .dl-card {
+      background: var(--pane);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .dl-card.is-detected {
+      border-color: var(--amber);
+    }
+    .dl-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .dl-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .dl-actions .btn-primary,
+    .dl-actions .btn-secondary {
+      width: 100%;
+      justify-content: space-between;
+      padding: 0 15px;
+      height: 40px;
+      font-size: 13.5px;
+    }
+    .dl-btn-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .dl-btn-size {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      opacity: 0.72;
+    }
+    .dl-note {
+      font-size: 12.5px;
+      color: var(--ink-muted);
+      line-height: 1.5;
+    }
+    .dl-cmd-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 4px;
+    }
+    .packs-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .pack-dl-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: var(--pane);
+      border: 1px solid var(--border);
+      transition: border-color 0.16s ease, background-color 0.16s ease;
+    }
+    .pack-dl-link:hover {
+      border-color: var(--border-strong);
+      background: var(--card);
+    }
+    .pack-dl-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .pack-dl-sub {
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+    .ver-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink-secondary);
+    }
+    @media (max-width: 960px) {
+      .dl-grid { grid-template-columns: 1fr; }
+      .packs-strip { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">
+          <span class="ic ic-sm" style="--ic: url('icons/church-logo.svg');"></span>
+        </span>
+        <span>SundayDeck</span>
+      </a>
+      <nav class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="download.html" class="active">Download</a>
+        <a href="packs.html">Starter Packs</a>
+        <a href="cheat-sheet.html">Cheat Sheet</a>
+      </nav>
+      <div class="nav-right">
+        <a
+          class="btn-icon"
+          href="https://github.com/tobhoster/sundaydeck"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="SundayDeck on GitHub"
+          title="View source on GitHub"
+        >
+          <span class="ic" style="--ic: url('icons/github.svg');"></span>
+        </a>
+        <a
+          class="btn-nav"
+          href="https://github.com/tobhoster/sundaydeck/releases"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="ic ic-sm" style="--ic: url('icons/download-simple.svg');"></span>
+          <span>Releases</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="dl-hero">
+      <div class="hero-ambient" aria-hidden="true">
+        <video
+          class="hero-ambient-video"
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          poster="media/bg/golden-light.jpg"
+        >
+          <source src="media/bg/golden-light-loop.mp4" type="video/mp4" />
+        </video>
+        <div class="hero-ambient-scrim"></div>
+      </div>
+
+      <div class="wrap hero-content">
+        <div class="kicker">
+          <span class="dot dot-emerald"></span>
+          <span>Latest Release <strong id="release-ver-label">v0.0.1</strong></span>
+          <span class="kicker-rule"></span>
+          <span>Free Forever · 100% Offline · MIT / Apache-2.0</span>
+        </div>
+        <h1>Download <span class="serif-accent">SundayDeck.</span></h1>
+        <p class="lead">
+          Install in seconds with a native macOS, Windows, or Linux package — or run the single-line
+          script below. No account sign-up, no seat licenses, and zero watermarks.
+        </p>
+
+        <div class="dl-primary-box" id="recommended-box">
+          <div class="dl-primary-meta">
+            <span class="dl-primary-label">
+              <span class="dot dot-emerald"></span>
+              <span id="rec-kicker">Recommended for your computer</span>
+            </span>
+            <div class="dl-primary-title" id="rec-title">SundayDeck for macOS (Apple Silicon)</div>
+            <div class="dl-primary-sub" id="rec-sub">macOS 13 Ventura or later · Universal offline sanctuary app</div>
+          </div>
+          <a
+            class="btn-primary"
+            id="rec-btn"
+            href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/SundayDeck-0.0.1-macOS-arm64.dmg"
+          >
+            <span class="ic" style="--ic: url('icons/download-simple.svg');"></span>
+            <span id="rec-btn-text">Download for macOS</span>
+          </a>
+        </div>
+
+        <div class="cmd-bar">
+          <code id="hero-cmd">curl -fsSL https://tobhoster.github.io/sundaydeck/install.sh | sh</code>
+          <button class="copy-btn" type="button" data-copy-target="hero-cmd">
+            <span>Copy</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="sec-label">
+            <span class="ic ic-sm ic-amber" style="--ic: url('icons/monitor.svg');"></span>
+            <span>All Desktop Platforms</span>
+          </div>
+          <h2>Choose your operating system.</h2>
+          <p class="sec-copy">
+            Every build includes all features offline — songs, Protestant &amp; Catholic Bibles,
+            Public Domain photography &amp; motion loops, stage monitor, OBS overlay, and microphone auto-follow.
+          </p>
+        </div>
+
+        <div class="dl-grid">
+          <!-- macOS -->
+          <article class="dl-card" id="card-macos">
+            <div class="dl-card-head">
+              <div class="card-title-row">
+                <span class="icon-chip">
+                  <span class="ic" style="--ic: url('icons/apple.svg');"></span>
+                </span>
+                <h3>macOS</h3>
+              </div>
+              <span class="ver-pill">macOS 13+</span>
+            </div>
+
+            <div class="dl-actions">
+              <a
+                class="btn-primary"
+                data-asset="SundayDeck-{VER}-macOS-arm64.dmg"
+                href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/SundayDeck-0.0.1-macOS-arm64.dmg"
+              >
+                <span class="dl-btn-left">
+                  <span class="ic ic-sm" style="--ic: url('icons/download-simple.svg');"></span>
+                  <span>Apple Silicon (M1–M4)</span>
+                </span>
+                <span class="dl-btn-size">.dmg</span>
+              </a>
+              <a
+                class="btn-secondary"
+                data-asset="SundayDeck-{VER}-macOS-x86_64.dmg"
+                href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/SundayDeck-0.0.1-macOS-x86_64.dmg"
+              >
+                <span class="dl-btn-left">
+                  <span class="ic ic-sm" style="--ic: url('icons/download-simple.svg');"></span>
+                  <span>Intel Mac (x86_64)</span>
+                </span>
+                <span class="dl-btn-size">.dmg</span>
+              </a>
+            </div>
+
+            <div class="dl-cmd-label">Or install via Terminal</div>
+            <div class="cmd-bar" style="margin-top: 0;">
+              <code id="cmd-mac">curl -fsSL https://tobhoster.github.io/sundaydeck/install.sh | sh</code>
+              <button class="copy-btn" type="button" data-copy-target="cmd-mac"><span>Copy</span></button>
+            </div>
+            <p class="dl-note">
+              First launch on Mac: open the <code>.dmg</code>, drag SundayDeck to Applications, and
+              right-click → <strong>Open</strong> (or use the Terminal installer above, which
+              installs cleanly to Applications).
+            </p>
+          </article>
+
+          <!-- Windows -->
+          <article class="dl-card" id="card-windows">
+            <div class="dl-card-head">
+              <div class="card-title-row">
+                <span class="icon-chip">
+                  <span class="ic" style="--ic: url('icons/windows.svg');"></span>
+                </span>
+                <h3>Windows</h3>
+              </div>
+              <span class="ver-pill">64-bit</span>
+            </div>
+
+            <div class="dl-actions">
+              <a
+                class="btn-primary"
+                data-asset="SundayDeck-{VER}-windows-x86_64-setup.exe"
+                href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/SundayDeck-0.0.1-windows-x86_64-setup.exe"
+              >
+                <span class="dl-btn-left">
+                  <span class="ic ic-sm" style="--ic: url('icons/download-simple.svg');"></span>
+                  <span>Windows Installer</span>
+                </span>
+                <span class="dl-btn-size">.exe</span>
+              </a>
+              <a
+                class="btn-secondary"
+                data-asset="SundayDeck-{VER}-windows-x86_64.zip"
+                href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/SundayDeck-0.0.1-windows-x86_64.zip"
+              >
+                <span class="dl-btn-left">
+                  <span class="ic ic-sm" style="--ic: url('icons/download-simple.svg');"></span>
+                  <span>Portable Archive</span>
+                </span>
+                <span class="dl-btn-size">.zip</span>
+              </a>
+            </div>
+
+            <div class="dl-cmd-label">Or install via PowerShell</div>
+            <div class="cmd-bar" style="margin-top: 0;">
+              <code id="cmd-win">irm https://tobhoster.github.io/sundaydeck/install.ps1 | iex</code>
+              <button class="copy-btn" type="button" data-copy-target="cmd-win"><span>Copy</span></button>
+            </div>
+            <p class="dl-note">
+              Includes Start Menu shortcut and <code>.sdeck</code> service bundle double-click
+              support. Portable zip runs straight from a USB stick with zero installation.
+            </p>
+          </article>
+
+          <!-- Linux -->
+          <article class="dl-card" id="card-linux">
+            <div class="dl-card-head">
+              <div class="card-title-row">
+                <span class="icon-chip">
+                  <span class="ic" style="--ic: url('icons/terminal.svg');"></span>
+                </span>
+                <h3>Linux</h3>
+              </div>
+              <span class="ver-pill">x86_64</span>
+            </div>
+
+            <div class="dl-actions">
+              <a
+                class="btn-primary"
+                data-asset="sundaydeck_{VER}_amd64.deb"
+                href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/sundaydeck_0.0.1_amd64.deb"
+              >
+                <span class="dl-btn-left">
+                  <span class="ic ic-sm" style="--ic: url('icons/download-simple.svg');"></span>
+                  <span>Debian / Ubuntu</span>
+                </span>
+                <span class="dl-btn-size">.deb</span>
+              </a>
+              <a
+                class="btn-secondary"
+                data-asset="SundayDeck-{VER}-linux-x86_64.tar.gz"
+                href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/SundayDeck-0.0.1-linux-x86_64.tar.gz"
+              >
+                <span class="dl-btn-left">
+                  <span class="ic ic-sm" style="--ic: url('icons/download-simple.svg');"></span>
+                  <span>Portable Archive</span>
+                </span>
+                <span class="dl-btn-size">.tar.gz</span>
+              </a>
+            </div>
+
+            <div class="dl-cmd-label">Or install via Shell (no sudo)</div>
+            <div class="cmd-bar" style="margin-top: 0;">
+              <code id="cmd-linux">curl -fsSL https://tobhoster.github.io/sundaydeck/install.sh | sh</code>
+              <button class="copy-btn" type="button" data-copy-target="cmd-linux"><span>Copy</span></button>
+            </div>
+            <p class="dl-note">
+              Installs to <code>~/.local/bin/sundaydeck</code> with desktop launcher and icon.
+              Supports both Wayland and X11.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="sec-label">
+            <span class="ic ic-sm ic-emerald" style="--ic: url('icons/stack.svg');"></span>
+            <span>Public Domain Starter Packs &amp; Checksums</span>
+          </div>
+          <h2>Optional offline packs for your church tradition.</h2>
+          <p class="sec-copy">
+            Import any <code>.sdeck-pack</code> inside SundayDeck via
+            <strong>Settings → Bibles &amp; Packs</strong> (or on your first launch).
+            Verify downloads anytime with
+            <a
+              data-asset="SHA256SUMS.txt"
+              href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/SHA256SUMS.txt"
+              style="text-decoration: underline;"
+            >SHA256SUMS.txt</a>
+            or browse
+            <a
+              href="https://github.com/tobhoster/sundaydeck/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="text-decoration: underline;"
+            >all GitHub Releases</a>.
+          </p>
+        </div>
+
+        <div class="packs-strip">
+          <a
+            class="pack-dl-link"
+            data-asset="north-america-classic-hymns.sdeck-pack"
+            href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/north-america-classic-hymns.sdeck-pack"
+          >
+            <div>
+              <div class="pack-dl-title">North America Classic Hymns</div>
+              <div class="pack-dl-sub">BH &amp; UMH numbered classics · Public Domain</div>
+            </div>
+            <span class="ic ic-sm ic-amber" style="--ic: url('icons/download-simple.svg');"></span>
+          </a>
+
+          <a
+            class="pack-dl-link"
+            data-asset="catholic-parish-73book.sdeck-pack"
+            href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/catholic-parish-73book.sdeck-pack"
+          >
+            <div>
+              <div class="pack-dl-title">Catholic Parish (73-Book)</div>
+              <div class="pack-dl-sub">CPDV Deuterocanonical verses &amp; bilingual Mass responses</div>
+            </div>
+            <span class="ic ic-sm ic-emerald" style="--ic: url('icons/download-simple.svg');"></span>
+          </a>
+
+          <a
+            class="pack-dl-link"
+            data-asset="spanish-himnario-rv1909.sdeck-pack"
+            href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/spanish-himnario-rv1909.sdeck-pack"
+          >
+            <div>
+              <div class="pack-dl-title">Español / Bilingual (RV1909)</div>
+              <div class="pack-dl-sub">Reina-Valera 1909 &amp; stacked Spanish/English hymns</div>
+            </div>
+            <span class="ic ic-sm ic-amber" style="--ic: url('icons/download-simple.svg');"></span>
+          </a>
+
+          <a
+            class="pack-dl-link"
+            data-asset="portuguese-almeida-hinos.sdeck-pack"
+            href="https://github.com/tobhoster/sundaydeck/releases/download/v0.0.1/portuguese-almeida-hinos.sdeck-pack"
+          >
+            <div>
+              <div class="pack-dl-title">Português / Brasil (Almeida)</div>
+              <div class="pack-dl-sub">Almeida Clássica &amp; Harpa / Cantor Cristão hymns</div>
+            </div>
+            <span class="ic ic-sm ic-emerald" style="--ic: url('icons/download-simple.svg');"></span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap foot-row">
+      <span>SundayDeck · Free &amp; Open Source Church Presentation Software</span>
+      <span class="foot-links">
+        <a class="foot-gh" href="https://github.com/tobhoster/sundaydeck" target="_blank" rel="noopener noreferrer">
+          <span class="ic ic-sm" style="--ic: url('icons/github.svg');"></span>
+          <span>GitHub</span>
+        </a>
+        <span aria-hidden="true">·</span>
+        <a href="https://github.com/tobhoster/sundaydeck/releases" target="_blank" rel="noopener noreferrer">Releases</a>
+        <span aria-hidden="true">·</span>
+        <a href="index.html">Home</a>
+        <span aria-hidden="true">·</span>
+        <a href="cheat-sheet.html">Cheat Sheet</a>
+        <span aria-hidden="true">·</span>
+        <a href="packs.html">Starter Packs</a>
+      </span>
+    </div>
+  </footer>
+
+  <script>
+    (() => {
+      "use strict";
+      const REPO = "tobhoster/sundaydeck";
+      let version = "0.0.1";
+
+      function detectPlatform() {
+        const ua = (navigator.userAgent || "").toLowerCase();
+        const plat = (navigator.platform || "").toLowerCase();
+        if (ua.includes("win")) return "windows";
+        if (ua.includes("mac") || plat.includes("mac")) return "macos";
+        if (ua.includes("linux") && !ua.includes("android")) return "linux";
+        return "macos";
+      }
+
+      function applyReleaseVersion(ver) {
+        version = ver.replace(/^v/, "");
+        const tag = "v" + version;
+        const base = `https://github.com/${REPO}/releases/download/${tag}/`;
+        const verEl = document.getElementById("release-ver-label");
+        if (verEl) verEl.textContent = tag;
+
+        document.querySelectorAll("[data-asset]").forEach((a) => {
+          const tpl = a.getAttribute("data-asset");
+          if (tpl) a.setAttribute("href", base + tpl.replace(/\{VER\}/g, version));
+        });
+
+        const os = detectPlatform();
+        const recTitle = document.getElementById("rec-title");
+        const recSub = document.getElementById("rec-sub");
+        const recBtn = document.getElementById("rec-btn");
+        const recBtnText = document.getElementById("rec-btn-text");
+        const heroCmd = document.getElementById("hero-cmd");
+
+        ["card-macos", "card-windows", "card-linux"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.classList.toggle("is-detected", id === "card-" + os);
+        });
+
+        if (os === "windows") {
+          recTitle.textContent = `SundayDeck ${tag} for Windows (64-bit)`;
+          recSub.textContent = "Windows 10 / 11 installer with Start Menu shortcut & .sdeck support";
+          recBtn.setAttribute("href", base + `SundayDeck-${version}-windows-x86_64-setup.exe`);
+          recBtnText.textContent = "Download for Windows (.exe)";
+          heroCmd.textContent = "irm https://tobhoster.github.io/sundaydeck/install.ps1 | iex";
+        } else if (os === "linux") {
+          recTitle.textContent = `SundayDeck ${tag} for Linux (x86_64)`;
+          recSub.textContent = "Debian / Ubuntu .deb package — or run the no-sudo shell installer below";
+          recBtn.setAttribute("href", base + `sundaydeck_${version}_amd64.deb`);
+          recBtnText.textContent = "Download for Linux (.deb)";
+          heroCmd.textContent = "curl -fsSL https://tobhoster.github.io/sundaydeck/install.sh | sh";
+        } else {
+          recTitle.textContent = `SundayDeck ${tag} for macOS (Apple Silicon)`;
+          recSub.textContent = "macOS 13 Ventura or later · Intel .dmg available directly below";
+          recBtn.setAttribute("href", base + `SundayDeck-${version}-macOS-arm64.dmg`);
+          recBtnText.textContent = "Download for macOS (.dmg)";
+          heroCmd.textContent = "curl -fsSL https://tobhoster.github.io/sundaydeck/install.sh | sh";
+        }
+      }
+
+      document.querySelectorAll(".copy-btn[data-copy-target]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const code = document.getElementById(btn.dataset.copyTarget);
+          if (!code) return;
+          try {
+            await navigator.clipboard.writeText(code.textContent.trim());
+            const span = btn.querySelector("span");
+            const prev = span ? span.textContent : "Copy";
+            if (span) span.textContent = "Copied!";
+            btn.classList.add("is-copied");
+            setTimeout(() => {
+              if (span) span.textContent = prev;
+              btn.classList.remove("is-copied");
+            }, 1600);
+          } catch (_) {}
+        });
+      });
+
+      applyReleaseVersion(version);
+
+      // Refresh automatically when a newer release tag is published on GitHub
+      fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data && data.tag_name) applyReleaseVersion(data.tag_name);
+        })
+        .catch(() => {});
+    })();
+  </script>
+</body>
+</html>
