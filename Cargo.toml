@@ -10,7 +10,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 authors = ["SundayDeck Contributors"]
@@ -62,3 +62,8 @@ opt-level = 3
 
 [profile.dev.package.image-webp]
 opt-level = 3
+
+[patch.crates-io]
+# Upstream AccessKit PR #835 backport onto 0.26.3 (pinned by mhr-gpui-macos 0.2.0):
+# prevents macOS Touch Bar `_NSTouchBarFinderObservation` KVO crash when closing windows.
+accesskit_macos = { path = "patches/accesskit_macos" }

@@ -162,6 +162,9 @@ run_macos_stress() {
     -p sundaydeck-voice \
     -- --test-threads=1
   cargo test --release -p sundaydeck-ui --lib -- --skip audience_window --test-threads=1
+
+  echo "=== Apple Silicon macOS KVO / Touch Bar Regression Gate (AccessKit #823 / PR #835) ==="
+  cargo test --release --manifest-path patches/accesskit_macos/Cargo.toml --target-dir target --test kvo_touchbar_regression
 }
 
 case "$MODE" in
