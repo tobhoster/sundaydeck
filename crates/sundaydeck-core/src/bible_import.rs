@@ -353,9 +353,7 @@ fn append_decoded(
     e: &quick_xml::events::BytesText<'_>,
     out: &mut String,
 ) -> Result<(), ImportError> {
-    let text = e.decode().map_err(|err| ImportError::MalformedXml {
-        detail: err.to_string(),
-    })?;
+    let text = e.xml_content(quick_xml::XmlVersion::Implicit1_0);
     if !out.is_empty() && !out.ends_with(' ') && !text.starts_with(' ') {
         out.push(' ');
     }
@@ -363,20 +361,17 @@ fn append_decoded(
     Ok(())
 }
 
-fn local_lower(bytes: &[u8]) -> String {
-    let s = std::str::from_utf8(bytes).unwrap_or("");
+fn local_lower(s: &str) -> String {
     s.rsplit(':').next().unwrap_or(s).to_ascii_lowercase()
 }
 
-fn local_upper(bytes: &[u8]) -> String {
-    let s = std::str::from_utf8(bytes).unwrap_or("");
+fn local_upper(s: &str) -> String {
     s.rsplit(':').next().unwrap_or(s).to_ascii_uppercase()
 }
 
 fn attr(e: &BytesStart<'_>, name: &str) -> Option<String> {
     for a in e.attributes().flatten() {
-        let key = std::str::from_utf8(a.key.as_ref()).unwrap_or("");
-        if key.eq_ignore_ascii_case(name) {
+        if a.key.as_ref().eq_ignore_ascii_case(name) {
             return a
                 .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                 .ok()

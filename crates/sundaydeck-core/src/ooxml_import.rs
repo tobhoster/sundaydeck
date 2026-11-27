@@ -263,19 +263,19 @@ fn parse_rels_xml(xml: &str) -> Result<HashMap<String, String>, ImportError> {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Empty(e) | Event::Start(e))
-                if local_name(e.name().as_ref()) == b"Relationship" =>
+                if local_name(e.name().as_ref()) == "Relationship" =>
             {
                 let mut id = None;
                 let mut target = None;
                 for attr in e.attributes().flatten() {
                     match local_name(attr.key.as_ref()) {
-                        b"Id" => {
+                        "Id" => {
                             id = attr
                                 .normalized_value(XmlVersion::Implicit1_0)
                                 .ok()
                                 .map(|v| v.into_owned());
                         }
-                        b"Target" => {
+                        "Target" => {
                             target = attr
                                 .normalized_value(XmlVersion::Implicit1_0)
                                 .ok()
@@ -307,20 +307,20 @@ fn find_notes_slide_target(xml: &str) -> Result<Option<String>, ImportError> {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Empty(e) | Event::Start(e))
-                if local_name(e.name().as_ref()) == b"Relationship" =>
+                if local_name(e.name().as_ref()) == "Relationship" =>
             {
                 let mut is_notes = false;
                 let mut target = None;
                 for attr in e.attributes().flatten() {
                     match local_name(attr.key.as_ref()) {
-                        b"Type" => {
+                        "Type" => {
                             if let Ok(v) = attr.normalized_value(XmlVersion::Implicit1_0)
                                 && v.contains("notesSlide")
                             {
                                 is_notes = true;
                             }
                         }
-                        b"Target" => {
+                        "Target" => {
                             target = attr
                                 .normalized_value(XmlVersion::Implicit1_0)
                                 .ok()
@@ -352,10 +352,10 @@ fn parse_slide_order_rids(xml: &str) -> Result<Vec<String>, ImportError> {
     let mut buf = Vec::new();
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Empty(e) | Event::Start(e)) if local_name(e.name().as_ref()) == b"sldId" => {
+            Ok(Event::Empty(e) | Event::Start(e)) if local_name(e.name().as_ref()) == "sldId" => {
                 for attr in e.attributes().flatten() {
-                    if local_name(attr.key.as_ref()) == b"id"
-                        && attr.key.as_ref().starts_with(b"r:")
+                    if local_name(attr.key.as_ref()) == "id"
+                        && attr.key.as_ref().starts_with("r:")
                         && let Ok(v) = attr.normalized_value(XmlVersion::Implicit1_0)
                     {
                         rids.push(v.into_owned());
@@ -392,33 +392,31 @@ fn parse_pptx_slide_xml(xml: &str) -> Result<(Option<String>, Vec<String>), Impo
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => match local_name(e.name().as_ref()) {
-                b"sp" => {
+                "sp" => {
                     in_shape = true;
                     shape_is_title = false;
                     shape_is_ignored = false;
                     shape_paras.clear();
                 }
-                b"ph" if in_shape => check_ph_type(&e, &mut shape_is_title, &mut shape_is_ignored),
-                b"p" if in_shape => {
+                "ph" if in_shape => check_ph_type(&e, &mut shape_is_title, &mut shape_is_ignored),
+                "p" if in_shape => {
                     in_para = true;
                     current_para.clear();
                 }
-                b"t" if in_para => in_text = true,
+                "t" if in_para => in_text = true,
                 _ => {}
             },
             Ok(Event::Empty(e)) => match local_name(e.name().as_ref()) {
-                b"ph" if in_shape => check_ph_type(&e, &mut shape_is_title, &mut shape_is_ignored),
-                b"br" if in_para => current_para.push('\n'),
+                "ph" if in_shape => check_ph_type(&e, &mut shape_is_title, &mut shape_is_ignored),
+                "br" if in_para => current_para.push('\n'),
                 _ => {}
             },
             Ok(Event::Text(t)) if in_text => {
-                if let Ok(decoded) = t.decode() {
-                    current_para.push_str(&decoded);
-                }
+                current_para.push_str(&t.xml_content(XmlVersion::Implicit1_0));
             }
             Ok(Event::End(e)) => match local_name(e.name().as_ref()) {
-                b"t" => in_text = false,
-                b"p" if in_para => {
+                "t" => in_text = false,
+                "p" if in_para => {
                     in_para = false;
                     let cleaned = collapse_inline_whitespace(&current_para);
                     if !cleaned.is_empty() {
@@ -426,7 +424,7 @@ fn parse_pptx_slide_xml(xml: &str) -> Result<(Option<String>, Vec<String>), Impo
                     }
                     current_para.clear();
                 }
-                b"sp" if in_shape => {
+                "sp" if in_shape => {
                     in_shape = false;
                     if !shape_is_ignored {
                         if shape_is_title && heading.is_none() && !shape_paras.is_empty() {
@@ -461,7 +459,7 @@ fn check_ph_type(
     is_ignored: &mut bool,
 ) {
     for attr in event.attributes().flatten() {
-        if local_name(attr.key.as_ref()) == b"type"
+        if local_name(attr.key.as_ref()) == "type"
             && let Ok(val) = attr.normalized_value(XmlVersion::Implicit1_0)
         {
             match val.as_ref() {

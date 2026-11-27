@@ -19,6 +19,7 @@ env:
 jobs:
   build-macos:
     name: macOS DMG (${{ matrix.arch_label }})
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -30,7 +31,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout SundayDeck
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -76,7 +79,7 @@ jobs:
           rm -f "$RUNNER_TEMP/sundaydeck-signing.keychain-db" "$RUNNER_TEMP/developer-id.p12"
 
       - name: Upload macOS DMG artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-macos-${{ matrix.arch_label }}
           path: dist/*.dmg
@@ -85,14 +88,17 @@ jobs:
   build-linux:
     name: Linux (.deb + .tar.gz)
     runs-on: ubuntu-24.04
+    timeout-minutes: 35
     steps:
       - name: Checkout SundayDeck
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install Linux build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --no-install-recommends \
             dpkg-dev \
             libasound2-dev \
             libfontconfig1-dev \
@@ -117,7 +123,7 @@ jobs:
           ./scripts/build-linux-packages.sh
 
       - name: Upload Linux release artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-linux-x86_64
           path: |
@@ -128,9 +134,12 @@ jobs:
   build-windows:
     name: Windows (.exe Installer + Portable .zip)
     runs-on: windows-latest
+    timeout-minutes: 40
     steps:
       - name: Checkout SundayDeck
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -143,7 +152,7 @@ jobs:
         run: ./scripts/build-windows-installer.ps1
 
       - name: Upload Windows release artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-windows-x86_64
           path: |
@@ -155,16 +164,19 @@ jobs:
     name: Publish GitHub Release & Homebrew Cask
     needs: [build-macos, build-linux, build-windows]
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write
       id-token: write
       attestations: write
     steps:
       - name: Checkout SundayDeck
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Download all platform artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
           merge-multiple: true
@@ -186,14 +198,14 @@ jobs:
           ./scripts/update-homebrew-cask.sh "$GITHUB_REPOSITORY" "$VERSION" release-assets > release-assets/sundaydeck.rb
 
       - name: Upload combined release bundle artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sundaydeck-release-all
           path: release-assets/*
 
       - name: Attest Build Provenance (SLSA / Sigstore)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             release-assets/*.dmg
@@ -205,7 +217,7 @@ jobs:
 
       - name: Publish GitHub Release (on v* tag)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           files: |

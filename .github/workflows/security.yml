@@ -12,13 +12,18 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   rust-security:
     name: Rust Security Audit & License Check
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout SundayDeck
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -37,14 +42,15 @@ jobs:
     name: Dependency Review (PRs)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout SundayDeck
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Review dependency changes for CVEs and license issues
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: moderate
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.1, LGPL-3.0
@@ -52,9 +58,10 @@ jobs:
   web-and-scripts-security:
     name: Shell & Web Security Checks
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout SundayDeck
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 

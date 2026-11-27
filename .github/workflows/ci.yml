@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -16,14 +20,17 @@ jobs:
   check-and-test:
     name: Format, Clippy & Tests (Linux)
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - name: Checkout SundayDeck
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install Linux GPUI & audio system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --no-install-recommends \
             libasound2-dev \
             libfontconfig1-dev \
             libfreetype-dev \
@@ -56,10 +63,8 @@ jobs:
         run: |
           LVP_ICD="$(ls /usr/share/vulkan/icd.d/lvp_icd*.json 2>/dev/null | head -n 1 || true)"
           echo "Detected Lavapipe ICD: ${LVP_ICD:-none}"
-          ls -la /usr/share/vulkan/icd.d/ || true
           if [ -n "$LVP_ICD" ]; then
             export VK_ICD_FILENAMES="$LVP_ICD"
             export VK_DRIVER_FILES="$LVP_ICD"
           fi
-          vulkaninfo --summary || true
-          cargo test --workspace
+          cargo test --workspace -- --test-threads=1

@@ -124,29 +124,27 @@ fn parse_docx_paragraphs(xml: &str) -> Result<Vec<DocxParagraph>, ImportError> {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => match local_name(e.name().as_ref()) {
-                b"p" => {
+                "p" => {
                     in_para = true;
                     is_heading = false;
                     current.clear();
                 }
-                b"pStyle" if in_para => check_docx_heading(&e, &mut is_heading),
-                b"t" if in_para => in_text = true,
+                "pStyle" if in_para => check_docx_heading(&e, &mut is_heading),
+                "t" if in_para => in_text = true,
                 _ => {}
             },
             Ok(Event::Empty(e)) => match local_name(e.name().as_ref()) {
-                b"pStyle" if in_para => check_docx_heading(&e, &mut is_heading),
-                b"br" | b"cr" if in_para => current.push('\n'),
-                b"tab" if in_para => current.push(' '),
+                "pStyle" if in_para => check_docx_heading(&e, &mut is_heading),
+                "br" | "cr" if in_para => current.push('\n'),
+                "tab" if in_para => current.push(' '),
                 _ => {}
             },
             Ok(Event::Text(t)) if in_text => {
-                if let Ok(decoded) = t.decode() {
-                    current.push_str(&decoded);
-                }
+                current.push_str(&t.xml_content(XmlVersion::Implicit1_0));
             }
             Ok(Event::End(e)) => match local_name(e.name().as_ref()) {
-                b"t" => in_text = false,
-                b"p" if in_para => {
+                "t" => in_text = false,
+                "p" if in_para => {
                     in_para = false;
                     let cleaned = collapse_inline_whitespace(&current);
                     if !cleaned.is_empty() {
@@ -174,7 +172,7 @@ fn parse_docx_paragraphs(xml: &str) -> Result<Vec<DocxParagraph>, ImportError> {
 
 fn check_docx_heading(event: &quick_xml::events::BytesStart<'_>, is_heading: &mut bool) {
     for attr in event.attributes().flatten() {
-        if local_name(attr.key.as_ref()) == b"val"
+        if local_name(attr.key.as_ref()) == "val"
             && let Ok(val) = attr.normalized_value(XmlVersion::Implicit1_0)
         {
             let lower = val.to_ascii_lowercase();
@@ -234,8 +232,8 @@ fn flush_block(
     notes.clear();
 }
 
-pub(crate) fn local_name(name: &[u8]) -> &[u8] {
-    name.rsplit(|&b| b == b':').next().unwrap_or(name)
+pub(crate) fn local_name(name: &str) -> &str {
+    name.rsplit(':').next().unwrap_or(name)
 }
 
 pub(crate) fn collapse_inline_whitespace(input: &str) -> String {

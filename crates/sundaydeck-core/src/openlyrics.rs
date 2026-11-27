@@ -28,7 +28,7 @@ pub fn import_openlyrics_xml(xml: &str) -> Result<Song, ImportError> {
             Ok(Event::Start(e)) => {
                 let tag = local_name(e.name().as_ref());
                 if tag == "verse" {
-                    current_verse_code = attr_value(&e, b"name");
+                    current_verse_code = attr_value(&e, "name");
                     current_lines.clear();
                 } else if tag == "lines" && !current_lines.is_empty() {
                     current_lines.push_str("\n\n");
@@ -42,9 +42,7 @@ pub fn import_openlyrics_xml(xml: &str) -> Result<Song, ImportError> {
                 }
             }
             Ok(Event::Text(e)) => {
-                let decoded = e.decode().map_err(|err| ImportError::MalformedXml {
-                    detail: err.to_string(),
-                })?;
+                let decoded = e.xml_content(quick_xml::XmlVersion::Implicit1_0);
                 if current_verse_code.is_some() && in_tag.iter().any(|t| t == "lines") {
                     current_lines.push_str(&decoded);
                 } else {
@@ -182,12 +180,11 @@ fn normalize_multiline_body(raw: &str) -> String {
         .to_owned()
 }
 
-fn local_name(bytes: &[u8]) -> String {
-    let full = std::str::from_utf8(bytes).unwrap_or("");
+fn local_name(full: &str) -> String {
     full.rsplit(':').next().unwrap_or(full).to_owned()
 }
 
-fn attr_value(e: &quick_xml::events::BytesStart<'_>, key: &[u8]) -> Option<String> {
+fn attr_value(e: &quick_xml::events::BytesStart<'_>, key: &str) -> Option<String> {
     for attr in e.attributes().flatten() {
         if attr.key.as_ref() == key {
             return attr
