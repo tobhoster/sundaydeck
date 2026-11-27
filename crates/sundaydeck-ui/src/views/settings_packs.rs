@@ -65,7 +65,8 @@ impl SettingsModal {
                             .file_name()
                             .and_then(|s| s.to_str())
                             .unwrap_or("bible.xml");
-                        detect_and_import_bible(&code, &name, fname, &raw).map_err(|e| e.to_string())
+                        detect_and_import_bible(&code, &name, fname, &raw)
+                            .map_err(|e| e.to_string())
                     })
                     .await;
                 match parsed_res {

@@ -243,10 +243,7 @@ pub fn paginate_scripture(verses: &[BibleVerse], budget: PaginationBudget) -> Ve
 
 /// Paginates a paired Primary + Secondary Bible passage (e.g. Spanish *RVR1909* + English *WEB*,
 /// or Portuguese *Almeida* + English *KJV*) cleanly into dual-language stacked slides.
-pub fn paginate_parallel_scripture(
-    primary: &[BibleVerse],
-    secondary: &[BibleVerse],
-) -> Vec<Slide> {
+pub fn paginate_parallel_scripture(primary: &[BibleVerse], secondary: &[BibleVerse]) -> Vec<Slide> {
     primary
         .iter()
         .enumerate()

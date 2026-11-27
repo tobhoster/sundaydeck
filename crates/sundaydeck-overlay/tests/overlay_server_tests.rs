@@ -38,7 +38,9 @@ fn obs_overlay_serves_transparent_html_state_json_and_pushes_websocket_frames() 
     let mut chunk = [0u8; 2048];
     // Wait until both the HTTP 101 handshake and the initial clear state frame arrive.
     while !received.contains("\"mode\":\"clear\"") {
-        let n = ws.read(&mut chunk).expect("read ws handshake and initial frame");
+        let n = ws
+            .read(&mut chunk)
+            .expect("read ws handshake and initial frame");
         assert!(n > 0, "unexpected EOF waiting for ws handshake");
         received.push_str(&String::from_utf8_lossy(&chunk[..n]));
     }

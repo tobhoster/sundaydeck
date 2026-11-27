@@ -177,7 +177,10 @@ impl Song {
     pub fn lyrics_search_text(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
         for h in &self.hymnal_entries {
-            parts.push(format!("{} {} #{}", h.hymnal_code, h.hymn_number, h.hymn_number));
+            parts.push(format!(
+                "{} {} #{}",
+                h.hymnal_code, h.hymn_number, h.hymn_number
+            ));
         }
         for section in &self.sections {
             let trimmed = section.body.trim();

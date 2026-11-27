@@ -417,7 +417,10 @@ fn download_media_to_cache(url: &str, slug: &str) -> Result<PathBuf, String> {
         .into();
     let mut resp = agent
         .get(url)
-        .header("User-Agent", "SundayDeck/0.1 (Church Presentation Software)")
+        .header(
+            "User-Agent",
+            "SundayDeck/0.1 (Church Presentation Software)",
+        )
         .call()
         .map_err(|e| format!("Media download failed: {e}"))?;
 

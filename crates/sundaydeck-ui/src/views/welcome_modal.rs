@@ -120,8 +120,12 @@ impl WelcomeModal {
             prompt: Some("Select Church Logo (.png, .jpg, .webp)".into()),
         });
         cx.spawn(async move |this, cx| {
-            let Ok(Ok(Some(paths))) = rx.await else { return };
-            let Some(src) = paths.into_iter().next() else { return };
+            let Ok(Ok(Some(paths))) = rx.await else {
+                return;
+            };
+            let Some(src) = paths.into_iter().next() else {
+                return;
+            };
             let res = cx
                 .background_executor()
                 .spawn(async move { copy_church_logo_file(&src) })
@@ -151,8 +155,12 @@ impl WelcomeModal {
         });
         let store = self.store.clone();
         cx.spawn(async move |this, cx| {
-            let Ok(Ok(Some(paths))) = rx.await else { return };
-            let Some(src) = paths.into_iter().next() else { return };
+            let Ok(Ok(Some(paths))) = rx.await else {
+                return;
+            };
+            let Some(src) = paths.into_iter().next() else {
+                return;
+            };
             let loaded = cx
                 .background_executor()
                 .spawn(async move { import_sdeck_pack(&src).map_err(|e| e.to_string()) })
@@ -203,8 +211,12 @@ impl WelcomeModal {
         let store = self.store.clone();
         let db = self.db.clone();
         cx.spawn(async move |this, cx| {
-            let Ok(Ok(Some(paths))) = rx.await else { return };
-            if paths.is_empty() { return; }
+            let Ok(Ok(Some(paths))) = rx.await else {
+                return;
+            };
+            if paths.is_empty() {
+                return;
+            }
             let res = cx
                 .background_executor()
                 .spawn(async move { import_external_song_files(&paths) })
@@ -259,7 +271,11 @@ impl Render for WelcomeModal {
                     .py(px(9.0))
                     .rounded(px(RADIUS_CONTROL))
                     .cursor_pointer()
-                    .bg(if active { TOKENS.elevated } else { TOKENS.recessed })
+                    .bg(if active {
+                        TOKENS.elevated
+                    } else {
+                        TOKENS.recessed
+                    })
                     .border_1()
                     .border_color(if active {
                         TOKENS.signal_preview
@@ -344,7 +360,11 @@ impl Render for WelcomeModal {
                     .flex()
                     .items_center()
                     .gap(px(10.0))
-                    .child(deck_icon(DeckIcon::Monitor, IconSize::Md, TOKENS.signal_preview))
+                    .child(deck_icon(
+                        DeckIcon::Monitor,
+                        IconSize::Md,
+                        TOKENS.signal_preview,
+                    ))
                     .child(
                         div()
                             .flex()

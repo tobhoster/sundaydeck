@@ -74,7 +74,8 @@ pub fn import_openlp_sqlite(songs_sqlite_path: &Path) -> Result<Vec<Song>, DbErr
         "SELECT asg.song_id, a.display_name
          FROM authors_songs asg
          JOIN authors a ON a.id = asg.author_id",
-    ) && let Ok(rows) = a_stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+    ) && let Ok(rows) =
+        a_stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
     {
         for (sid, name) in rows.flatten() {
             authors_by_song.entry(sid).or_default().push(name);

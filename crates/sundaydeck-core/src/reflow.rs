@@ -32,8 +32,11 @@ pub fn reflow_song_bilingual(
 
     let mut slides = Vec::new();
     for (occurrence_idx, section) in ordered_sections.into_iter().enumerate() {
-        let rendered_body =
-            format_bilingual_body(&section.body, section.secondary_body.as_deref(), bilingual_mode);
+        let rendered_body = format_bilingual_body(
+            &section.body,
+            section.secondary_body.as_deref(),
+            bilingual_mode,
+        );
         let chunks = if section.secondary_body.is_some()
             && bilingual_mode == BilingualDisplayMode::BilingualStacked
         {

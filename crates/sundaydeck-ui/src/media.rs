@@ -319,7 +319,10 @@ mod tests {
 
         for (uri, poster) in [
             (BUILTIN_GOLDEN_LOOP_URI, "backgrounds/golden-light.jpg"),
-            (BUILTIN_STARRY_LOOP_URI, "backgrounds/starry-night-ridge.jpg"),
+            (
+                BUILTIN_STARRY_LOOP_URI,
+                "backgrounds/starry-night-ridge.jpg",
+            ),
         ] {
             let (frame_a, frame_b, blend) =
                 video_loop_frames(uri, poster, 1.0, 1_450).expect("motion video loop decodes");

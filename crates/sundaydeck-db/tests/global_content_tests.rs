@@ -17,7 +17,10 @@ use sundaydeck_db::song_repo::{get_song, search_songs, upsert_song};
 fn catholic_73_book_usfm_import_and_americas_reference_parsing() {
     // 73-book Catholic + Spanish + Portuguese (Brazil) + French (Canada) localized aliases
     let sir = parse_scripture_ref("Sirach 2:1").expect("Sirach 2:1");
-    assert_eq!((sir.book_number, sir.chapter, sir.verse_start), (70, 2, Some(1)));
+    assert_eq!(
+        (sir.book_number, sir.chapter, sir.verse_start),
+        (70, 2, Some(1))
+    );
 
     let wis = parse_scripture_ref("Wisdom 3:1-4").expect("Wisdom 3:1-4");
     assert_eq!(
@@ -26,13 +29,22 @@ fn catholic_73_book_usfm_import_and_americas_reference_parsing() {
     );
 
     let sab = parse_scripture_ref("Sabiduría 3:1").expect("Spanish Sabiduría");
-    assert_eq!((sab.book_number, sab.chapter, sab.verse_start), (69, 3, Some(1)));
+    assert_eq!(
+        (sab.book_number, sab.chapter, sab.verse_start),
+        (69, 3, Some(1))
+    );
 
     let pt_sab = parse_scripture_ref("Sabedoria 3:1").expect("Portuguese Sabedoria");
-    assert_eq!((pt_sab.book_number, pt_sab.chapter, pt_sab.verse_start), (69, 3, Some(1)));
+    assert_eq!(
+        (pt_sab.book_number, pt_sab.chapter, pt_sab.verse_start),
+        (69, 3, Some(1))
+    );
 
     let eclo = parse_scripture_ref("eclo 2:1").expect("Spanish/Portuguese Eclesiástico");
-    assert_eq!((eclo.book_number, eclo.chapter, eclo.verse_start), (70, 2, Some(1)));
+    assert_eq!(
+        (eclo.book_number, eclo.chapter, eclo.verse_start),
+        (70, 2, Some(1))
+    );
 
     let sal = parse_scripture_ref("Sal 23:1-3").expect("Spanish/Portuguese Salmos");
     assert_eq!(
@@ -41,13 +53,22 @@ fn catholic_73_book_usfm_import_and_americas_reference_parsing() {
     );
 
     let pt_joao = parse_scripture_ref("João 3:16").expect("Portuguese João");
-    assert_eq!((pt_joao.book_number, pt_joao.chapter, pt_joao.verse_start), (43, 3, Some(16)));
+    assert_eq!(
+        (pt_joao.book_number, pt_joao.chapter, pt_joao.verse_start),
+        (43, 3, Some(16))
+    );
 
     let fr_ps = parse_scripture_ref("Psaumes 23:1").expect("French Psaumes");
-    assert_eq!((fr_ps.book_number, fr_ps.chapter, fr_ps.verse_start), (19, 23, Some(1)));
+    assert_eq!(
+        (fr_ps.book_number, fr_ps.chapter, fr_ps.verse_start),
+        (19, 23, Some(1))
+    );
 
     let ap = parse_scripture_ref("Apocalipse 21:4").expect("Portuguese Apocalipse");
-    assert_eq!((ap.book_number, ap.chapter, ap.verse_start), (66, 21, Some(4)));
+    assert_eq!(
+        (ap.book_number, ap.chapter, ap.verse_start),
+        (66, 21, Some(4))
+    );
 
     // USFM parser handles Deuterocanonical \id WIS + \id SIR and strips footnotes cleanly
     let usfm = r#"
@@ -59,8 +80,9 @@ fn catholic_73_book_usfm_import_and_americas_reference_parsing() {
 \c 2
 \v 1 Son, when you come to the service of God, stand in justice and in fear, and prepare your soul for temptation.
 "#;
-    let parsed = detect_and_import_bible("CPDV", "Catholic Public Domain Version", "cpdv.usfm", usfm)
-        .expect("parse USFM 73-book");
+    let parsed =
+        detect_and_import_bible("CPDV", "Catholic Public Domain Version", "cpdv.usfm", usfm)
+            .expect("parse USFM 73-book");
     assert_eq!(parsed.verses.len(), 3);
 
     let mut db = Database::open_in_memory().expect("open db");
@@ -98,7 +120,8 @@ fn diacritic_insensitive_fts5_search_matches_spanish_and_portuguese_without_acce
     import_parsed_bible(db.conn_mut(), &es_parsed).expect("import spanish");
 
     // Plain ASCII queries match Portuguese accents & cedillas
-    let h1 = search_bible_verses(db.conn(), "ACF", "bencao coracao", 10).expect("Portuguese search");
+    let h1 =
+        search_bible_verses(db.conn(), "ACF", "bencao coracao", 10).expect("Portuguese search");
     assert_eq!(h1.len(), 1);
     assert!(h1[0].text.contains("coração"));
 
@@ -107,7 +130,8 @@ fn diacritic_insensitive_fts5_search_matches_spanish_and_portuguese_without_acce
     assert!(h2[0].text.contains("congregação"));
 
     // Plain ASCII queries match Spanish accents
-    let s1 = search_bible_verses(db.conn(), "RV1909", "Corazon Sabiduria", 10).expect("Spanish search");
+    let s1 =
+        search_bible_verses(db.conn(), "RV1909", "Corazon Sabiduria", 10).expect("Spanish search");
     assert_eq!(s1.len(), 1);
     assert!(s1[0].text.contains("corazón"));
 
@@ -186,25 +210,54 @@ That saved a wretch like me
     );
 
     // Bilingual display modes
-    let stacked = reflow_song_bilingual(&loaded_hgt, None, None, BilingualDisplayMode::BilingualStacked);
+    let stacked = reflow_song_bilingual(
+        &loaded_hgt,
+        None,
+        None,
+        BilingualDisplayMode::BilingualStacked,
+    );
     assert!(stacked[0].content.primary_text().contains("Sublime gracia"));
-    assert!(stacked[0].content.primary_text().contains("Amazing grace, how sweet"));
+    assert!(
+        stacked[0]
+            .content
+            .primary_text()
+            .contains("Amazing grace, how sweet")
+    );
 
-    let primary_only = reflow_song_bilingual(&loaded_hgt, None, None, BilingualDisplayMode::PrimaryOnly);
-    assert!(primary_only[0].content.primary_text().contains("Sublime gracia"));
-    assert!(!primary_only[0].content.primary_text().contains("Amazing grace, how sweet"));
+    let primary_only =
+        reflow_song_bilingual(&loaded_hgt, None, None, BilingualDisplayMode::PrimaryOnly);
+    assert!(
+        primary_only[0]
+            .content
+            .primary_text()
+            .contains("Sublime gracia")
+    );
+    assert!(
+        !primary_only[0]
+            .content
+            .primary_text()
+            .contains("Amazing grace, how sweet")
+    );
 
-    let secondary_only = reflow_song_bilingual(&loaded_hgt, None, None, BilingualDisplayMode::SecondaryOnly);
-    assert!(secondary_only[0].content.primary_text().contains("Amazing grace, how sweet"));
-    assert!(!secondary_only[0].content.primary_text().contains("Sublime gracia"));
+    let secondary_only =
+        reflow_song_bilingual(&loaded_hgt, None, None, BilingualDisplayMode::SecondaryOnly);
+    assert!(
+        secondary_only[0]
+            .content
+            .primary_text()
+            .contains("Amazing grace, how sweet")
+    );
+    assert!(
+        !secondary_only[0]
+            .content
+            .primary_text()
+            .contains("Sublime gracia")
+    );
 }
 
 #[test]
 fn easyworship_rtf_openlp_sqlite_chordpro_and_freeshow_importers() {
-    let dir = std::env::temp_dir().join(format!(
-        "sundaydeck-legacy-import-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("sundaydeck-legacy-import-{}", std::process::id()));
     let _ = std::fs::create_dir_all(&dir);
 
     let ew_songs = dir.join("Songs.db");
@@ -231,7 +284,10 @@ fn easyworship_rtf_openlp_sqlite_chordpro_and_freeshow_importers() {
     assert_eq!(ew_out[0].sections.len(), 2);
     assert!(ew_out[0].sections[0].body.contains("Lord God Almighty!"));
     assert!(!ew_out[0].sections[0].body.contains("\\rtf1"));
-    assert_eq!(strip_rtf_to_plain_text("{\\rtf1\\ansi Hello\\par World}"), "Hello\nWorld");
+    assert_eq!(
+        strip_rtf_to_plain_text("{\\rtf1\\ansi Hello\\par World}"),
+        "Hello\nWorld"
+    );
 
     let olp_path = dir.join("openlp_songs.sqlite");
     let _ = std::fs::remove_file(&olp_path);
@@ -257,7 +313,10 @@ fn easyworship_rtf_openlp_sqlite_chordpro_and_freeshow_importers() {
 
     let cho = "{title: Doxology}\n{artist: Thomas Ken}\n[G]Praise God from [D]whom all [Em]blessings [C]flow\n";
     let cho_song = import_chordpro_song(cho).expect("chordpro");
-    assert_eq!(cho_song.sections[0].body, "Praise God from whom all blessings flow");
+    assert_eq!(
+        cho_song.sections[0].body,
+        "Praise God from whom all blessings flow"
+    );
     assert!(
         cho_song.sections[0]
             .stage_chords
@@ -334,8 +393,8 @@ fn sdeck_pack_roundtrip_installs_bibles_hymns_liturgies_and_license_attribution(
     assert!(!wesley_hits.is_empty());
     assert!(wesley_hits[0].title.contains("Thousand Tongues"));
 
-    let starter_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../dist/starter-packs");
+    let starter_dir =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../dist/starter-packs");
     if starter_dir.is_dir() {
         let mut pack_count = 0usize;
         for entry in std::fs::read_dir(&starter_dir).expect("read starter-packs dir") {
@@ -347,7 +406,10 @@ fn sdeck_pack_roundtrip_installs_bibles_hymns_liturgies_and_license_attribution(
                 pack_count += 1;
             }
         }
-        assert!(pack_count >= 4, "expected 4 starter packs in dist/starter-packs");
+        assert!(
+            pack_count >= 4,
+            "expected 4 starter packs in dist/starter-packs"
+        );
     }
 
     let _ = std::fs::remove_dir_all(&dir);

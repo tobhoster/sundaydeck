@@ -23,7 +23,11 @@ pub struct HymnalEntry {
 
 impl HymnalEntry {
     pub fn display_code(&self) -> String {
-        format!("{} #{}", self.hymnal_code.to_ascii_uppercase(), self.hymn_number)
+        format!(
+            "{} #{}",
+            self.hymnal_code.to_ascii_uppercase(),
+            self.hymn_number
+        )
     }
 }
 
@@ -43,7 +47,9 @@ pub fn parse_hymn_jump_query(raw: &str) -> Option<(Option<String>, u32)> {
         let code_raw = parts[0].trim_end_matches(['#', ':']);
         let num_raw = parts[1].trim_start_matches('#');
         if let Ok(num) = num_raw.parse::<u32>()
-            && code_raw.chars().all(|c| c.is_ascii_alphanumeric() || c == '&')
+            && code_raw
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '&')
         {
             let upper = code_raw.to_ascii_uppercase();
             if matches!(upper.as_str(), "HYMN" | "HIMNO" | "NO" | "NUM") {
@@ -78,7 +84,11 @@ pub enum BilingualDisplayMode {
 }
 
 impl BilingualDisplayMode {
-    pub const ALL: [Self; 3] = [Self::BilingualStacked, Self::PrimaryOnly, Self::SecondaryOnly];
+    pub const ALL: [Self; 3] = [
+        Self::BilingualStacked,
+        Self::PrimaryOnly,
+        Self::SecondaryOnly,
+    ];
 
     pub const fn label(self) -> &'static str {
         match self {
@@ -306,7 +316,10 @@ pub fn import_sdeck_pack(src_path: &Path) -> Result<SdeckPack, ImportError> {
     let manifest: SdeckPackManifest = read_zip_json(&mut archive, "manifest.json")?;
     if manifest.schema_version != SDECK_PACK_SCHEMA_VERSION {
         return Err(ImportError::UnsupportedFormat {
-            detail: format!("unsupported .sdeck-pack schema v{}", manifest.schema_version),
+            detail: format!(
+                "unsupported .sdeck-pack schema v{}",
+                manifest.schema_version
+            ),
         });
     }
     let bibles = read_zip_json(&mut archive, "bibles.json").unwrap_or_default();

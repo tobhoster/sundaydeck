@@ -172,7 +172,8 @@ fn render_logo_splash(
             .items_center()
             .justify_center()
             .child(img(render_img).size_full().object_fit(ObjectFit::Contain))
-    } else if let Some(default_emblem) = load_background_image("backgrounds/default-church-logo.png")
+    } else if let Some(default_emblem) =
+        load_background_image("backgrounds/default-church-logo.png")
     {
         div()
             .w(mark_size)
@@ -180,7 +181,11 @@ fn render_logo_splash(
             .flex()
             .items_center()
             .justify_center()
-            .child(img(default_emblem).size_full().object_fit(ObjectFit::Contain))
+            .child(
+                img(default_emblem)
+                    .size_full()
+                    .object_fit(ObjectFit::Contain),
+            )
     } else {
         div()
             .w(mark_size)

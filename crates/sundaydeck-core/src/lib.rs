@@ -52,12 +52,12 @@ pub use hymnal_importers::{
     SongImporter, UniversalSongImporter, import_chordpro_song, import_numbered_hymnal_json,
     import_numbered_hymnal_text,
 };
-pub use legacy_formats::{
-    import_freeshow_or_videopsalm_json, import_propresenter6_xml, strip_rtf_to_plain_text,
-};
 pub use ids::{
     AlertId, ArrangementId, BibleTranslationId, MediaAssetId, SectionId, ServiceId, ServiceItemId,
     SlideId, SongId, ThemeId, TimerId,
+};
+pub use legacy_formats::{
+    import_freeshow_or_videopsalm_json, import_propresenter6_xml, strip_rtf_to_plain_text,
 };
 pub use live_state::{EngineTransition, PresentationCommand, PresentationEngine, TransitionKind};
 pub use ooxml_import::{

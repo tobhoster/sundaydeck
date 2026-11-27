@@ -71,7 +71,10 @@ pub fn install_sdeck_pack(
                 language = excluded.language",
             params![lit.id, lit.title, lit.tradition, lit.language, now],
         )?;
-        tx.execute("DELETE FROM liturgy_lines WHERE template_id = ?1", [&lit.id])?;
+        tx.execute(
+            "DELETE FROM liturgy_lines WHERE template_id = ?1",
+            [&lit.id],
+        )?;
         for (pos, line) in lit.lines.iter().enumerate() {
             tx.execute(
                 "INSERT INTO liturgy_lines (template_id, position, speaker, text, secondary_text)

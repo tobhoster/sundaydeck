@@ -113,14 +113,26 @@ pub fn import_usfm_text(
             continue;
         }
         if let Some(rest) = line.strip_prefix("\\id ") {
-            flush(&mut verses, cur_book, cur_chapter, &mut cur_verse, &mut verse_buf);
+            flush(
+                &mut verses,
+                cur_book,
+                cur_chapter,
+                &mut cur_verse,
+                &mut verse_buf,
+            );
             let usfm_id = rest.split_whitespace().next().unwrap_or("");
             cur_book = book_by_usfx(usfm_id).map(|m| m.number);
             cur_chapter = None;
             continue;
         }
         if let Some(rest) = line.strip_prefix("\\c ") {
-            flush(&mut verses, cur_book, cur_chapter, &mut cur_verse, &mut verse_buf);
+            flush(
+                &mut verses,
+                cur_book,
+                cur_chapter,
+                &mut cur_verse,
+                &mut verse_buf,
+            );
             cur_chapter = rest
                 .split_whitespace()
                 .next()
@@ -128,7 +140,13 @@ pub fn import_usfm_text(
             continue;
         }
         if let Some(rest) = line.strip_prefix("\\v ") {
-            flush(&mut verses, cur_book, cur_chapter, &mut cur_verse, &mut verse_buf);
+            flush(
+                &mut verses,
+                cur_book,
+                cur_chapter,
+                &mut cur_verse,
+                &mut verse_buf,
+            );
             let mut parts = rest.splitn(2, char::is_whitespace);
             let v_tok = parts.next().unwrap_or("");
             let start_num = v_tok
@@ -159,10 +177,18 @@ pub fn import_usfm_text(
         }
     }
 
-    flush(&mut verses, cur_book, cur_chapter, &mut cur_verse, &mut verse_buf);
+    flush(
+        &mut verses,
+        cur_book,
+        cur_chapter,
+        &mut cur_verse,
+        &mut verse_buf,
+    );
 
     if verses.is_empty() {
-        return Err(ImportError::NoContent { kind: "USFM verses" });
+        return Err(ImportError::NoContent {
+            kind: "USFM verses",
+        });
     }
 
     Ok(ParsedBible {
@@ -179,7 +205,9 @@ pub fn import_usfm_text(
 }
 
 fn strip_usfm_line_marker(line: &str) -> Option<&str> {
-    for prefix in ["\\p ", "\\q ", "\\q1 ", "\\q2 ", "\\q3 ", "\\m ", "\\pi ", "\\li "] {
+    for prefix in [
+        "\\p ", "\\q ", "\\q1 ", "\\q2 ", "\\q3 ", "\\m ", "\\pi ", "\\li ",
+    ] {
         if let Some(rest) = line.strip_prefix(prefix) {
             return Some(rest.trim());
         }
@@ -199,7 +227,9 @@ fn clean_usfm_inline(raw: &str) -> String {
     while i < chars.len() {
         if chars[i] == '\\' {
             i += 1;
-            while i < chars.len() && (chars[i].is_ascii_alphanumeric() || chars[i] == '+' || chars[i] == '*') {
+            while i < chars.len()
+                && (chars[i].is_ascii_alphanumeric() || chars[i] == '+' || chars[i] == '*')
+            {
                 i += 1;
             }
             if i < chars.len() && chars[i] == ' ' {

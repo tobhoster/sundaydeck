@@ -361,8 +361,12 @@ pub fn render_custom_slide_layout(
                                     } else {
                                         text_color.alpha(0.78)
                                     })
-                                    .text_size(px((if is_cong { 44.0 } else { 36.0 } * scale).max(8.0)))
-                                    .line_height(px((if is_cong { 56.0 } else { 46.0 } * scale).max(10.0)))
+                                    .text_size(px(
+                                        (if is_cong { 44.0 } else { 36.0 } * scale).max(8.0)
+                                    ))
+                                    .line_height(px(
+                                        (if is_cong { 56.0 } else { 46.0 } * scale).max(10.0)
+                                    ))
                                     .font_weight(if is_cong {
                                         FontWeight::BOLD
                                     } else {
