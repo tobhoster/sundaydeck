@@ -24,6 +24,7 @@ jobs:
             libasound2-dev \
             libfontconfig1-dev \
             libfreetype-dev \
+            libvulkan1 \
             libvulkan-dev \
             libwayland-dev \
             libx11-dev \
@@ -31,7 +32,8 @@ jobs:
             libxkbcommon-dev \
             libxkbcommon-x11-dev \
             mesa-vulkan-drivers \
-            pkg-config
+            pkg-config \
+            vulkan-tools
 
       - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -48,6 +50,13 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Run workspace tests (headless software Vulkan)
-        env:
-          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
-        run: cargo test --workspace
+        run: |
+          LVP_ICD="$(ls /usr/share/vulkan/icd.d/lvp_icd*.json 2>/dev/null | head -n 1 || true)"
+          echo "Detected Lavapipe ICD: ${LVP_ICD:-none}"
+          ls -la /usr/share/vulkan/icd.d/ || true
+          if [ -n "$LVP_ICD" ]; then
+            export VK_ICD_FILENAMES="$LVP_ICD"
+            export VK_DRIVER_FILES="$LVP_ICD"
+          fi
+          vulkaninfo --summary || true
+          cargo test --workspace
