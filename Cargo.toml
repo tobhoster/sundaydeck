@@ -40,4 +40,4 @@ thiserror = "2.0"
 tracing = "0.1"
 ureq = "3"
 uuid = { version = "1.29", features = ["v5", "v7", "serde"] }
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
