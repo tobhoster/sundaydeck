@@ -64,7 +64,21 @@
 
   <main id="top">
     <section class="hero">
-      <div class="wrap">
+      <div class="hero-ambient" aria-hidden="true">
+        <video
+          class="hero-ambient-video"
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          poster="media/bg/golden-light.jpg"
+        >
+          <source src="media/bg/golden-light-loop.mp4" type="video/mp4" />
+        </video>
+        <div class="hero-ambient-scrim"></div>
+      </div>
+      <div class="wrap hero-content">
         <div class="kicker" data-reveal>
           <span class="ic ic-sm ic-emerald" style="--ic: url('icons/heart.svg');"></span>
           <span data-i18n="hero.kicker1">Free &amp; Open Source</span>
@@ -292,6 +306,138 @@
       </div>
     </section>
 
+    <section id="backdrops" class="backdrops-section">
+      <div class="wrap">
+        <div class="sec-head" data-reveal>
+          <div class="sec-label">
+            <span class="ic ic-sm ic-amber" style="--ic: url('icons/image.svg');"></span>
+            <span data-i18n="media.label">Included Public Domain Backdrops</span>
+          </div>
+          <h2 data-i18n-html="media.h2">Peaceful photography &amp; looping skies — <span class="serif-accent">free and bundled offline.</span></h2>
+          <p class="sec-copy" data-i18n="media.copy">
+            SundayDeck ships with verified U.S. National Park Service &amp; Wildlife Refuge Public
+            Domain photographs and looping motion timelapses ready for Sunday morning — click any
+            backdrop below to preview it live with lyrics in the booth simulator, or drop in your
+            own local videos and online photo URLs.
+          </p>
+        </div>
+
+        <div class="backdrop-grid">
+          <button
+            class="backdrop-card"
+            type="button"
+            data-preview-bg="golden-motion"
+            data-reveal
+          >
+            <div class="backdrop-media">
+              <video
+                autoplay
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                poster="media/bg/golden-light.jpg"
+              >
+                <source src="media/bg/golden-light-loop.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <div class="backdrop-meta">
+              <span class="backdrop-title">Golden Light Motion</span>
+              <span class="backdrop-tag"><span class="dot dot-amber"></span> Motion Loop</span>
+            </div>
+          </button>
+
+          <button
+            class="backdrop-card"
+            type="button"
+            data-preview-bg="starry-clouds"
+            data-reveal
+            data-delay="1"
+          >
+            <div class="backdrop-media">
+              <video
+                autoplay
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                poster="media/bg/starry-clouds-poster.jpg"
+              >
+                <source src="media/bg/starry-clouds-loop.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <div class="backdrop-meta">
+              <span class="backdrop-title">Starry Clouds Timelapse</span>
+              <span class="backdrop-tag"><span class="dot dot-amber"></span> Motion Loop</span>
+            </div>
+          </button>
+
+          <button
+            class="backdrop-card"
+            type="button"
+            data-preview-bg="twilight-mountains"
+            data-reveal
+            data-delay="2"
+          >
+            <div class="backdrop-media">
+              <img src="media/bg/sanctuary-mountains.jpg" alt="Twilight Mountains Public Domain sanctuary photograph" loading="lazy" />
+            </div>
+            <div class="backdrop-meta">
+              <span class="backdrop-title">Twilight Mountains</span>
+              <span class="backdrop-tag"><span class="dot dot-emerald"></span> Public Domain</span>
+            </div>
+          </button>
+
+          <button
+            class="backdrop-card"
+            type="button"
+            data-preview-bg="still-waters"
+            data-reveal
+          >
+            <div class="backdrop-media">
+              <img src="media/bg/still-waters.jpg" alt="Still Waters Dusk Public Domain sanctuary photograph" loading="lazy" />
+            </div>
+            <div class="backdrop-meta">
+              <span class="backdrop-title">Still Waters Dusk</span>
+              <span class="backdrop-tag"><span class="dot dot-emerald"></span> Public Domain</span>
+            </div>
+          </button>
+
+          <button
+            class="backdrop-card"
+            type="button"
+            data-preview-bg="forest-mist"
+            data-reveal
+            data-delay="1"
+          >
+            <div class="backdrop-media">
+              <img src="media/bg/autumn-forest-mist.jpg" alt="Morning Forest Mist Public Domain sanctuary photograph" loading="lazy" />
+            </div>
+            <div class="backdrop-meta">
+              <span class="backdrop-title">Morning Forest Mist</span>
+              <span class="backdrop-tag"><span class="dot dot-emerald"></span> Public Domain</span>
+            </div>
+          </button>
+
+          <button
+            class="backdrop-card"
+            type="button"
+            data-preview-bg="warm-dawn"
+            data-reveal
+            data-delay="2"
+          >
+            <div class="backdrop-media">
+              <img src="media/bg/warm-dawn-shore.jpg" alt="Warm Dawn Horizon Public Domain sanctuary photograph" loading="lazy" />
+            </div>
+            <div class="backdrop-meta">
+              <span class="backdrop-title">Warm Dawn Horizon</span>
+              <span class="backdrop-tag"><span class="dot dot-emerald"></span> Public Domain</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </section>
+
     <section id="global">
       <div class="wrap">
         <div class="sec-head" data-reveal>
@@ -367,22 +513,58 @@
         </div>
 
         <div class="booth-sim" data-reveal data-delay="1">
-          <div class="sanctuary-screen" id="sim-screen" data-mode="live">
-            <div class="sanctuary-bg"></div>
-            <div class="sanctuary-layer sanctuary-text-layer">
-              <div class="sanctuary-lyrics" id="sim-lyrics">
-                Amazing grace, how sweet the sound<br />That saved a wretch like me
+          <div class="sim-stage-col">
+            <div class="sanctuary-screen" id="sim-screen" data-mode="live" data-bg-kind="video">
+              <div class="sanctuary-bg" id="sim-bg-photo"></div>
+              <video
+                class="sanctuary-bg-video"
+                id="sim-bg-video"
+                autoplay
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                poster="media/bg/golden-light.jpg"
+              >
+                <source src="media/bg/golden-light-loop.mp4" type="video/mp4" />
+              </video>
+              <div class="sanctuary-scrim"></div>
+              <div class="sanctuary-layer sanctuary-text-layer">
+                <div class="sanctuary-lyrics" id="sim-lyrics">
+                  Amazing grace, how sweet the sound<br />That saved a wretch like me
+                </div>
+                <div class="sanctuary-sub" id="sim-sub">Verse 1 · Amazing Grace</div>
               </div>
-              <div class="sanctuary-sub" id="sim-sub">Verse 1 · Amazing Grace</div>
+              <div class="sanctuary-layer sanctuary-logo-layer">
+                <img src="favicon.svg" alt="Church sanctuary emblem" class="logo-emblem-img" />
+                <div class="sanctuary-lyrics" style="font-size: 20px;">Grace Fellowship</div>
+                <div class="sanctuary-sub">Welcome Home · Sunday Gathering</div>
+              </div>
+              <div class="sanctuary-badge">
+                <span class="dot dot-emerald" id="sim-badge-dot"></span>
+                <span id="sim-badge-text">Live on Sanctuary Screen</span>
+              </div>
             </div>
-            <div class="sanctuary-layer sanctuary-logo-layer">
-              <img src="favicon.svg" alt="Church sanctuary emblem" class="logo-emblem-img" />
-              <div class="sanctuary-lyrics" style="font-size: 20px;">Grace Fellowship</div>
-              <div class="sanctuary-sub">Welcome Home · Sunday Gathering</div>
-            </div>
-            <div class="sanctuary-badge">
-              <span class="dot dot-emerald" id="sim-badge-dot"></span>
-              <span id="sim-badge-text">Live on Sanctuary Screen</span>
+
+            <div class="sim-backdrop-bar" role="group" aria-label="Sanctuary background switcher">
+              <button class="bg-pill is-active" type="button" data-sim-bg="golden-motion">
+                <span class="dot dot-amber"></span> Golden Motion
+              </button>
+              <button class="bg-pill" type="button" data-sim-bg="starry-clouds">
+                <span class="dot dot-amber"></span> Starry Clouds
+              </button>
+              <button class="bg-pill" type="button" data-sim-bg="twilight-mountains">
+                <span class="dot dot-emerald"></span> Mountains
+              </button>
+              <button class="bg-pill" type="button" data-sim-bg="still-waters">
+                <span class="dot dot-emerald"></span> Still Waters
+              </button>
+              <button class="bg-pill" type="button" data-sim-bg="forest-mist">
+                <span class="dot dot-emerald"></span> Forest Mist
+              </button>
+              <button class="bg-pill" type="button" data-sim-bg="warm-dawn">
+                <span class="dot dot-emerald"></span> Warm Dawn
+              </button>
             </div>
           </div>
 

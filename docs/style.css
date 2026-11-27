@@ -320,12 +320,43 @@ header {
 [data-delay="3"] { transition-delay: 0.24s; }
 [data-delay="4"] { transition-delay: 0.32s; }
 
-/* Opening Hero */
+/* Opening Hero with Subtle Looping Public Domain Atmosphere */
 .hero {
   position: relative;
+  overflow: hidden;
   padding: 76px 0 64px;
   border-bottom: 1px solid var(--border);
-  background: radial-gradient(ellipse 72% 42% at 50% 0%, rgba(226, 168, 59, 0.055), transparent 72%);
+  background: var(--canvas);
+}
+
+.hero-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hero-ambient-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.27;
+  filter: saturate(0.92) contrast(1.04);
+  transform: scale(1.03);
+}
+
+.hero-ambient-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(19, 20, 22, 0.58) 0%, rgba(19, 20, 22, 0.78) 46%, #131416 92%),
+    radial-gradient(ellipse 80% 55% at 50% 18%, rgba(19, 20, 22, 0.15), rgba(19, 20, 22, 0.72) 85%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
 }
 
 /* Unboxed Editorial Kicker (Replaces AI Rounded Pill) */
@@ -778,12 +809,91 @@ code {
   color: #efe9dc;
 }
 
+/* Bundled Public Domain Sanctuary Backdrops Gallery */
+.backdrop-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.backdrop-card {
+  appearance: none;
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--pane);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, transform 0.28s var(--ease-out);
+}
+
+.backdrop-card:hover {
+  border-color: var(--amber);
+  transform: translateY(-2px);
+}
+
+.backdrop-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--recessed);
+}
+
+.backdrop-media img,
+.backdrop-media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.55s var(--ease-out);
+}
+
+.backdrop-card:hover .backdrop-media img,
+.backdrop-card:hover .backdrop-media video {
+  transform: scale(1.03);
+}
+
+.backdrop-meta {
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.backdrop-title {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.backdrop-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
 /* Interactive Booth Simulator (Matte Physical Keys — Zero Gloss) */
 .booth-sim {
   display: grid;
   grid-template-columns: 1.15fr 0.95fr;
   gap: 26px;
-  align-items: center;
+  align-items: start;
+}
+
+.sim-stage-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .sanctuary-screen {
@@ -796,12 +906,74 @@ code {
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
 }
 
-.sanctuary-bg {
+.sanctuary-bg,
+.sanctuary-bg-video {
   position: absolute;
   inset: 0;
-  background: url("media/sanctuary-mountains.png") center / cover no-repeat;
-  filter: brightness(0.68);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   transition: opacity 0.45s var(--ease-out);
+}
+
+.sanctuary-bg {
+  background: url("media/bg/sanctuary-mountains.jpg") center / cover no-repeat;
+  opacity: 0;
+}
+
+.sanctuary-bg-video {
+  opacity: 1;
+}
+
+.sanctuary-screen[data-bg-kind="photo"] .sanctuary-bg {
+  opacity: 1;
+}
+
+.sanctuary-screen[data-bg-kind="photo"] .sanctuary-bg-video {
+  opacity: 0;
+}
+
+.sanctuary-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 12, 14, 0.44);
+  transition: opacity 0.45s var(--ease-out);
+  pointer-events: none;
+}
+
+.sim-backdrop-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bg-pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--pane);
+  border: 1px solid var(--border);
+  color: var(--ink-secondary);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.bg-pill:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
+  background: var(--card);
+}
+
+.bg-pill.is-active {
+  border-color: var(--amber);
+  color: var(--ink);
+  background: var(--elevated);
 }
 
 .sanctuary-layer {
@@ -852,11 +1024,15 @@ code {
 }
 
 .sanctuary-screen[data-mode="black"] .sanctuary-bg,
+.sanctuary-screen[data-mode="black"] .sanctuary-bg-video,
+.sanctuary-screen[data-mode="black"] .sanctuary-scrim,
 .sanctuary-screen[data-mode="black"] .sanctuary-text-layer {
   opacity: 0;
 }
 
 .sanctuary-screen[data-mode="logo"] .sanctuary-bg,
+.sanctuary-screen[data-mode="logo"] .sanctuary-bg-video,
+.sanctuary-screen[data-mode="logo"] .sanctuary-scrim,
 .sanctuary-screen[data-mode="logo"] .sanctuary-text-layer {
   opacity: 0;
 }
@@ -946,7 +1122,11 @@ kbd {
 }
 
 .conviction-banner {
-  background: linear-gradient(180deg, rgba(31, 34, 40, 0.45) 0%, rgba(20, 21, 23, 0.15) 100%);
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(19, 20, 22, 0.88) 0%, rgba(19, 20, 22, 0.80) 48%, rgba(19, 20, 22, 0.96) 100%),
+    url("media/bg/still-waters.jpg") center / cover no-repeat;
 }
 
 /* Optional Support the Movement Panel */
@@ -1032,6 +1212,9 @@ footer {
   .feature-grid {
     grid-template-columns: 1fr;
   }
+  .backdrop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .story-stage-wrap {
     position: relative;
     top: 0;
@@ -1039,6 +1222,12 @@ footer {
   }
   .nav-links {
     display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .backdrop-grid {
+    grid-template-columns: 1fr;
   }
 }
 

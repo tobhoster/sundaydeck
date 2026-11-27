@@ -97,13 +97,98 @@
     chapters.forEach((ch) => storyObs.observe(ch));
   }
 
-  // 4. Interactive Sanctuary Booth Recovery Simulator (Space, F1, F2, F3)
+  // 4. Interactive Sanctuary Booth Recovery Simulator (Space, F1, F2, F3 + Live Backdrops)
   const screen = document.getElementById("sim-screen");
   const lyricsEl = document.getElementById("sim-lyrics");
   const subEl = document.getElementById("sim-sub");
   const badgeDot = document.getElementById("sim-badge-dot");
   const badgeText = document.getElementById("sim-badge-text");
   const simBtns = Array.from(document.querySelectorAll(".kbd-btn[data-sim]"));
+  const simBgPhoto = document.getElementById("sim-bg-photo");
+  const simBgVideo = document.getElementById("sim-bg-video");
+  const simBgPills = Array.from(document.querySelectorAll(".bg-pill[data-sim-bg]"));
+  const backdropCards = Array.from(document.querySelectorAll(".backdrop-card[data-preview-bg]"));
+
+  const SIM_BACKDROPS = {
+    "golden-motion": {
+      kind: "video",
+      src: "media/bg/golden-light-loop.mp4",
+      poster: "media/bg/golden-light.jpg",
+    },
+    "starry-clouds": {
+      kind: "video",
+      src: "media/bg/starry-clouds-loop.mp4",
+      poster: "media/bg/starry-clouds-poster.jpg",
+    },
+    "twilight-mountains": {
+      kind: "photo",
+      src: "media/bg/sanctuary-mountains.jpg",
+    },
+    "still-waters": {
+      kind: "photo",
+      src: "media/bg/still-waters.jpg",
+    },
+    "forest-mist": {
+      kind: "photo",
+      src: "media/bg/autumn-forest-mist.jpg",
+    },
+    "warm-dawn": {
+      kind: "photo",
+      src: "media/bg/warm-dawn-shore.jpg",
+    },
+  };
+
+  function setSimBackdrop(key) {
+    const spec = SIM_BACKDROPS[key];
+    if (!spec || !screen) return;
+    screen.dataset.bgKind = spec.kind;
+    if (spec.kind === "video" && simBgVideo) {
+      if (reducedMotion) {
+        screen.dataset.bgKind = "photo";
+        if (simBgPhoto) simBgPhoto.style.backgroundImage = `url("${spec.poster}")`;
+      } else {
+        simBgVideo.poster = spec.poster;
+        const source = simBgVideo.querySelector("source");
+        if (source && source.getAttribute("src") !== spec.src) {
+          source.setAttribute("src", spec.src);
+          simBgVideo.load();
+        }
+        simBgVideo.play().catch(() => {});
+      }
+    } else if (simBgPhoto) {
+      simBgPhoto.style.backgroundImage = `url("${spec.src}")`;
+      if (simBgVideo) simBgVideo.pause();
+    }
+    simBgPills.forEach((p) => p.classList.toggle("is-active", p.dataset.simBg === key));
+  }
+
+  // Respect prefers-reduced-motion on all ambient looping videos
+  if (reducedMotion) {
+    document.querySelectorAll(".hero-ambient-video, .backdrop-media video, #sim-bg-video").forEach((v) => {
+      v.pause();
+      v.removeAttribute("autoplay");
+    });
+  }
+
+  simBgPills.forEach((pill) => {
+    pill.addEventListener("click", () => {
+      setSimBackdrop(pill.dataset.simBg);
+      if (simMode === "black" || simMode === "logo") {
+        simMode = "live";
+        renderSim();
+      }
+    });
+  });
+
+  backdropCards.forEach((card) => {
+    card.addEventListener("click", () => {
+      setSimBackdrop(card.dataset.previewBg);
+      simMode = "live";
+      renderSim();
+      const target = document.getElementById("shortcuts");
+      if (target) target.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" });
+    });
+  });
 
   const verses = [
     {
@@ -159,5 +244,6 @@
     });
   });
 
+  setSimBackdrop("golden-motion");
   renderSim();
 })();
