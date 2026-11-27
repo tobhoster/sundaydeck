@@ -1176,6 +1176,19 @@ kbd {
   gap: 10px 12px;
 }
 
+.bmc-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.bmc-wrap .bmc-btn {
+  height: 42px !important;
+  min-width: 170px !important;
+  padding: 0 18px !important;
+  font-size: 20px !important;
+  border-radius: 6px !important;
+}
+
 footer {
   padding: 40px 0 54px;
   color: var(--ink-muted);

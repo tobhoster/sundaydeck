@@ -151,7 +151,7 @@ We believe church presentation software should be **free, simple, and accessible
 
 SundayDeck will always remain 100% free with zero locked features. If it blesses your church on Sunday mornings and you'd like to help cover Apple & Windows code-signing certificates, hosting, and ongoing maintenance:
 
-- **[Buy Me a Coffee](https://buymeacoffee.com/OWNER)** — one-time coffee or encouragement
+- **[Buy Me a Coffee](https://buymeacoffee.com/tobhoster)** — one-time coffee or encouragement
 - **[GitHub Sponsors](https://github.com/sponsors/OWNER)** — zero-fee monthly or one-time church & community sponsorship
 - **[Ko-fi](https://ko-fi.com/OWNER)** — zero-platform-fee tip jar alternative
 - **Or simply share SundayDeck** with a neighboring church or volunteer team!
