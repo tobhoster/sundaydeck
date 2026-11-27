@@ -64,12 +64,12 @@ fn render_phase4_settings_branding_sdeck_and_announcement_loop() {
         })
         .expect("open audience window");
 
-    // Seed custom branding + a second saved service so Settings shows realistic multi-service state.
+    // Seed church branding (using the built-in generic church emblem) + a second saved service.
     app.update(|cx| {
         store.update(cx, |s, cx| {
             let settings = AppSettings {
                 church_name: "Grace Fellowship".to_owned(),
-                logo_uri: Some("backgrounds/warm-dawn-shore.jpg".to_owned()),
+                logo_uri: None,
                 ..s.settings.clone()
             };
             let _ = s.apply_settings(settings, cx);

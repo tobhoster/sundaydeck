@@ -166,10 +166,18 @@ fn wav_encoder_emits_valid_riff_header_and_worker_thread_advances_live() {
         mic_level: 0.72,
     });
 
-    // Wait briefly for the background worker to emit the AutoAdvance event (cooldown bypass via timestamp wait? wait: update_deck set last_transition_ms=now!)
-    // Since default cooldown is 1600ms, let's verify telemetry arrived cleanly with non-zero mic bars!
-    std::thread::sleep(Duration::from_millis(120));
-    let events = handle.drain_events();
+    // Poll briefly for the background worker to emit live telemetry with non-zero mic bars.
+    let mut events = Vec::new();
+    for _ in 0..75 {
+        events.extend(handle.drain_events());
+        if events
+            .iter()
+            .any(|e| matches!(e, VoiceEvent::Telemetry(t) if t.meter_bars >= 2))
+        {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
     assert!(
         events
             .iter()

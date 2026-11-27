@@ -13,7 +13,7 @@ use crate::design::tokens::{
 };
 use crate::media::load_background_image;
 use crate::views::background_picker_modal::{
-    BackgroundPickerModal, BackgroundTab, FONT_CHOICES, SCRIM_CHOICES, UNSPLASH_PRESETS,
+    BackgroundPickerModal, BackgroundTab, FONT_CHOICES, SANCTUARY_PRESETS, SCRIM_CHOICES,
 };
 use crate::views::quick_edit_modal::ModalClosed;
 
@@ -70,7 +70,7 @@ pub(crate) fn render_background_picker_modal(
     };
 
     let body = match modal.active_tab {
-        BackgroundTab::UnsplashGallery => render_unsplash_gallery_body(modal, cx),
+        BackgroundTab::PublicDomainGallery => render_public_domain_gallery_body(modal, cx),
         BackgroundTab::LocalMedia => render_local_media_body(modal, cx),
     };
 
@@ -108,10 +108,10 @@ pub(crate) fn render_background_picker_modal(
                         )
                         .child(div().w(px(1.0)).h(px(16.0)).bg(TOKENS.hairline))
                         .child(tab_btn(
-                            "bg-tab-unsplash",
+                            "bg-tab-public-domain",
                             DeckIcon::Palette,
-                            "Unsplash Worship",
-                            BackgroundTab::UnsplashGallery,
+                            "Public Domain & Web",
+                            BackgroundTab::PublicDomainGallery,
                             cx,
                         ))
                         .child(tab_btn(
@@ -167,13 +167,16 @@ pub(crate) fn render_background_picker_modal(
             .flex()
             .items_center()
             .justify_between()
+            .gap(px(14.0))
             .child(
                 div()
+                    .flex_1()
+                    .min_w_0()
                     .font_family(FONT_BODY)
                     .text_color(TOKENS.ink_muted)
                     .text_size(px(11.5))
                     .child(
-                        "Downloaded photos and local videos are saved offline for Sunday morning.",
+                        "100% Public Domain offline · Or paste any photo (Unsplash) or .mp4/.webm video URL.",
                     ),
             )
             .child(
@@ -211,14 +214,14 @@ pub(crate) fn render_background_picker_modal(
     )
 }
 
-fn render_unsplash_gallery_body(
+fn render_public_domain_gallery_body(
     modal: &BackgroundPickerModal,
     cx: &mut Context<BackgroundPickerModal>,
 ) -> Div {
     let mut grid = div().w_full().flex().flex_wrap().gap(px(10.0));
-    for (idx, preset) in UNSPLASH_PRESETS.iter().enumerate() {
+    for (idx, preset) in SANCTUARY_PRESETS.iter().enumerate() {
         let selected = idx == modal.selected_preset_idx;
-        let is_motion = preset.slug == "golden-highlands";
+        let is_motion = preset.video_uri.is_some();
         let mut preview = div()
             .relative()
             .w_full()
@@ -255,7 +258,7 @@ fn render_unsplash_gallery_body(
 
         grid = grid.child(
             div()
-                .id(format!("unsplash-preset-{idx}"))
+                .id(format!("pd-preset-{idx}"))
                 .w(px(278.0))
                 .p(px(9.0))
                 .rounded(px(RADIUS_TILE))
@@ -291,11 +294,11 @@ fn render_unsplash_gallery_body(
                                 .child(preset.title),
                         )
                         .child(status_dot_label(
-                            if is_motion { "Motion" } else { "Unsplash" },
+                            if is_motion { "Motion" } else { "Public Domain" },
                             if is_motion {
                                 TOKENS.signal_preview
                             } else {
-                                rgb(0x6B9BF2)
+                                TOKENS.signal_voice
                             },
                             TOKENS.ink_secondary,
                         )),

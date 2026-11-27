@@ -19,7 +19,7 @@ fn v5_theme(tag: &str) -> ThemeId {
     )
 }
 
-/// Curated Unsplash photo, looping motion video, and OBS chroma-key themes bundled offline.
+/// Curated Public Domain photography, looping motion video, and OBS chroma-key themes bundled offline.
 pub fn media_and_broadcast_themes() -> Vec<Theme> {
     vec![
         Theme {

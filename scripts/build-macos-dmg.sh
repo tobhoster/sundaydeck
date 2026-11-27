@@ -35,53 +35,22 @@ if [[ -d "$ROOT_DIR/crates/sundaydeck-ui/assets/video" ]]; then
   cp -R "$ROOT_DIR/crates/sundaydeck-ui/assets/video" "$APP_BUNDLE/Contents/Resources/video"
 fi
 
-# Generate clean dark-linen & ivory SundayDeck.icns icon via Python + sips/iconutil
+# Generate macOS SundayDeck.icns directly from our bundled generic church emblem PNG via sips + iconutil
 ICONSET_DIR="$DIST_DIR/SundayDeck.iconset"
 rm -rf "$ICONSET_DIR"
 mkdir -p "$ICONSET_DIR"
 
-python3 - "$ICONSET_DIR/base_1024.png" <<'PYEOF'
-import struct, sys, zlib
-
-w, h = 1024, 1024
-raw = bytearray()
-cx, cy = w / 2.0, h / 2.0
-for y in range(h):
-    raw.append(0)
-    for x in range(w):
-        # Rounded macOS squircle matte dark linen (#181A1F) with ivory emblem dot & ring
-        dx, dy = abs(x - cx) / 460.0, abs(y - cy) / 460.0
-        squircle = (dx ** 4.5 + dy ** 4.5)
-        if squircle > 1.0:
-            raw.extend((0, 0, 0, 0))
-            continue
-        r, g, b, a = 24, 26, 31, 255
-        if squircle > 0.94:
-            r, g, b = 46, 50, 61
-        dist = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
-        if dist < 110:
-            r, g, b = 242, 239, 233  # warm paper ivory center dot
-        elif 195 < dist < 216:
-            r, g, b = 217, 160, 54   # warm honey amber precision halo
-        raw.extend((r, g, b, a))
-
-def chunk(tag, data):
-    return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
-
-png = b"\x89PNG\r\n\x1a\n"
-png += chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
-png += chunk(b"IDAT", zlib.compress(bytes(raw), 6))
-png += chunk(b"IEND", b"")
-with open(sys.argv[1], "wb") as f:
-    f.write(png)
-PYEOF
+LOGO_SRC="$ROOT_DIR/crates/sundaydeck-ui/assets/backgrounds/default-church-logo.png"
+if [[ ! -f "$LOGO_SRC" ]]; then
+  echo "error: missing church logo emblem at $LOGO_SRC" >&2
+  exit 1
+fi
 
 for sz in 16 32 128 256 512; do
-  sips -z "$sz" "$sz" "$ICONSET_DIR/base_1024.png" --out "$ICONSET_DIR/icon_${sz}x${sz}.png" >/dev/null
+  sips -z "$sz" "$sz" "$LOGO_SRC" --out "$ICONSET_DIR/icon_${sz}x${sz}.png" >/dev/null
   dbl=$((sz * 2))
-  sips -z "$dbl" "$dbl" "$ICONSET_DIR/base_1024.png" --out "$ICONSET_DIR/icon_${sz}x${sz}@2x.png" >/dev/null
+  sips -z "$dbl" "$dbl" "$LOGO_SRC" --out "$ICONSET_DIR/icon_${sz}x${sz}@2x.png" >/dev/null
 done
-rm -f "$ICONSET_DIR/base_1024.png"
 iconutil -c icns "$ICONSET_DIR" -o "$APP_BUNDLE/Contents/Resources/SundayDeck.icns"
 rm -rf "$ICONSET_DIR"
 

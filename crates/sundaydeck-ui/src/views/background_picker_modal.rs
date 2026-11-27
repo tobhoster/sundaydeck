@@ -17,73 +17,80 @@ use crate::views::quick_edit_modal::ModalClosed;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackgroundTab {
-    UnsplashGallery,
+    PublicDomainGallery,
     LocalMedia,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct UnsplashPreset {
+pub struct SanctuaryPreset {
     pub slug: &'static str,
     pub title: &'static str,
     pub subtitle: &'static str,
     pub url: &'static str,
     pub embedded_preview: Option<&'static str>,
+    pub video_uri: Option<&'static str>,
     pub default_font: &'static str,
     pub target: ThemeTarget,
 }
 
-pub const UNSPLASH_PRESETS: &[UnsplashPreset] = &[
-    UnsplashPreset {
+pub const SANCTUARY_PRESETS: &[SanctuaryPreset] = &[
+    SanctuaryPreset {
         slug: "sanctuary-mountains",
         title: "Twilight Mountains",
-        subtitle: "Misty pines & river glow · Bundled offline",
-        url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&h=1080&q=85",
+        subtitle: "Misty pines & dusk peaks · Public Domain offline",
+        url: "https://commons.wikimedia.org/wiki/File:Mountain_Landscape_at_Sunset_(50299037338).jpg",
         embedded_preview: Some("backgrounds/sanctuary-mountains.jpg"),
+        video_uri: None,
         default_font: "Manrope",
         target: ThemeTarget::Song,
     },
-    UnsplashPreset {
+    SanctuaryPreset {
         slug: "golden-highlands",
         title: "Golden Light Motion",
-        subtitle: "Warm sunbeams over misty valley · Video loop",
-        url: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1920&h=1080&q=85",
+        subtitle: "Warm sunrise mist through pines · Motion loop",
+        url: "https://commons.wikimedia.org/wiki/File:Hoh_sunrise_mist_fog_scenic_j_preston_(17095320637).jpg",
         embedded_preview: Some("backgrounds/golden-light.jpg"),
+        video_uri: Some("video/golden-light-loop.mp4"),
         default_font: "Manrope",
         target: ThemeTarget::Song,
     },
-    UnsplashPreset {
+    SanctuaryPreset {
         slug: "still-waters",
         title: "Still Waters Dusk",
-        subtitle: "Calm dark teal horizon · Scripture ready",
-        url: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=1920&h=1080&q=85",
+        subtitle: "Calm sunset river reflection · Scripture ready",
+        url: "https://commons.wikimedia.org/wiki/File:Middle_Fork_-_Sunset_Calm_(20886868046).jpg",
         embedded_preview: Some("backgrounds/still-waters.jpg"),
+        video_uri: None,
         default_font: "Newsreader",
         target: ThemeTarget::Scripture,
     },
-    UnsplashPreset {
-        slug: "starry-night-ridge",
-        title: "Starry Night Ridge",
-        subtitle: "Deep cosmos over mountain silhouette · Unsplash",
-        url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1920&h=1080&q=85",
-        embedded_preview: Some("backgrounds/starry-night-ridge.jpg"),
+    SanctuaryPreset {
+        slug: "starry-clouds-motion",
+        title: "Starry Clouds Timelapse",
+        subtitle: "Night sky & drifting clouds · NPS Public Domain loop",
+        url: "https://commons.wikimedia.org/wiki/File:Stars_and_Clouds_Over_Headstone_Rock_(30230087163).webm",
+        embedded_preview: Some("backgrounds/stars-loop-01.jpg"),
+        video_uri: Some("video/starry-clouds-loop.mp4"),
         default_font: "Manrope",
         target: ThemeTarget::Song,
     },
-    UnsplashPreset {
+    SanctuaryPreset {
         slug: "autumn-forest-mist",
-        title: "Morning Forest Light",
-        subtitle: "Quiet golden rays through pines · Unsplash",
-        url: "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&h=1080&q=85",
+        title: "Morning Forest Mist",
+        subtitle: "Quiet evergreens in mountain fog · Public Domain",
+        url: "https://commons.wikimedia.org/wiki/File:Hurricane_forest_fog_mist_Light_NPS_Photo_(17300276852).jpg",
         embedded_preview: Some("backgrounds/autumn-forest-mist.jpg"),
+        video_uri: None,
         default_font: "Space Grotesk",
         target: ThemeTarget::General,
     },
-    UnsplashPreset {
+    SanctuaryPreset {
         slug: "warm-dawn-shore",
         title: "Warm Dawn Horizon",
-        subtitle: "Soft sunrise over quiet waters · Prayer & Scripture",
-        url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&h=1080&q=85",
+        subtitle: "Golden sunrise across calm lake · Prayer & Scripture",
+        url: "https://commons.wikimedia.org/wiki/File:Sunset_over_Lake_Andes;_Lake_Andes_National_Wildlife_Refuge_(52388855346).jpg",
         embedded_preview: Some("backgrounds/warm-dawn-shore.jpg"),
+        video_uri: None,
         default_font: "Newsreader",
         target: ThemeTarget::Scripture,
     },
@@ -102,8 +109,8 @@ pub const SCRIM_CHOICES: &[(&str, f32)] = &[
     ("Deep 62%", 0.62),
 ];
 
-/// Modal for creating & applying new themes backed by Unsplash photography or local looping videos
-/// (`.mp4`, `.mov`, `.webm`) and custom sanctuary images (`.jpg`, `.png`, `.webp`).
+/// Modal for creating & applying sanctuary themes backed by bundled Public Domain photography,
+/// looping timelapse motion videos, pasted Unsplash/web photo or `.mp4`/`.webm` video URLs, or local files.
 pub struct BackgroundPickerModal {
     store: Entity<PresentationStore>,
     db: Option<DbWorker>,
@@ -126,13 +133,13 @@ impl BackgroundPickerModal {
         db: Option<DbWorker>,
         cx: &mut Context<Self>,
     ) -> Self {
-        let first = &UNSPLASH_PRESETS[3];
+        let first = &SANCTUARY_PRESETS[3];
         let theme_name_input =
             cx.new(|cx| TextInput::single_line("bg-theme-name", "Theme name", first.title, cx));
         let url_input = cx.new(|cx| {
             TextInput::single_line(
-                "bg-unsplash-url",
-                "https://images.unsplash.com/photo-...",
+                "bg-web-url",
+                "Paste Unsplash photo URL or free .mp4/.webm video URL",
                 first.url,
                 cx,
             )
@@ -148,7 +155,7 @@ impl BackgroundPickerModal {
         Self {
             store,
             db,
-            active_tab: BackgroundTab::UnsplashGallery,
+            active_tab: BackgroundTab::PublicDomainGallery,
             selected_preset_idx: 3,
             theme_name_input,
             url_input,
@@ -161,7 +168,7 @@ impl BackgroundPickerModal {
     }
 
     pub(crate) fn select_preset(&mut self, idx: usize, cx: &mut Context<Self>) {
-        let Some(preset) = UNSPLASH_PRESETS.get(idx) else {
+        let Some(preset) = SANCTUARY_PRESETS.get(idx) else {
             return;
         };
         self.selected_preset_idx = idx;
@@ -239,22 +246,24 @@ impl BackgroundPickerModal {
                 let theme = build_custom_theme(name, font, bg);
                 self.persist_and_close(theme, cx);
             }
-            BackgroundTab::UnsplashGallery => {
+            BackgroundTab::PublicDomainGallery => {
                 let url = self.url_input.read(cx).value().trim().to_owned();
                 if url.is_empty() {
-                    self.error_message =
-                        Some("Choose an Unsplash scene or paste an image URL".to_owned());
+                    self.error_message = Some(
+                        "Choose a bundled Public Domain scene or paste a photo/video URL"
+                            .to_owned(),
+                    );
                     cx.notify();
                     return;
                 }
-                // Fast offline path if a bundled preset matches the selected URL.
-                if let Some(preset) = UNSPLASH_PRESETS.iter().find(|p| p.url == url)
+                // Fast offline path if a bundled Public Domain preset matches the selected URL.
+                if let Some(preset) = SANCTUARY_PRESETS.iter().find(|p| p.url == url)
                     && let Some(embedded) = preset.embedded_preview
                 {
-                    let bg = if preset.slug == "golden-highlands" {
+                    let bg = if let Some(video_uri) = preset.video_uri {
                         BackgroundSpec::VideoLoop {
                             asset_id: MediaAssetId::new_v7(),
-                            uri: "video/golden-light-loop.mp4".to_owned(),
+                            uri: video_uri.to_owned(),
                             poster_uri: embedded.to_owned(),
                             fps: 1.0,
                             scrim_opacity: scrim,
@@ -272,7 +281,7 @@ impl BackgroundPickerModal {
                     return;
                 }
 
-                // Download Unsplash image off-thread into local offline media cache.
+                // Download pasted web photo (Unsplash, Wikimedia, etc.) or .mp4/.webm video off-thread.
                 self.busy = true;
                 self.error_message = None;
                 cx.notify();
@@ -280,7 +289,7 @@ impl BackgroundPickerModal {
                 let (tx, rx) = async_channel::bounded::<Result<PathBuf, String>>(1);
                 let slug = slugify(&name);
                 std::thread::spawn(move || {
-                    let res = download_unsplash_to_cache(&url, &slug);
+                    let res = download_media_to_cache(&url, &slug);
                     let _ = tx.send_blocking(res);
                 });
 
@@ -290,12 +299,7 @@ impl BackgroundPickerModal {
                         modal.busy = false;
                         match res {
                             Ok(Ok(local_path)) => {
-                                let bg = BackgroundSpec::Image {
-                                    asset_id: MediaAssetId::new_v7(),
-                                    uri: Some(local_path.display().to_string()),
-                                    fit: ImageFit::Cover,
-                                    scrim_opacity: scrim,
-                                };
+                                let bg = build_local_media_spec(&local_path, scrim);
                                 let theme = build_custom_theme(name, font, bg);
                                 modal.persist_and_close(theme, cx);
                             }
@@ -342,7 +346,7 @@ fn build_local_media_spec(path: &Path, scrim_opacity: f32) -> BackgroundSpec {
         .map(str::to_ascii_lowercase)
         .unwrap_or_default();
     let uri = path.display().to_string();
-    if matches!(ext.as_str(), "mp4" | "mov" | "webm" | "mkv" | "m4v") {
+    if matches!(ext.as_str(), "mp4" | "mov" | "webm" | "mkv" | "m4v" | "ogv") {
         BackgroundSpec::VideoLoop {
             asset_id: MediaAssetId::new_v7(),
             uri,
@@ -398,7 +402,7 @@ fn build_custom_theme(name: String, font_family: String, background: BackgroundS
     }
 }
 
-fn download_unsplash_to_cache(url: &str, slug: &str) -> Result<PathBuf, String> {
+fn download_media_to_cache(url: &str, slug: &str) -> Result<PathBuf, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_owned());
     let dir = PathBuf::from(home)
         .join(".local")
@@ -406,27 +410,66 @@ fn download_unsplash_to_cache(url: &str, slug: &str) -> Result<PathBuf, String> 
         .join("sundaydeck")
         .join("media");
     std::fs::create_dir_all(&dir).map_err(|e| format!("create media dir: {e}"))?;
-    let dest = dir.join(format!("unsplash-{slug}.jpg"));
 
     let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(20)))
+        .timeout_global(Some(Duration::from_secs(30)))
         .build()
         .into();
     let mut resp = agent
         .get(url)
+        .header("User-Agent", "SundayDeck/0.1 (Church Presentation Software)")
         .call()
-        .map_err(|e| format!("Unsplash download failed: {e}"))?;
+        .map_err(|e| format!("Media download failed: {e}"))?;
+
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let ext = infer_media_extension(url, &content_type);
+    let is_video = matches!(ext, "mp4" | "webm" | "mov" | "ogv");
+    let max_bytes = if is_video {
+        48 * 1024 * 1024
+    } else {
+        16 * 1024 * 1024
+    };
+
     let bytes = resp
         .body_mut()
         .with_config()
-        .limit(12 * 1024 * 1024)
+        .limit(max_bytes)
         .read_to_vec()
-        .map_err(|e| format!("read image bytes: {e}"))?;
+        .map_err(|e| format!("read media bytes: {e}"))?;
     if bytes.len() < 1024 {
-        return Err("Downloaded image was empty or invalid".to_owned());
+        return Err("Downloaded media file was empty or invalid".to_owned());
     }
-    std::fs::write(&dest, &bytes).map_err(|e| format!("save image: {e}"))?;
+    let dest = dir.join(format!("web-{slug}.{ext}"));
+    std::fs::write(&dest, &bytes).map_err(|e| format!("save media: {e}"))?;
     Ok(dest)
+}
+
+fn infer_media_extension(url: &str, content_type: &str) -> &'static str {
+    let clean = url
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(url)
+        .to_ascii_lowercase();
+    if content_type.contains("video/webm") || clean.ends_with(".webm") {
+        "webm"
+    } else if content_type.contains("video/mp4") || clean.ends_with(".mp4") {
+        "mp4"
+    } else if content_type.contains("video/quicktime") || clean.ends_with(".mov") {
+        "mov"
+    } else if content_type.contains("video/ogg") || clean.ends_with(".ogv") {
+        "ogv"
+    } else if content_type.contains("image/png") || clean.ends_with(".png") {
+        "png"
+    } else if content_type.contains("image/webp") || clean.ends_with(".webp") {
+        "webp"
+    } else {
+        "jpg"
+    }
 }
 
 fn slugify(input: &str) -> String {

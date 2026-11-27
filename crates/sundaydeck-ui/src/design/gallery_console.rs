@@ -289,7 +289,7 @@ pub(crate) fn render_slide_tile_showcase() -> Div {
 
     section_frame(
         "16:9 Sanctuary Slide Cards",
-        "Soft matte cards, 1.5px amber Next Up ring, crimson Live ring with warm-ivory progress hairline, plus Unsplash photo & motion previews",
+        "Soft matte cards, 1.5px amber Next Up ring, crimson Live ring with warm-ivory progress hairline, plus Public Domain photo & motion previews",
     )
     .child(tiles)
 }

@@ -153,7 +153,7 @@ impl PresentationStore {
         cx.notify();
     }
 
-    /// Adds or replaces a custom Photo / Video / Unsplash theme in memory and optionally
+    /// Adds or replaces a custom Photo / Video / Public Domain theme in memory and optionally
     /// applies it live right away. Returns the owned `Theme` for off-thread SQLite persistence.
     pub fn upsert_theme_local(
         &mut self,

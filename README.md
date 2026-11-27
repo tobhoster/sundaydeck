@@ -95,13 +95,13 @@ Click the **Upload** button in the **Service Order** rail to drop a `.pptx`, `.d
 | :---: | :---: |
 | <img src="docs/media/plan-importer.png" alt="SundayDeck Plan Importer modal" width="100%" /> | <img src="docs/media/custom-slide-builder.png" alt="SundayDeck Custom Slide Builder modal" width="100%" /> |
 
-### 2. Choose Peaceful Backgrounds & Connect Your Displays
+### 2. Choose Peaceful Public Domain Backgrounds & Connect Your Displays
 
-Pick curated sanctuary photography, load local looping worship videos with custom contrast scrims, send clean output to your projector and **Stage Confidence Monitor**, or toggle the built-in **OBS Livestream Overlay** (`http://127.0.0.1:8787/overlay`) directly from the **Projector** menu.
+Pick bundled **Public Domain** sanctuary photography and National Park Service motion timelapse loops, paste any online photo (including Unsplash) or `.mp4` / `.webm` video URL, load local worship loops with custom contrast scrims, send clean output to your projector and **Stage Confidence Monitor**, or toggle the built-in **OBS Livestream Overlay** (`http://127.0.0.1:8787/overlay`) directly from the **Projector** menu.
 
-| Sanctuary Photography | Stage Confidence Monitor |
+| Sanctuary Photography (Public Domain) | Stage Confidence Monitor |
 | :---: | :---: |
-| <img src="docs/media/unsplash-mountains.png" alt="Sanctuary mountain photography background" width="100%" /> | <img src="docs/media/stage-monitor.png" alt="Stage Confidence Monitor" width="100%" /> |
+| <img src="docs/media/sanctuary-mountains.png" alt="Public Domain sanctuary mountain photography background" width="100%" /> | <img src="docs/media/stage-monitor.png" alt="Stage Confidence Monitor" width="100%" /> |
 
 ### 3. Protestant, Catholic & Bilingual Churches Across the Americas
 
@@ -188,4 +188,4 @@ python3 scripts/build-starter-packs.py
 
 ## License
 
-Dual-licensed under either [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+Dual-licensed under either [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option. All bundled photographs, motion loops, fonts, icons, and starter packs are verified Public Domain / open-licensed — see [ASSETS_LICENSE.md](ASSETS_LICENSE.md).

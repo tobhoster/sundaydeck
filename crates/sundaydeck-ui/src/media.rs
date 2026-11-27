@@ -27,6 +27,16 @@ const BUILTIN_GOLDEN_LOOP_FRAMES: &[&str] = &[
     "backgrounds/golden-loop-06.jpg",
 ];
 
+const BUILTIN_STARRY_LOOP_URI: &str = "video/starry-clouds-loop.mp4";
+const BUILTIN_STARRY_LOOP_FRAMES: &[&str] = &[
+    "backgrounds/stars-loop-01.jpg",
+    "backgrounds/stars-loop-02.jpg",
+    "backgrounds/stars-loop-03.jpg",
+    "backgrounds/stars-loop-04.jpg",
+    "backgrounds/stars-loop-05.jpg",
+    "backgrounds/stars-loop-06.jpg",
+];
+
 fn image_cache() -> &'static Mutex<HashMap<String, Option<Arc<RenderImage>>>> {
     static CACHE: OnceLock<Mutex<HashMap<String, Option<Arc<RenderImage>>>>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
@@ -188,6 +198,12 @@ fn resolve_video_keyframes(uri: &str) -> Vec<Arc<RenderImage>> {
             .filter_map(|frame_uri| load_background_image(frame_uri))
             .collect();
     }
+    if uri == BUILTIN_STARRY_LOOP_URI {
+        return BUILTIN_STARRY_LOOP_FRAMES
+            .iter()
+            .filter_map(|frame_uri| load_background_image(frame_uri))
+            .collect();
+    }
 
     if let Ok(guard) = external_video_frames_cache().lock()
         && let Some(cached) = guard.get(uri)
@@ -285,27 +301,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bundled_unsplash_and_motion_video_frames_decode_cleanly() {
+    fn bundled_public_domain_and_motion_video_frames_decode_cleanly() {
         for uri in [
             "backgrounds/sanctuary-mountains.jpg",
             "backgrounds/golden-light.jpg",
             "backgrounds/still-waters.jpg",
+            "backgrounds/starry-night-ridge.jpg",
+            "backgrounds/autumn-forest-mist.jpg",
+            "backgrounds/warm-dawn-shore.jpg",
+            "backgrounds/default-church-logo.png",
         ] {
             assert!(
                 load_background_image(uri).is_some(),
-                "failed to decode embedded sanctuary photo {uri}"
+                "failed to decode embedded public-domain asset {uri}"
             );
         }
 
-        let (frame_a, frame_b, blend) = video_loop_frames(
-            BUILTIN_GOLDEN_LOOP_URI,
-            "backgrounds/golden-light.jpg",
-            1.0,
-            1_450,
-        )
-        .expect("motion video loop decodes");
-        assert!(frame_b.is_some());
-        assert!(blend > 0.4 && blend < 0.5);
-        assert_ne!(frame_a.id, frame_b.expect("next frame").id);
+        for (uri, poster) in [
+            (BUILTIN_GOLDEN_LOOP_URI, "backgrounds/golden-light.jpg"),
+            (BUILTIN_STARRY_LOOP_URI, "backgrounds/starry-night-ridge.jpg"),
+        ] {
+            let (frame_a, frame_b, blend) =
+                video_loop_frames(uri, poster, 1.0, 1_450).expect("motion video loop decodes");
+            assert!(frame_b.is_some());
+            assert!(blend > 0.4 && blend < 0.5);
+            assert_ne!(frame_a.id, frame_b.expect("next frame").id);
+        }
     }
 }

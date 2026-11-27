@@ -244,40 +244,34 @@ fn render_church_display_tab(modal: &SettingsModal, cx: &mut Context<SettingsMod
     let services = store.services.clone();
     let active_service_id = store.service.id;
 
-    let logo_preview =
-        if let Some(img_handle) = modal.logo_uri.as_deref().and_then(load_background_image) {
-            div()
-                .w(px(112.0))
-                .h(px(64.0))
-                .rounded(px(RADIUS_CONTROL))
-                .overflow_hidden()
-                .border_1()
-                .border_color(TOKENS.gridline)
-                .bg(rgb(0x0E0F12))
-                .child(img(img_handle).size_full().object_fit(ObjectFit::Contain))
-        } else {
-            div()
-                .w(px(112.0))
-                .h(px(64.0))
-                .rounded(px(RADIUS_CONTROL))
-                .border_1()
-                .border_color(TOKENS.gridline)
-                .bg(TOKENS.recessed)
-                .flex()
-                .flex_col()
-                .items_center()
-                .justify_center()
-                .gap(px(3.0))
-                .child(div().w(px(22.0)).h(px(2.0)).bg(TOKENS.signal_preview))
-                .child(
-                    div()
-                        .font_family(FONT_DISPLAY)
-                        .text_color(TOKENS.ink_primary)
-                        .text_size(px(16.0))
-                        .font_weight(FontWeight::BOLD)
-                        .child("SD"),
-                )
-        };
+    let logo_preview = if let Some(img_handle) = modal
+        .logo_uri
+        .as_deref()
+        .and_then(load_background_image)
+        .or_else(|| load_background_image("backgrounds/default-church-logo.png"))
+    {
+        div()
+            .w(px(112.0))
+            .h(px(64.0))
+            .p(px(4.0))
+            .rounded(px(RADIUS_CONTROL))
+            .overflow_hidden()
+            .border_1()
+            .border_color(TOKENS.gridline)
+            .bg(rgb(0x0E0F12))
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(img(img_handle).size_full().object_fit(ObjectFit::Contain))
+    } else {
+        div()
+            .w(px(112.0))
+            .h(px(64.0))
+            .rounded(px(RADIUS_CONTROL))
+            .border_1()
+            .border_color(TOKENS.gridline)
+            .bg(TOKENS.recessed)
+    };
 
     let mut motion_row = div().flex().items_center().gap(px(8.0));
     for (key, label) in MOTION_CHOICES {
@@ -355,7 +349,7 @@ fn render_church_display_tab(modal: &SettingsModal, cx: &mut Context<SettingsMod
                                                     "Custom church logo active for Show Logo (F3)."
                                                 })
                                                 .unwrap_or(
-                                                    "Using SundayDeck studio monogram until a church logo is chosen.",
+                                                    "Default church emblem active until you choose your own church logo.",
                                                 ),
                                         ),
                                 )

@@ -799,7 +799,7 @@ code {
 .sanctuary-bg {
   position: absolute;
   inset: 0;
-  background: url("media/unsplash-mountains.png") center / cover no-repeat;
+  background: url("media/sanctuary-mountains.png") center / cover no-repeat;
   filter: brightness(0.68);
   transition: opacity 0.45s var(--ease-out);
 }
@@ -838,19 +838,12 @@ code {
   background: #111317;
 }
 
-.logo-emblem {
-  width: 52px;
-  height: 52px;
-  border-radius: 10px;
-  border: 1px solid var(--border-strong);
-  background: var(--pane);
-  display: grid;
-  place-items: center;
-  font-family: var(--font-serif);
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--ivory);
+.logo-emblem-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
   margin-bottom: 12px;
+  display: block;
 }
 
 .sanctuary-screen[data-mode="clear"] .sanctuary-text-layer {

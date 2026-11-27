@@ -153,7 +153,7 @@ fn render_logo_splash(
         church_name.trim()
     };
 
-    let mark_size = px((112.0 * scale).max(18.0));
+    let mark_size = px((156.0 * scale).max(24.0));
     let border_w = px((2.0 * scale).max(1.0));
     let title_px = px((62.0 * scale).max(10.0));
     let sub_px = px((20.0 * scale).max(6.0));
@@ -172,32 +172,31 @@ fn render_logo_splash(
             .items_center()
             .justify_center()
             .child(img(render_img).size_full().object_fit(ObjectFit::Contain))
+    } else if let Some(default_emblem) = load_background_image("backgrounds/default-church-logo.png")
+    {
+        div()
+            .w(mark_size)
+            .h(mark_size)
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(img(default_emblem).size_full().object_fit(ObjectFit::Contain))
     } else {
         div()
             .w(mark_size)
             .h(mark_size)
-            .rounded(px((4.0 * scale).max(2.0)))
+            .rounded(px((14.0 * scale).max(3.0)))
             .border(border_w)
             .border_color(TOKENS.gridline)
             .bg(TOKENS.pane)
             .flex()
-            .flex_col()
             .items_center()
             .justify_center()
-            .gap(px((6.0 * scale).max(1.0)))
             .child(
                 div()
-                    .w(px((40.0 * scale).max(6.0)))
-                    .h(px((3.0 * scale).max(1.0)))
+                    .w(px((48.0 * scale).max(8.0)))
+                    .h(px((4.0 * scale).max(1.5)))
                     .bg(TOKENS.signal_preview),
-            )
-            .child(
-                div()
-                    .font_family(FONT_DISPLAY)
-                    .text_color(TOKENS.ink_primary)
-                    .text_size(px((44.0 * scale).max(9.0)))
-                    .font_weight(FontWeight::BOLD)
-                    .child("SD"),
             )
     };
 

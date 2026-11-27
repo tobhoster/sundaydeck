@@ -20,7 +20,7 @@ fn load_seeded_bootstrap() -> sundaydeck_db::BootstrapData {
 }
 
 #[test]
-fn render_unsplash_photo_motion_video_and_local_llm_presets() {
+fn render_public_domain_photo_motion_video_and_local_llm_presets() {
     let out_dir = std::env::var("SUNDAYDECK_CAPTURE_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
@@ -65,7 +65,7 @@ fn render_unsplash_photo_motion_video_and_local_llm_presets() {
         })
         .expect("open audience window");
 
-    // 17. Unsplash Sanctuary Mountains Photo Background on Audience Output + Operator Themes tab
+    // 17. Public Domain Sanctuary Mountains Photo Background on Audience Output + Operator Themes tab
     app.update(|cx| {
         let (grace_id, mountains_theme) = {
             let s = store.read(cx);
@@ -102,7 +102,7 @@ fn render_unsplash_photo_motion_video_and_local_llm_presets() {
     app.capture(aud_win)
         .expect("capture 17 audience mountains photo")
         .image
-        .save(out_dir.join("17-audience-unsplash-mountains.png"))
+        .save(out_dir.join("17-audience-sanctuary-mountains.png"))
         .expect("save 17");
 
     app.capture(op_win)
@@ -136,7 +136,7 @@ fn render_unsplash_photo_motion_video_and_local_llm_presets() {
         .save(out_dir.join("18-audience-motion-video-golden.png"))
         .expect("save 18");
 
-    // 19. Still Waters Unsplash Photo + Newsreader Serif Scripture (Psalm 23)
+    // 19. Still Waters Public Domain Photo + Newsreader Serif Scripture (Psalm 23)
     app.update(|cx| {
         let (psalm_id, waters_theme) = {
             let s = store.read(cx);
@@ -251,7 +251,7 @@ fn render_unsplash_photo_motion_video_and_local_llm_presets() {
         .save(out_dir.join("22-voice-auto-follow-live-tracking.png"))
         .expect("save 22");
 
-    // 23. Unsplash Photo & Local Video Background Studio modal
+    // 23. Public Domain & Motion Video Background Studio modal
     app.update_window(op_win.into(), |view, _, cx| {
         if let Ok(op) = view.downcast::<OperatorWorkspace>() {
             op.update(cx, |this, cx| {
@@ -263,9 +263,9 @@ fn render_unsplash_photo_motion_video_and_local_llm_presets() {
     .expect("open background picker modal");
 
     app.capture(op_win)
-        .expect("capture 23 unsplash & video background studio")
+        .expect("capture 23 public domain & video background studio")
         .image
-        .save(out_dir.join("23-unsplash-and-video-background-studio.png"))
+        .save(out_dir.join("23-public-domain-and-video-background-studio.png"))
         .expect("save 23");
 
     // 24. Multi-Display Projector & Stage Screen Target Picker popover
@@ -286,13 +286,13 @@ fn render_unsplash_photo_motion_video_and_local_llm_presets() {
         .expect("save 24");
 
     for entry in [
-        "17-audience-unsplash-mountains.png",
+        "17-audience-sanctuary-mountains.png",
         "18-audience-motion-video-golden.png",
         "19-audience-still-waters-scripture.png",
         "20-operator-themes-photo-video.png",
         "21-pastor-plan-local-llm-presets.png",
         "22-voice-auto-follow-live-tracking.png",
-        "23-unsplash-and-video-background-studio.png",
+        "23-public-domain-and-video-background-studio.png",
         "24-multi-display-projector-popover.png",
     ] {
         let path = out_dir.join(entry);

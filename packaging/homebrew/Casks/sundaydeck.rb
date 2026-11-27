@@ -7,7 +7,7 @@ cask "sundaydeck" do
 
   url "https://github.com/OWNER/sundaydeck/releases/download/v#{version}/SundayDeck-#{version}-macOS-#{arch}.dmg"
   name "SundayDeck"
-  desc "Fast, offline-first church presentation studio with local AI and voice auto-follow"
+  desc "Calm, free, offline church presentation software for Sunday volunteers"
   homepage "https://github.com/OWNER/sundaydeck"
 
   depends_on macos: ">= :ventura"

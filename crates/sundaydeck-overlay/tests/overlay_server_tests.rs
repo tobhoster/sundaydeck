@@ -34,11 +34,16 @@ fn obs_overlay_serves_transparent_html_state_json_and_pushes_websocket_frames() 
     )
     .expect("send ws upgrade");
 
-    let mut initial_buf = [0u8; 2048];
-    let n = ws.read(&mut initial_buf).expect("read ws handshake");
-    let head = String::from_utf8_lossy(&initial_buf[..n]);
-    assert!(head.contains("101 Switching Protocols"));
-    assert!(head.contains("s3pPLMBiTxaQ9kYGzzhZRbK+xOo="));
+    let mut received = String::new();
+    let mut chunk = [0u8; 2048];
+    // Wait until both the HTTP 101 handshake and the initial clear state frame arrive.
+    while !received.contains("\"mode\":\"clear\"") {
+        let n = ws.read(&mut chunk).expect("read ws handshake and initial frame");
+        assert!(n > 0, "unexpected EOF waiting for ws handshake");
+        received.push_str(&String::from_utf8_lossy(&chunk[..n]));
+    }
+    assert!(received.contains("101 Switching Protocols"));
+    assert!(received.contains("s3pPLMBiTxaQ9kYGzzhZRbK+xOo="));
 
     // Push a live worship slide update and assert the WS client receives it immediately
     server.publish(&OverlayPayload {
@@ -53,9 +58,12 @@ fn obs_overlay_serves_transparent_html_state_json_and_pushes_websocket_frames() 
         alert: None,
     });
 
-    let mut push_buf = [0u8; 2048];
-    let m = ws.read(&mut push_buf).expect("read pushed ws frame");
-    let pushed = String::from_utf8_lossy(&push_buf[..m]);
+    let mut pushed = String::new();
+    while !pushed.contains("It is well with my soul") {
+        let m = ws.read(&mut chunk).expect("read pushed ws frame");
+        assert!(m > 0, "unexpected EOF waiting for pushed ws frame");
+        pushed.push_str(&String::from_utf8_lossy(&chunk[..m]));
+    }
     assert!(pushed.contains("It is well with my soul"));
     assert!(pushed.contains("\"transition\":\"soft_rise\""));
 

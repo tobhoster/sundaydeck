@@ -243,7 +243,7 @@ pub(crate) fn render_projection_font_pack() -> Div {
 
     section_frame(
         "Sanctuary Projection Themes & Font Pack",
-        "Bundled SIL OFL typefaces over real Unsplash photography and looping motion video backgrounds",
+        "Bundled SIL OFL typefaces over Public Domain sanctuary photography and looping motion video backgrounds",
     )
     .child(grid)
 }

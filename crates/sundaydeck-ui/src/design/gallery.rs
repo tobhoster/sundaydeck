@@ -25,7 +25,7 @@ pub enum GalleryPage {
 
 /// Runnable Design Gallery (`sundaydeck --ui-gallery`) showcasing SundayDeck's bespoke native
 /// dark-linen palette, sculpted tactile controls, neutral status bar, typographic section labels,
-/// 16:9 sanctuary slide cards (with real Unsplash photo & motion video themes), and 49 Phosphor SVGs.
+/// 16:9 sanctuary slide cards (with Public Domain photo & motion video themes), and 49 Phosphor SVGs.
 pub struct DesignGalleryView {
     pub active_page: GalleryPage,
     pub motion_mode: MotionMode,

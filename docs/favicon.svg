@@ -1,6 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="#141517" stroke="#3b4150" stroke-width="2.5"/>
-  <rect x="13" y="16" width="38" height="24" rx="4" fill="#1f2228" stroke="#f2efe9" stroke-width="2.5"/>
-  <rect x="22" y="25" width="20" height="3" rx="1.5" fill="#e2a83b"/>
-  <rect x="24" y="45" width="16" height="3" rx="1.5" fill="#f2efe9"/>
+  <rect x="2" y="2" width="60" height="60" rx="13" fill="#15171C" stroke="#363C49" stroke-width="2"/>
+  <path fill="#F4F1EB" d="M32 9 C23.5 13.7 16.8 20.8 14.5 28.5 L29.5 28.5 L29.5 17.5 C29.5 16.2 30.5 15.5 32 15.5 C33.5 15.5 34.5 16.2 34.5 17.5 L34.5 28.5 L49.5 28.5 C47.2 20.8 40.5 13.7 32 9 Z"/>
+  <path fill="#F4F1EB" d="M14 32.5 L29.5 32.5 L29.5 41.2 C24 41.4 18.5 42.1 14 43.3 Z"/>
+  <path fill="#F4F1EB" d="M34.5 32.5 L50 32.5 L50 43.3 C45.5 42.1 40 41.4 34.5 41.2 Z"/>
+  <path fill="#E2A83B" d="M14 46.1 C18.5 44.9 24 44.2 29.5 44 L29.5 53.5 L17 53.5 C15.3 53.5 14 52.2 14 50.5 Z"/>
+  <path fill="#E2A83B" d="M34.5 44 C40 44.2 45.5 44.9 50 46.1 L50 50.5 C50 52.2 48.7 53.5 47 53.5 L34.5 53.5 Z"/>
 </svg>

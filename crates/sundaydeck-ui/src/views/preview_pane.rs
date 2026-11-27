@@ -26,7 +26,7 @@ const TILE_H_PX: f32 = 144.0; // exact 16:9
 
 /// Top half of the Center Pane:
 /// Clean 16:9 sanctuary slide cards with typographic dot+label metadata (`Verse 1`, `Chorus`),
-/// `1.5px` warm-amber Next Up ring + bottom `Next up · Space` caption, real Unsplash photo /
+/// `1.5px` warm-amber Next Up ring + bottom `Next up · Space` caption, Public Domain photo /
 /// looping motion video backgrounds, and a warm paper-ivory `Show on Screen` primary button.
 pub fn render_preview_section(
     workspace: &OperatorWorkspace,

@@ -298,15 +298,15 @@ fn handle_connection(mut stream: TcpStream, shared: Arc<SharedOverlayState>) {
              Connection: Upgrade\r\n\
              Sec-WebSocket-Accept: {accept}\r\n\r\n"
         );
-        if stream.write_all(handshake.as_bytes()).is_ok() {
+        if stream.write_all(handshake.as_bytes()).is_ok()
+            && let Ok(mut clients) = shared.clients.lock()
+        {
             let latest = shared
                 .latest_json
                 .lock()
                 .map(|g| g.clone())
                 .unwrap_or_default();
-            if stream.write_all(&encode_ws_text_frame(&latest)).is_ok()
-                && let Ok(mut clients) = shared.clients.lock()
-            {
+            if stream.write_all(&encode_ws_text_frame(&latest)).is_ok() {
                 clients.push(stream);
             }
         }

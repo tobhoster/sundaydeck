@@ -76,7 +76,7 @@ SCENES: list[AdScene] = [
     AdScene(
         slug="04-sanctuary-media",
         images=[
-            "17-audience-unsplash-mountains.png",
+            "17-audience-sanctuary-mountains.png",
             "18-audience-motion-video-golden.png",
             "03-stage-monitor-live.png",
         ],

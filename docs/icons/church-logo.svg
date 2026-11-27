@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor">
+  <!-- Upper-left and upper-right pointed sanctuary arch panes -->
+  <path d="M128 32 C94 51 67 80 58 112 L118 112 L118 68 C118 63 122 60 128 60 C134 60 138 63 138 68 L138 112 L198 112 C189 80 162 51 128 32 Z"/>
+  <!-- Mid-left sanctuary pane -->
+  <path d="M56 128 L118 128 L118 164 C96 165 74 168 56 173 Z"/>
+  <!-- Mid-right sanctuary pane -->
+  <path d="M138 128 L200 128 L200 173 C182 168 160 165 138 164 Z"/>
+  <!-- Lower-left curved hillside base -->
+  <path d="M56 184 C74 179 96 176 118 175 L118 214 L68 214 C61 214 56 209 56 202 Z"/>
+  <!-- Lower-right curved hillside base -->
+  <path d="M138 175 C160 176 182 179 200 184 L200 202 C200 209 195 214 188 214 L138 214 Z"/>
+</svg>
