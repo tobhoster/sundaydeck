@@ -1,7 +1,7 @@
 cask "sundaydeck" do
   arch arm: "arm64", intel: "x86_64"
 
-  version "0.1.0"
+  version "0.0.1"
   sha256 arm:   "REPLACE_WITH_ARM64_DMG_SHA256_FROM_RELEASE",
          intel: "REPLACE_WITH_X86_64_DMG_SHA256_FROM_RELEASE"
 

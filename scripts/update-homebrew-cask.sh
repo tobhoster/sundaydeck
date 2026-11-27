@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: ./scripts/update-homebrew-cask.sh <github-owner/repo> <version> <dist-dir>
 
 REPO="${1:-tobhoster/sundaydeck}"
-VERSION="${2:-0.1.0}"
+VERSION="${2:-0.0.1}"
 ASSET_DIR="${3:-dist}"
 
 ARM_DMG="$ASSET_DIR/SundayDeck-${VERSION}-macOS-arm64.dmg"
@@ -32,7 +32,7 @@ cask "sundaydeck" do
 
   url "https://github.com/${REPO}/releases/download/v#{version}/SundayDeck-#{version}-macOS-#{arch}.dmg"
   name "SundayDeck"
-  desc "Fast, offline-first church presentation studio with local AI and voice auto-follow"
+  desc "Calm, free, offline church presentation software for Sunday volunteers"
   homepage "https://github.com/${REPO}"
 
   depends_on macos: ">= :ventura"
