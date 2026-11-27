@@ -61,7 +61,6 @@
       "sup.p": "Every feature stays 100% free with zero paywalls, forever. If SundayDeck serves your congregation well, you can chip in a coffee or sponsor ongoing development — helping cover Mac and Windows code-signing certificates, release hosting, and starter packs for smaller churches.",
       "sup.coffee": "Buy Me a Coffee",
       "sup.sponsors": "GitHub Sponsors",
-      "sup.kofi": "Support on Ko-fi",
       "sup.github": "Contribute on GitHub"
     },
     es: {
@@ -123,7 +122,6 @@
       "sup.p": "Cada función seguirá siendo 100% gratuita para siempre. Si SundayDeck bendice a tu congregación cada domingo, puedes invitar un café o patrocinar los certificados de firma para Mac y Windows y el desarrollo continuo.",
       "sup.coffee": "Invítame un Café",
       "sup.sponsors": "GitHub Sponsors",
-      "sup.kofi": "Apoyar en Ko-fi",
       "sup.github": "Contribuir en GitHub"
     },
     pt: {
@@ -185,7 +183,6 @@
       "sup.p": "Cada recurso continuará 100% gratuito para sempre. Se o SundayDeck abençoa sua igreja aos domingos, você pode pagar um café ou apoiar certificados de assinatura para Mac/Windows e a manutenção contínua.",
       "sup.coffee": "Pague um Café",
       "sup.sponsors": "GitHub Sponsors",
-      "sup.kofi": "Apoiar no Ko-fi",
       "sup.github": "Contribuir no GitHub"
     }
   };

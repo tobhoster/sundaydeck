@@ -54,10 +54,8 @@ SundayDeck is designed around quiet, predictable Sunday morning craft:
 
 ### macOS (Homebrew — Apple Silicon & Intel)
 
-> Replace `OWNER` with your GitHub username or organization once published (or host [`packaging/homebrew/Casks/sundaydeck.rb`](packaging/homebrew/Casks/sundaydeck.rb) in a `homebrew-sundaydeck` tap repository).
-
 ```bash
-brew tap OWNER/sundaydeck
+brew tap tobhoster/sundaydeck
 brew install --cask sundaydeck
 ```
 
@@ -152,11 +150,8 @@ We believe church presentation software should be **free, simple, and accessible
 SundayDeck will always remain 100% free with zero locked features. If it blesses your church on Sunday mornings and you'd like to help cover Apple & Windows code-signing certificates, hosting, and ongoing maintenance:
 
 - **[Buy Me a Coffee](https://buymeacoffee.com/tobhoster)** — one-time coffee or encouragement
-- **[GitHub Sponsors](https://github.com/sponsors/OWNER)** — zero-fee monthly or one-time church & community sponsorship
-- **[Ko-fi](https://ko-fi.com/OWNER)** — zero-platform-fee tip jar alternative
+- **[GitHub Sponsors](https://github.com/sponsors/tobhoster)** — monthly or one-time church & community sponsorship
 - **Or simply share SundayDeck** with a neighboring church or volunteer team!
-
-> Replace `OWNER` in [`README.md`](README.md), [`docs/index.html`](docs/index.html), and [`.github/FUNDING.yml`](.github/FUNDING.yml) with your handle before publishing.
 
 ---
 
@@ -171,7 +166,7 @@ SundayDeck includes automated release and website publishing workflows:
 <summary><strong>For Contributors: Building from Source</strong></summary>
 
 ```bash
-git clone https://github.com/OWNER/sundaydeck.git
+git clone https://github.com/tobhoster/sundaydeck.git
 cd sundaydeck
 cargo run --release -p sundaydeck-ui --bin sundaydeck
 

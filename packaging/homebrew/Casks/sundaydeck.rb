@@ -5,10 +5,10 @@ cask "sundaydeck" do
   sha256 arm:   "REPLACE_WITH_ARM64_DMG_SHA256_FROM_RELEASE",
          intel: "REPLACE_WITH_X86_64_DMG_SHA256_FROM_RELEASE"
 
-  url "https://github.com/OWNER/sundaydeck/releases/download/v#{version}/SundayDeck-#{version}-macOS-#{arch}.dmg"
+  url "https://github.com/tobhoster/sundaydeck/releases/download/v#{version}/SundayDeck-#{version}-macOS-#{arch}.dmg"
   name "SundayDeck"
   desc "Calm, free, offline church presentation software for Sunday volunteers"
-  homepage "https://github.com/OWNER/sundaydeck"
+  homepage "https://github.com/tobhoster/sundaydeck"
 
   depends_on macos: ">= :ventura"
 

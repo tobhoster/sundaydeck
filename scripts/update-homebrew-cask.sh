@@ -4,7 +4,7 @@ set -euo pipefail
 # Generates an updated Homebrew Cask formula with real SHA-256 hashes from built macOS DMGs.
 # Usage: ./scripts/update-homebrew-cask.sh <github-owner/repo> <version> <dist-dir>
 
-REPO="${1:-OWNER/sundaydeck}"
+REPO="${1:-tobhoster/sundaydeck}"
 VERSION="${2:-0.1.0}"
 ASSET_DIR="${3:-dist}"
 
