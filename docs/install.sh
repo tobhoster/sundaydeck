@@ -4,14 +4,14 @@
 #   curl -fsSL https://tobhoster.github.io/sundaydeck/install.sh | sh
 #
 # Environment overrides:
-#   SUNDAYDECK_VERSION=0.0.1     Install a specific release version (without leading 'v')
+#   SUNDAYDECK_VERSION=0.0.2     Install a specific release version (without leading 'v')
 #   SUNDAYDECK_INSTALL_DIR=...   Override Linux install prefix (default: $HOME/.local)
 #   SUNDAYDECK_APP_DIR=...       Override macOS Applications directory (default: /Applications)
 
 set -eu
 
 REPO="tobhoster/sundaydeck"
-FALLBACK_VERSION="0.0.1"
+FALLBACK_VERSION="0.0.2"
 
 say() {
   printf '%s\n' "$@"

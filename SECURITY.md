@@ -8,7 +8,7 @@ Security fixes are released on the `main` branch and published in the latest tag
 
 | Version | Supported |
 | :--- | :--- |
-| Latest release (`v0.0.1`+) | Yes |
+| Latest release (`v0.0.2`+) | Yes |
 | Older snapshots | Please upgrade to the latest release |
 
 ## Reporting a Vulnerability

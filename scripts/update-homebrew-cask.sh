@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: ./scripts/update-homebrew-cask.sh <github-owner/repo> <version> <dist-dir>
 
 REPO="${1:-tobhoster/sundaydeck}"
-VERSION="${2:-0.0.1}"
+VERSION="${2:-0.0.2}"
 ASSET_DIR="${3:-dist}"
 
 ARM_DMG="$ASSET_DIR/SundayDeck-${VERSION}-macOS-arm64.dmg"

@@ -5,7 +5,7 @@
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $Repo = "tobhoster/sundaydeck"
-$FallbackVersion = "0.0.1"
+$FallbackVersion = "0.0.2"
 
 $Version = $env:SUNDAYDECK_VERSION
 if (-not $Version) {
