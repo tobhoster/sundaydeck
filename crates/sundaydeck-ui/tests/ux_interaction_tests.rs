@@ -39,7 +39,14 @@ fn redraw_window(r: &mut Rig, window: AnyWindowHandle) {
     r.app.run_until_parked();
 }
 
-fn click_at(r: &mut Rig, window: AnyWindowHandle, x: f32, y: f32, button: MouseButton) {
+fn click_n(
+    r: &mut Rig,
+    window: AnyWindowHandle,
+    x: f32,
+    y: f32,
+    button: MouseButton,
+    click_count: usize,
+) {
     redraw_window(r, window);
     let pos = Point::new(px(x), px(y));
     let _ = r.app.update_window(window, |_, window, cx| {
@@ -48,7 +55,7 @@ fn click_at(r: &mut Rig, window: AnyWindowHandle, x: f32, y: f32, button: MouseB
                 button,
                 position: pos,
                 modifiers: Modifiers::default(),
-                click_count: 1,
+                click_count,
                 first_mouse: false,
             }),
             cx,
@@ -58,12 +65,16 @@ fn click_at(r: &mut Rig, window: AnyWindowHandle, x: f32, y: f32, button: MouseB
                 button,
                 position: pos,
                 modifiers: Modifiers::default(),
-                click_count: 1,
+                click_count,
             }),
             cx,
         );
     });
     redraw_window(r, window);
+}
+
+fn click_at(r: &mut Rig, window: AnyWindowHandle, x: f32, y: f32, button: MouseButton) {
+    click_n(r, window, x, y, button, 1);
 }
 
 #[test]
@@ -256,59 +267,102 @@ fn right_click_editing_and_quick_slide_presets_route_cleanly() {
 }
 
 #[test]
+fn double_click_goes_live_while_single_click_keeps_preview_safe() {
+    let mut r = rig();
+    let operator = r.operator;
+    let first_song_item = r.app.update(|cx| {
+        let store = r.store.read(cx);
+        let item_id = store.service.items[1].id;
+        r.store
+            .update(cx, |s, cx| s.activate_service_item(item_id, cx));
+        item_id
+    });
+    assert!(
+        r.app
+            .update(|cx| r.store.read(cx).snapshot().live.is_none()),
+        "starts with live screen empty until explicitly shown"
+    );
+
+    // Single-clicking the second Preview slide tile selects Preview index 1 without going Live.
+    click_at(&mut r, operator, 570.0, 200.0, MouseButton::Left);
+    let (preview_idx, live_after_single) = r.app.update(|cx| {
+        let snap = r.store.read(cx).snapshot();
+        (
+            snap.preview.as_ref().map(|p| p.active_index),
+            snap.live.is_some(),
+        )
+    });
+    assert_eq!(preview_idx, Some(1));
+    assert!(!live_after_single, "single-click must stay in safe preview");
+
+    // Double-clicking that Preview slide tile immediately takes it Live on slide index 1.
+    click_n(&mut r, operator, 570.0, 200.0, MouseButton::Left, 2);
+    let live_after_dbl = r.app.update(|cx| {
+        r.store
+            .read(cx)
+            .snapshot()
+            .live
+            .as_ref()
+            .map(|l| (l.item_id, l.active_index))
+    });
+    assert_eq!(live_after_dbl, Some((Some(first_song_item), 1)));
+
+    // Double-clicking the first Service Order row switches Live directly to item 0.
+    let item0_id = r.app.update(|cx| r.store.read(cx).service.items[0].id);
+    click_n(&mut r, operator, 120.0, 120.0, MouseButton::Left, 2);
+    let live_item0 = r.app.update(|cx| {
+        r.store
+            .read(cx)
+            .snapshot()
+            .live
+            .as_ref()
+            .and_then(|l| l.item_id)
+    });
+    assert_eq!(live_item0, Some(item0_id));
+}
+
+#[test]
 fn day_one_library_ships_rich_hymns_bibles_themes_and_fonts() {
     let boot = seeded_bootstrap();
     assert!(
-        boot.songs.len() >= 19,
-        "Day-1 library must ship >= 19 verified PD hymns, got {}",
-        boot.songs.len()
+        boot.songs.len() >= 19 && boot.bible_translations.len() >= 3 && boot.themes.len() >= 12
     );
-    assert!(
-        boot.bible_translations.len() >= 3,
-        "Day-1 library must ship BSB, WEB, and KJV offline, got {}",
-        boot.bible_translations.len()
-    );
-    assert!(
-        boot.themes.len() >= 12,
-        "Day-1 library must ship >= 12 studio themes, got {}",
-        boot.themes.len()
-    );
-    assert!(
-        PROJECTION_FONTS.len() >= 7,
-        "must bundle >= 7 projection font families"
-    );
-    assert!(
-        FREE_BIBLE_CATALOG.len() >= 9,
-        "free offline Bible catalog must offer >= 9 verified PD/CC0 translations"
-    );
+    assert!(PROJECTION_FONTS.len() >= 7 && FREE_BIBLE_CATALOG.len() >= 9);
     let pager = build_parent_pager_alert("#142", 1_000).expect("parent pager alert");
-    assert_eq!(pager.message, "Parent #142");
-    assert_eq!(pager.position, AlertPosition::TopRight);
+    assert_eq!(
+        (pager.message.as_str(), pager.position),
+        ("Parent #142", AlertPosition::TopRight)
+    );
 }
 
-fn save_shot<V: 'static>(
-    app: &mut ScreenshotApp,
-    win: gpui::WindowHandle<V>,
-    dir: &std::path::Path,
-    name: &str,
-) {
-    app.capture(win)
-        .expect(name)
-        .image
-        .save(dir.join(name))
-        .expect(name);
+struct ShotRig {
+    app: ScreenshotApp,
+    op: gpui::WindowHandle<OperatorWorkspace>,
+    dir: PathBuf,
 }
 
-fn update_ws(
-    app: &mut ScreenshotApp,
-    win: gpui::WindowHandle<OperatorWorkspace>,
-    f: impl FnOnce(&mut OperatorWorkspace, &mut gpui::Context<OperatorWorkspace>),
-) {
-    let _ = app.update_window(win.into(), |view, _, cx| {
-        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
-            op.update(cx, f);
-        }
-    });
+impl ShotRig {
+    fn save<V: 'static>(&mut self, win: gpui::WindowHandle<V>, name: &str) {
+        self.app
+            .capture(win)
+            .expect(name)
+            .image
+            .save(self.dir.join(name))
+            .expect(name);
+    }
+
+    fn ws(
+        &mut self,
+        name: &str,
+        f: impl FnOnce(&mut OperatorWorkspace, &mut gpui::Context<OperatorWorkspace>),
+    ) {
+        let _ = self.app.update_window(self.op.into(), |view, _, cx| {
+            if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+                op.update(cx, f);
+            }
+        });
+        self.save(self.op, name);
+    }
 }
 
 #[test]
@@ -353,8 +407,7 @@ fn capture_v003_review_screens_when_requested() {
 
     let first_song_id = app.update(|cx| {
         let s = store.read(cx);
-        let id = s.songs[0].id;
-        let item_id = s.service.items[1].id;
+        let (id, item_id) = (s.songs[0].id, s.service.items[1].id);
         store.update(cx, |st, cx| {
             st.activate_service_item(item_id, cx);
             let _ = st.dispatch(PresentationCommand::GoLive, cx);
@@ -362,58 +415,33 @@ fn capture_v003_review_screens_when_requested() {
         id
     });
 
-    save_shot(
-        &mut app,
-        op_win,
-        &out_dir,
-        "01-day1-populated-hymnal-and-quick-footer.png",
-    );
-
-    update_ws(&mut app, op_win, |ws, cx| {
+    let mut s = ShotRig {
+        app,
+        op: op_win,
+        dir: out_dir,
+    };
+    s.save(op_win, "01-day1-populated-hymnal-and-quick-footer.png");
+    s.ws("02-right-click-context-menu-song.png", |ws, cx| {
         ws.open_context_menu(
             Point::new(px(470.0), px(640.0)),
             ContextMenuTarget::Song(first_song_id),
             cx,
         );
     });
-    save_shot(
-        &mut app,
-        op_win,
-        &out_dir,
-        "02-right-click-context-menu-song.png",
-    );
-
-    update_ws(&mut app, op_win, |ws, cx| {
-        ws.switch_library_tab(LibraryTab::CustomSlides, cx)
-    });
-    save_shot(
-        &mut app,
-        op_win,
-        &out_dir,
+    s.ws(
         "03-custom-slides-quick-create-and-birthdays.png",
+        |ws, cx| {
+            ws.switch_library_tab(LibraryTab::CustomSlides, cx);
+        },
     );
-
-    update_ws(&mut app, op_win, |ws, cx| {
-        ws.open_quick_slide_preset(QuickSlidePreset::PastorQuote, cx)
+    s.ws("04-quick-slide-pastor-quote-modal.png", |ws, cx| {
+        ws.open_quick_slide_preset(QuickSlidePreset::PastorQuote, cx);
     });
-    save_shot(
-        &mut app,
-        op_win,
-        &out_dir,
-        "04-quick-slide-pastor-quote-modal.png",
-    );
-
-    update_ws(&mut app, op_win, |ws, cx| {
-        ws.switch_library_tab(LibraryTab::Themes, cx)
+    s.ws("05-studio-themes-and-fonts-gallery.png", |ws, cx| {
+        ws.switch_library_tab(LibraryTab::Themes, cx);
     });
-    save_shot(
-        &mut app,
-        op_win,
-        &out_dir,
-        "05-studio-themes-and-fonts-gallery.png",
-    );
 
-    app.update(|cx| {
+    s.app.update(|cx| {
         let warm = store
             .read(cx)
             .themes
@@ -421,45 +449,33 @@ fn capture_v003_review_screens_when_requested() {
             .find(|t| t.name == "Warm Dawn Editorial")
             .cloned()
             .expect("Warm Dawn Editorial theme");
-        store.update(cx, |s, cx| {
-            let _ = s.dispatch(PresentationCommand::ApplyLiveTheme(Arc::clone(&warm)), cx);
+        store.update(cx, |st, cx| {
+            let _ = st.dispatch(PresentationCommand::ApplyLiveTheme(Arc::clone(&warm)), cx);
         });
     });
-    save_shot(
-        &mut app,
-        aud_win,
-        &out_dir,
-        "06-audience-warm-dawn-cormorant.png",
-    );
-
-    update_ws(&mut app, op_win, |ws, cx| {
-        ws.open_settings_on_tab(SettingsTab::BiblesBundles, cx)
+    s.save(aud_win, "06-audience-warm-dawn-cormorant.png");
+    s.ws("07-settings-free-offline-bibles-catalog.png", |ws, cx| {
+        ws.open_settings_on_tab(SettingsTab::BiblesBundles, cx);
     });
-    save_shot(
-        &mut app,
-        op_win,
-        &out_dir,
-        "07-settings-free-offline-bibles-catalog.png",
-    );
 
     let mut mem_db = Database::open_in_memory().expect("db");
     sundaydeck_db::seed::seed_defaults_if_empty(mem_db.conn_mut()).expect("seed");
     let jn_ref = parse_scripture_ref("jn 3:16-17").expect("parse jn");
     let bsb_verses =
         sundaydeck_db::bible_repo::get_passage(mem_db.conn(), "BSB", &jn_ref).expect("bsb jn 3");
-    app.update(|cx| {
-        store.update(cx, |s, cx| {
-            s.active_translation_code = "BSB".to_owned();
-            s.bible_browse_mode = BibleBrowseMode::Chapter {
+    s.app.update(|cx| {
+        store.update(cx, |st, cx| {
+            st.active_translation_code = "BSB".to_owned();
+            st.bible_browse_mode = BibleBrowseMode::Chapter {
                 book_number: 43,
                 chapter: 3,
             };
-            s.bible_verses = bsb_verses.clone();
-            s.selected_verse_range = Some((0, 0));
-            s.stage_scripture_verses(&bsb_verses, false, cx);
+            st.bible_verses = bsb_verses.clone();
+            st.selected_verse_range = Some((0, 0));
+            st.stage_scripture_verses(&bsb_verses, false, cx);
         });
     });
-    update_ws(&mut app, op_win, |ws, cx| {
+    s.ws("08-bible-bsb-right-click-quote-slide.png", |ws, cx| {
         ws.switch_library_tab(LibraryTab::Bible, cx);
         ws.open_context_menu(
             Point::new(px(490.0), px(670.0)),
@@ -467,32 +483,15 @@ fn capture_v003_review_screens_when_requested() {
             cx,
         );
     });
-    save_shot(
-        &mut app,
-        op_win,
-        &out_dir,
-        "08-bible-bsb-right-click-quote-slide.png",
-    );
-
-    update_ws(&mut app, op_win, |ws, cx| {
+    s.ws("09-alerts-parent-pager-and-timers.png", |ws, cx| {
         ws.close_context_menu(cx);
         ws.open_alerts_timers(cx);
     });
-    save_shot(
-        &mut app,
-        op_win,
-        &out_dir,
-        "09-alerts-parent-pager-and-timers.png",
-    );
-
-    update_ws(&mut app, op_win, |ws, cx| {
-        ws.close_modal(cx);
-        ws.toggle_popover(HeaderPopover::Projector, cx);
-    });
-    save_shot(
-        &mut app,
-        op_win,
-        &out_dir,
+    s.ws(
         "10-projector-popover-obs-and-companion-remote.png",
+        |ws, cx| {
+            ws.close_modal(cx);
+            ws.toggle_popover(HeaderPopover::Projector, cx);
+        },
     );
 }

@@ -47,8 +47,13 @@ impl OperatorWorkspace {
         cx.notify();
     }
 
-    /// 1-click staging from the Auto-Follow Scripture Queue (never auto-fires live).
-    pub fn stage_queued_scripture(&mut self, reference: ScriptureRef, cx: &mut Context<Self>) {
+    /// 1-click staging from the Auto-Follow Scripture Queue (double-click goes straight live).
+    pub fn stage_queued_scripture(
+        &mut self,
+        reference: ScriptureRef,
+        go_live: bool,
+        cx: &mut Context<Self>,
+    ) {
         let translation = self.store.read(cx).active_translation_code.clone();
         if let Some(db) = self.db.clone() {
             let store = self.store.clone();
@@ -58,6 +63,9 @@ impl OperatorWorkspace {
                 {
                     store.update(cx, |s, cx| {
                         let _ = s.stage_scripture_verses(&verses, false, cx);
+                        if go_live && !s.snapshot().direct_click_live {
+                            let _ = s.dispatch(PresentationCommand::GoLive, cx);
+                        }
                         s.dismiss_queued_scripture(reference, cx);
                     });
                 }
@@ -95,6 +103,9 @@ impl OperatorWorkspace {
             if !verses.is_empty() {
                 self.store.update(cx, |s, cx| {
                     let _ = s.stage_scripture_verses(&verses, false, cx);
+                    if go_live && !s.snapshot().direct_click_live {
+                        let _ = s.dispatch(PresentationCommand::GoLive, cx);
+                    }
                     s.dismiss_queued_scripture(reference, cx);
                 });
             }

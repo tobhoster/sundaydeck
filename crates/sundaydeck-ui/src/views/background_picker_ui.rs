@@ -1,5 +1,5 @@
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, ObjectFit, ParentElement,
+    ClickEvent, Context, Div, FontWeight, InteractiveElement, ObjectFit, ParentElement,
     StatefulInteractiveElement, Styled, StyledImage, div, img, px, rgb, rgba,
 };
 
@@ -279,7 +279,12 @@ fn render_public_domain_gallery_body(
                 .flex()
                 .flex_col()
                 .gap(px(6.0))
-                .on_click(cx.listener(move |this, _, _, cx| this.select_preset(idx, cx)))
+                .on_click(cx.listener(move |this, ev: &ClickEvent, _, cx| {
+                    this.select_preset(idx, cx);
+                    if ev.click_count() >= 2 {
+                        this.create_and_apply(cx);
+                    }
+                }))
                 .child(preview)
                 .child(
                     div()

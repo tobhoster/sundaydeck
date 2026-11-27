@@ -1,6 +1,6 @@
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px,
+    ClickEvent, Context, Div, FontWeight, InteractiveElement, ParentElement,
+    StatefulInteractiveElement, Styled, div, px,
 };
 use sundaydeck_core::{OutputOverride, PresentationCommand, ScriptureRef, book_by_number};
 
@@ -162,8 +162,8 @@ pub fn render_scripture_queue_strip(
                         .flex()
                         .items_center()
                         .gap(px(5.0))
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.stage_queued_scripture(sref, cx);
+                        .on_click(cx.listener(move |this, ev: &ClickEvent, _, cx| {
+                            this.stage_queued_scripture(sref, ev.click_count() >= 2, cx);
                         }))
                         .child(deck_icon(
                             DeckIcon::BookOpenText,
@@ -210,7 +210,7 @@ pub fn render_scripture_queue_strip(
         .flex_col()
         .gap(px(6.0))
         .child(status_dot_label(
-            "Scripture Queue · Click to stage",
+            "Scripture Queue · Click stage · Double-click live",
             TOKENS.signal_voice,
             TOKENS.ink_secondary,
         ))

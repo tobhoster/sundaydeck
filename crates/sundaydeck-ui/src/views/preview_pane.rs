@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, MouseButton, MouseDownEvent, ObjectFit,
-    ParentElement, StatefulInteractiveElement, Styled, StyledImage, div, img, px, rgb, rgba,
+    ClickEvent, Context, Div, FontWeight, InteractiveElement, MouseButton, MouseDownEvent,
+    ObjectFit, ParentElement, StatefulInteractiveElement, Styled, StyledImage, div, img, px, rgb,
+    rgba,
 };
 use sundaydeck_core::{
     AudienceRenderState, BackgroundSpec, PresentationCommand, ReflowMode, SlideContent,
@@ -77,7 +78,11 @@ pub fn render_preview_section(
         )));
 
     for mode in ReflowMode::ALL {
-        let selected = mode == active_reflow;
+        let (bg, fg) = if mode == active_reflow {
+            (TOKENS.elevated, TOKENS.ink_primary)
+        } else {
+            (rgba(0x0000_0000), TOKENS.ink_muted)
+        };
         let friendly = match mode {
             ReflowMode::ByStanza => "All",
             ReflowMode::Lines1 => "1",
@@ -91,17 +96,9 @@ pub fn render_preview_section(
                 .py(px(3.5))
                 .rounded(px(4.0))
                 .cursor_pointer()
-                .bg(if selected {
-                    TOKENS.elevated
-                } else {
-                    rgba(0x0000_0000)
-                })
+                .bg(bg)
                 .font_family(FONT_BODY)
-                .text_color(if selected {
-                    TOKENS.ink_primary
-                } else {
-                    TOKENS.ink_muted
-                })
+                .text_color(fg)
                 .text_size(px(11.0))
                 .font_weight(FontWeight::MEDIUM)
                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -122,7 +119,6 @@ pub fn render_preview_section(
         .gap(px(5.0));
 
     for theme in themes {
-        let is_active = theme.id == active_theme.id;
         let theme_click = Arc::clone(&theme);
         let kind_dot = match &theme.background {
             BackgroundSpec::VideoLoop { .. } => Some(TOKENS.signal_preview),
@@ -133,6 +129,11 @@ pub fn render_preview_section(
             }
             BackgroundSpec::LinearGradient { .. } | BackgroundSpec::Solid { .. } => None,
         };
+        let (chip_bg, chip_border, chip_text) = if theme.id == active_theme.id {
+            (TOKENS.elevated, TOKENS.focus_border, TOKENS.ink_primary)
+        } else {
+            (rgba(0x0000_0000), rgba(0x0000_0000), TOKENS.ink_secondary)
+        };
 
         let mut chip = div()
             .id(format!("preview-theme-{}", theme.id))
@@ -141,18 +142,10 @@ pub fn render_preview_section(
             .py(px(3.5))
             .rounded(px(RADIUS_PILL))
             .cursor_pointer()
-            .bg(if is_active {
-                TOKENS.elevated
-            } else {
-                rgba(0x0000_0000)
-            })
+            .bg(chip_bg)
             .hover(|s| s.bg(TOKENS.elevated_hover))
             .border_1()
-            .border_color(if is_active {
-                TOKENS.focus_border
-            } else {
-                rgba(0x0000_0000)
-            })
+            .border_color(chip_border)
             .flex()
             .items_center()
             .gap(px(5.0))
@@ -173,14 +166,10 @@ pub fn render_preview_section(
             chip.child(
                 div()
                     .font_family(FONT_BODY)
-                    .text_color(if is_active {
-                        TOKENS.ink_primary
-                    } else {
-                        TOKENS.ink_secondary
-                    })
+                    .text_color(chip_text)
                     .text_size(px(11.0))
                     .font_weight(FontWeight::MEDIUM)
-                    .child(short_theme_label(&theme.name)),
+                    .child(short_theme_label(&theme.name).to_owned()),
             ),
         );
     }
@@ -359,10 +348,10 @@ pub fn render_preview_section(
             div()
                 .id(format!("preview-slide-{idx}"))
                 .cursor_pointer()
-                .on_click(cx.listener(move |this, _, _, cx| {
+                .on_click(cx.listener(move |this, ev: &ClickEvent, _, cx| {
                     this.store.update(cx, |s, cx| {
                         let _ = s.dispatch(PresentationCommand::SelectPreviewSlide(idx), cx);
-                        if s.snapshot().direct_click_live {
+                        if ev.click_count() >= 2 || s.snapshot().direct_click_live {
                             let _ = s.dispatch(PresentationCommand::GoLive, cx);
                         }
                     });
@@ -482,19 +471,19 @@ pub fn render_preview_section(
         .child(grid)
 }
 
-fn short_theme_label(name: &str) -> String {
+fn short_theme_label(name: &str) -> &str {
     match name {
-        "Classic Sanctuary Dark" => "Sanctuary Dark".to_owned(),
-        "Warm Sanctuary Amber" => "Warm Amber".to_owned(),
-        "Scripture Clean" => "Scripture".to_owned(),
-        "Modern Display" => "Modern".to_owned(),
-        "Sanctuary Mountains" => "Mountains".to_owned(),
-        "Golden Light Motion" => "Golden Motion".to_owned(),
-        "Still Waters Scripture" => "Still Waters".to_owned(),
-        "Starry Clouds Motion" => "Starry Motion".to_owned(),
-        "Warm Dawn Editorial" => "Warm Dawn".to_owned(),
-        "Morning Forest Praise" => "Forest Praise".to_owned(),
-        "Condensed Worship Night" => "Bold Night".to_owned(),
-        other => other.to_owned(),
+        "Classic Sanctuary Dark" => "Sanctuary Dark",
+        "Warm Sanctuary Amber" => "Warm Amber",
+        "Scripture Clean" => "Scripture",
+        "Modern Display" => "Modern",
+        "Sanctuary Mountains" => "Mountains",
+        "Golden Light Motion" => "Golden Motion",
+        "Still Waters Scripture" => "Still Waters",
+        "Starry Clouds Motion" => "Starry Motion",
+        "Warm Dawn Editorial" => "Warm Dawn",
+        "Morning Forest Praise" => "Forest Praise",
+        "Condensed Worship Night" => "Bold Night",
+        other => other,
     }
 }

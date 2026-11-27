@@ -1,7 +1,8 @@
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, MouseButton, MouseDownEvent, ParentElement,
-    StatefulInteractiveElement, Styled, div, px, rgba,
+    ClickEvent, Context, Div, FontWeight, InteractiveElement, MouseButton, MouseDownEvent,
+    ParentElement, StatefulInteractiveElement, Styled, div, px, rgba,
 };
+use sundaydeck_core::PresentationCommand;
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::primitives::{live_meta_indicator, status_dot_label};
@@ -206,9 +207,13 @@ pub fn render_schedule_pane(
             .flex()
             .flex_col()
             .gap(px(5.0))
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.store
-                    .update(cx, |s, cx| s.activate_service_item(item_id, cx));
+            .on_click(cx.listener(move |this, ev: &ClickEvent, _, cx| {
+                this.store.update(cx, |s, cx| {
+                    s.activate_service_item(item_id, cx);
+                    if ev.click_count() >= 2 && !s.snapshot().direct_click_live {
+                        let _ = s.dispatch(PresentationCommand::GoLive, cx);
+                    }
+                });
             }))
             .on_mouse_down(
                 MouseButton::Right,
@@ -386,7 +391,7 @@ pub fn render_schedule_pane(
                         .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_muted)
                         .text_size(px(10.5))
-                        .child("Right-click to edit · Space next"),
+                        .child("Double-click live · Right-click edit"),
                 ),
         )
 }

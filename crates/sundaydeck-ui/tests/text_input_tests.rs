@@ -3,10 +3,14 @@ mod support;
 
 use std::time::Duration;
 
-use gpui::ClipboardItem;
-use sundaydeck_core::OutputOverride;
+use gpui::{
+    ClipboardItem, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, PlatformInput, Point, px,
+};
+use sundaydeck_core::{BibleVerse, OutputOverride, ScriptureRef};
 use sundaydeck_ui::components::TextInput;
+use sundaydeck_ui::store::BibleBrowseMode;
 use sundaydeck_ui::views::AudienceOutputView;
+use sundaydeck_ui::views::operator_workspace::LibraryTab;
 use support::{Rig, rig, windows_of};
 
 fn focus_song_search(r: &mut Rig) -> gpui::Entity<TextInput> {
@@ -205,4 +209,149 @@ fn wireless_powerpoint_clicker_works_across_windows_and_never_fires_in_text_inpu
         "`.` blackout button from a focused Audience window must toggle Black Screen"
     );
     r.toggle_audience();
+}
+
+#[test]
+fn bible_verse_double_click_goes_live_and_shift_click_selects_range() {
+    let mut r = rig();
+    let operator = r.operator;
+    let verses = vec![
+        BibleVerse {
+            translation_code: "BSB".to_owned(),
+            book_number: 43,
+            book_name: "John".to_owned(),
+            chapter: 3,
+            verse: 16,
+            text: "For God so loved the world that He gave His one and only Son.".to_owned(),
+        },
+        BibleVerse {
+            translation_code: "BSB".to_owned(),
+            book_number: 43,
+            book_name: "John".to_owned(),
+            chapter: 3,
+            verse: 17,
+            text: "For God did not send His Son into the world to condemn the world.".to_owned(),
+        },
+    ];
+    r.app.update(|cx| {
+        r.store.update(cx, |s, cx| {
+            s.active_translation_code = "BSB".to_owned();
+            s.bible_browse_mode = BibleBrowseMode::Chapter {
+                book_number: 43,
+                chapter: 3,
+            };
+            s.bible_verses = verses;
+            s.selected_verse_range = None;
+            cx.notify();
+        });
+        r.workspace.update(cx, |ws, cx| {
+            ws.switch_library_tab(LibraryTab::Bible, cx);
+        });
+    });
+
+    let dispatch_click = |r: &mut Rig, x: f32, y: f32, click_count: usize, shift: bool| {
+        let _ = r.app.update_window(operator, |_, w, cx| {
+            w.refresh();
+            w.draw(cx).clear(cx);
+        });
+        r.app.run_until_parked();
+        let pos = Point::new(px(x), px(y));
+        let mods = Modifiers {
+            shift,
+            ..Modifiers::default()
+        };
+        let _ = r.app.update_window(operator, |_, w, cx| {
+            w.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent {
+                    button: MouseButton::Left,
+                    position: pos,
+                    modifiers: mods,
+                    click_count,
+                    first_mouse: false,
+                }),
+                cx,
+            );
+            w.dispatch_event(
+                PlatformInput::MouseUp(MouseUpEvent {
+                    button: MouseButton::Left,
+                    position: pos,
+                    modifiers: mods,
+                    click_count,
+                }),
+                cx,
+            );
+            w.refresh();
+            w.draw(cx).clear(cx);
+        });
+        r.app.run_until_parked();
+    };
+
+    // Single-clicking verse 0 stages preview safely without going live.
+    dispatch_click(&mut r, 450.0, 760.0, 1, false);
+    assert_eq!(
+        r.app.update(|cx| r.store.read(cx).selected_verse_range),
+        Some((0, 0))
+    );
+    assert!(
+        r.app
+            .update(|cx| r.store.read(cx).snapshot().live.is_none()),
+        "single-clicking a Bible verse must stay in safe preview"
+    );
+
+    // Shift-clicking verse 1 extends the selected passage to verses 0..=1 without going live.
+    dispatch_click(&mut r, 450.0, 800.0, 1, true);
+    assert_eq!(
+        r.app.update(|cx| r.store.read(cx).selected_verse_range),
+        Some((0, 1)),
+        "Shift-click must extend Bible verse selection range"
+    );
+    assert!(
+        r.app
+            .update(|cx| r.store.read(cx).snapshot().live.is_none()),
+        "Shift-click must stay in preview until double-clicked or Show Live"
+    );
+
+    // Double-clicking verse 0 immediately projects it Live on screen.
+    dispatch_click(&mut r, 450.0, 760.0, 2, false);
+    let live_title = r.app.update(|cx| {
+        r.store
+            .read(cx)
+            .snapshot()
+            .live
+            .as_ref()
+            .map(|l| l.title.clone())
+    });
+    assert!(
+        live_title
+            .as_deref()
+            .is_some_and(|t| t.contains("John 3:16")),
+        "double-clicking a Bible verse must project it live immediately, got {live_title:?}"
+    );
+
+    // Double-clicking a queued spoken Scripture (go_live=true) also projects it straight live.
+    let ps23 = ScriptureRef {
+        book_number: 19,
+        chapter: 23,
+        verse_start: Some(1),
+        verse_end: Some(1),
+    };
+    r.app.update(|cx| {
+        r.workspace
+            .update(cx, |ws, cx| ws.stage_queued_scripture(ps23, true, cx));
+    });
+    settle_song_search(&mut r);
+    let queued_live = r.app.update(|cx| {
+        r.store
+            .read(cx)
+            .snapshot()
+            .live
+            .as_ref()
+            .map(|l| l.title.clone())
+    });
+    assert!(
+        queued_live
+            .as_deref()
+            .is_some_and(|t| t.contains("Psalm") || t.contains("23")),
+        "queued scripture double-click must project live, got {queued_live:?}"
+    );
 }

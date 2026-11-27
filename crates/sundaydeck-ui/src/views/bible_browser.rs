@@ -2,7 +2,7 @@ use gpui::{
     AppContext as _, Context, Entity, EventEmitter, IntoElement, Pixels, Point, Render,
     Subscription, Window,
 };
-use sundaydeck_core::{BibleVerse, parse_scripture_ref};
+use sundaydeck_core::{BibleVerse, PresentationCommand, parse_scripture_ref};
 use sundaydeck_db::DbWorker;
 
 use crate::components::{TextInput, TextInputEvent};
@@ -55,6 +55,10 @@ impl BibleBrowserView {
     }
 
     pub fn run_query(&mut self, raw: &str, cx: &mut Context<Self>) {
+        self.run_query_with_live(raw, false, cx);
+    }
+
+    pub fn run_query_with_live(&mut self, raw: &str, go_live: bool, cx: &mut Context<Self>) {
         let query = raw.trim().to_owned();
         if query.is_empty() {
             return;
@@ -70,6 +74,7 @@ impl BibleBrowserView {
                 parsed.chapter,
                 parsed.verse_start,
                 parsed.verse_end,
+                go_live,
                 cx,
             );
         } else {
@@ -87,18 +92,33 @@ impl BibleBrowserView {
             BibleBrowseMode::Chapter {
                 book_number,
                 chapter,
-            } => self.load_chapter_with_selection(code, book_number, chapter, None, None, cx),
+            } => {
+                self.load_chapter_with_selection(code, book_number, chapter, None, None, false, cx)
+            }
             BibleBrowseMode::Search { query } => self.run_keyword_search(code, query, cx),
         }
     }
 
     pub(crate) fn stage_selected(&mut self, add_to_schedule: bool, cx: &mut Context<Self>) {
+        self.stage_selected_with_live(add_to_schedule, false, cx);
+    }
+
+    pub(crate) fn stage_selected_with_live(
+        &mut self,
+        add_to_schedule: bool,
+        go_live: bool,
+        cx: &mut Context<Self>,
+    ) {
         let verses = self.selected_verses(cx);
         if verses.is_empty() {
             return;
         }
         let updated = self.store.update(cx, |s, cx| {
-            s.stage_scripture_verses(&verses, add_to_schedule, cx)
+            let sched = s.stage_scripture_verses(&verses, add_to_schedule, cx);
+            if go_live && !s.snapshot().direct_click_live {
+                let _ = s.dispatch(PresentationCommand::GoLive, cx);
+            }
+            sched
         });
         if let (Some(schedule), Some(db)) = (updated, self.db.clone()) {
             cx.spawn(async move |_, _| {
@@ -146,6 +166,7 @@ impl BibleBrowserView {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn load_chapter_with_selection(
         &mut self,
         code: String,
@@ -153,6 +174,7 @@ impl BibleBrowserView {
         chapter: u16,
         verse_start: Option<u16>,
         verse_end: Option<u16>,
+        go_live: bool,
         cx: &mut Context<Self>,
     ) {
         let Some(db) = self.db.clone() else {
@@ -174,6 +196,9 @@ impl BibleBrowserView {
                 if let Some((start_i, end_i)) = selection {
                     let chosen = s.bible_verses[start_i..=end_i].to_vec();
                     s.stage_scripture_verses(&chosen, false, cx);
+                    if go_live && !s.snapshot().direct_click_live {
+                        let _ = s.dispatch(PresentationCommand::GoLive, cx);
+                    }
                 }
                 cx.notify();
             });

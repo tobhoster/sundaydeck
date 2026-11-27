@@ -8,6 +8,7 @@ members = [
     "crates/sundaydeck-voice",
     "crates/sundaydeck-ui",
 ]
+exclude = ["patches/accesskit_macos"]
 
 [workspace.package]
 version = "0.0.4"

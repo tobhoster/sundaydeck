@@ -12,7 +12,7 @@ use std::{cell::Cell, ffi::c_void, rc::Rc};
 use accesskit::{ActionHandler, ActionRequest, ActivationHandler, TreeUpdate};
 use accesskit_macos::SubclassingAdapter;
 use objc2::{
-    class, msg_send, msg_send_id,
+    ClassType, msg_send, msg_send_id,
     rc::Id,
     runtime::{AnyClass, AnyObject},
 };
@@ -45,7 +45,7 @@ impl ActionHandler for NoActions {
 }
 
 fn new_view() -> Id<NSView> {
-    unsafe { msg_send_id![class!(NSView), new] }
+    unsafe { msg_send_id![NSView::class(), new] }
 }
 
 fn runtime_class_name(view: &NSView) -> String {
@@ -55,8 +55,8 @@ fn runtime_class_name(view: &NSView) -> String {
 
 fn query_accessibility_after_drop(view: &NSView) {
     let _: *mut NSArray<NSObject> = unsafe { msg_send![view, accessibilityChildren] };
-    let _: *mut AnyObject = unsafe { msg_send![view, accessibilityFocusedUIElement] };
-    let _: *mut AnyObject = unsafe { msg_send![view, accessibilityHitTest: NSPoint::new(0., 0.)] };
+    let _: *mut NSObject = unsafe { msg_send![view, accessibilityFocusedUIElement] };
+    let _: *mut NSObject = unsafe { msg_send![view, accessibilityHitTest: NSPoint::new(0., 0.)] };
     let superclass: &AnyClass = unsafe { msg_send![view, superclass] };
     assert_eq!(superclass.name(), "NSResponder");
 }

@@ -1,11 +1,11 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, MouseButton,
+    AnyElement, ClickEvent, Context, Div, FontWeight, InteractiveElement, IntoElement, MouseButton,
     MouseDownEvent, ParentElement, SharedString, StatefulInteractiveElement, Styled, div, px, rgb,
     rgba, uniform_list,
 };
-use sundaydeck_core::{Song, SongId};
+use sundaydeck_core::{PresentationCommand, Song, SongId};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::tokens::{FONT_BODY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, TOKENS};
@@ -273,9 +273,13 @@ fn render_song_row(song: &Song, cx: &Context<OperatorWorkspace>) -> Div {
         .flex()
         .items_center()
         .justify_between()
-        .on_click(cx.listener(move |this, _, _, cx| {
-            this.store
-                .update(cx, |s, cx| s.stage_library_song(song_id, cx));
+        .on_click(cx.listener(move |this, ev: &ClickEvent, _, cx| {
+            this.store.update(cx, |s, cx| {
+                s.stage_library_song(song_id, cx);
+                if ev.click_count() >= 2 && !s.snapshot().direct_click_live {
+                    let _ = s.dispatch(PresentationCommand::GoLive, cx);
+                }
+            });
         }))
         .on_mouse_down(
             MouseButton::Right,

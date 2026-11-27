@@ -1,9 +1,10 @@
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, MouseButton, MouseDownEvent, ParentElement,
-    StatefulInteractiveElement, Styled, div, px, rgba,
+    ClickEvent, Context, Div, FontWeight, InteractiveElement, MouseButton, MouseDownEvent,
+    ParentElement, StatefulInteractiveElement, Styled, div, px, rgba,
 };
 use sundaydeck_core::{
-    PaginationBudget, autocomplete_books, book_by_number, paginate_scripture, parse_scripture_ref,
+    PaginationBudget, PresentationCommand, autocomplete_books, book_by_number, paginate_scripture,
+    parse_scripture_ref,
 };
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
@@ -128,11 +129,22 @@ pub(crate) fn render_bible_browser(
                 .flex()
                 .items_start()
                 .gap(px(10.0))
-                .on_click(cx.listener(move |this, _, _, cx| {
+                .on_click(cx.listener(move |this, ev: &ClickEvent, _, cx| {
                     this.store.update(cx, |s, cx| {
-                        s.selected_verse_range = Some((idx, idx));
-                        if let Some(verse) = s.bible_verses.get(idx).cloned() {
-                            s.stage_scripture_verses(&[verse], false, cx);
+                        let range = if ev.modifiers().shift {
+                            let anchor = s.selected_verse_range.map_or(idx, |(start, _)| start);
+                            (anchor.min(idx), anchor.max(idx))
+                        } else {
+                            (idx, idx)
+                        };
+                        s.selected_verse_range = Some(range);
+                        let end = range.1.min(s.bible_verses.len().saturating_sub(1));
+                        if range.0 <= end && !s.bible_verses.is_empty() {
+                            let chosen = s.bible_verses[range.0..=end].to_vec();
+                            s.stage_scripture_verses(&chosen, false, cx);
+                            if ev.click_count() >= 2 && !s.snapshot().direct_click_live {
+                                let _ = s.dispatch(PresentationCommand::GoLive, cx);
+                            }
                         }
                     });
                 }))
@@ -294,8 +306,8 @@ fn build_quick_or_autocomplete_chips(query_text: &str, cx: &Context<BibleBrowser
                     .font_family(FONT_BODY)
                     .text_color(TOKENS.ink_secondary)
                     .text_size(px(11.0))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.run_query(query, cx);
+                    .on_click(cx.listener(move |this, ev: &ClickEvent, _, cx| {
+                        this.run_query_with_live(query, ev.click_count() >= 2, cx);
                     }))
                     .child(label),
             );
@@ -358,6 +370,13 @@ fn build_bible_footer(
                 .gap(px(8.0))
                 .child(
                     div()
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_muted)
+                        .text_size(px(10.5))
+                        .child("Double-click live · Shift-click range"),
+                )
+                .child(
+                    div()
                         .id("bible-add-sched-btn")
                         .cursor_pointer()
                         .on_click(cx.listener(|this, _, _, cx| this.stage_selected(true, cx)))
@@ -372,9 +391,22 @@ fn build_bible_footer(
                         .id("bible-stage-btn")
                         .cursor_pointer()
                         .on_click(cx.listener(|this, _, _, cx| this.stage_selected(false, cx)))
+                        .child(sculpted_secondary_button_body(
+                            None,
+                            "Preview",
+                            TOKENS.ink_secondary,
+                        )),
+                )
+                .child(
+                    div()
+                        .id("bible-live-btn")
+                        .cursor_pointer()
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.stage_selected_with_live(false, true, cx);
+                        }))
                         .child(primary_ivory_button_body(
                             Some(DeckIcon::PlayFill),
-                            "Preview",
+                            "Show Live",
                             selected_count > 0,
                         )),
                 ),

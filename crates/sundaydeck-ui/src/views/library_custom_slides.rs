@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, MouseButton,
+    AnyElement, ClickEvent, Context, Div, FontWeight, InteractiveElement, IntoElement, MouseButton,
     MouseDownEvent, ParentElement, StatefulInteractiveElement, Styled, div, px, rgb,
 };
 use sundaydeck_core::{
@@ -83,9 +83,13 @@ pub(crate) fn render_custom_slides_library(
             .flex()
             .flex_col()
             .gap(px(6.0))
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.store
-                    .update(cx, |s, cx| s.stage_custom_slide(slide_id, cx));
+            .on_click(cx.listener(move |this, ev: &ClickEvent, _, cx| {
+                this.store.update(cx, |s, cx| {
+                    s.stage_custom_slide(slide_id, cx);
+                    if ev.click_count() >= 2 && !s.snapshot().direct_click_live {
+                        let _ = s.dispatch(PresentationCommand::GoLive, cx);
+                    }
+                });
             }))
             .on_mouse_down(
                 MouseButton::Right,
