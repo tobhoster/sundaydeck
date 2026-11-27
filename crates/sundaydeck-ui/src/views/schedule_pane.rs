@@ -6,8 +6,7 @@ use gpui::{
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::primitives::{live_meta_indicator, status_dot_label};
 use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, SCHEDULE_RAIL_WIDTH,
-    TOKENS, payload_icon,
+    FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, TOKENS, payload_icon,
 };
 use crate::views::operator_workspace::OperatorWorkspace;
 use crate::views::settings_modal::SettingsTab;
@@ -228,11 +227,10 @@ pub fn render_schedule_pane(
     }
 
     div()
-        .w(px(SCHEDULE_RAIL_WIDTH))
+        .w(px(workspace.layout.left_width))
+        .flex_shrink_0()
         .h_full()
         .bg(TOKENS.pane)
-        .border_r_1()
-        .border_color(TOKENS.hairline)
         .flex()
         .flex_col()
         .child(
@@ -313,6 +311,27 @@ pub fn render_schedule_pane(
                                     DeckIcon::UploadSimple,
                                     IconSize::Sm,
                                     TOKENS.ink_primary,
+                                )),
+                        )
+                        .child(
+                            div()
+                                .id("btn-collapse-left-rail")
+                                .w(px(24.0))
+                                .h(px(28.0))
+                                .rounded(px(RADIUS_CONTROL))
+                                .cursor_pointer()
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.layout.left_collapsed = true;
+                                    cx.notify();
+                                }))
+                                .child(deck_icon(
+                                    DeckIcon::CaretLeft,
+                                    IconSize::Sm,
+                                    TOKENS.ink_muted,
                                 )),
                         ),
                 ),

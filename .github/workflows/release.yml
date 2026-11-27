@@ -11,7 +11,7 @@ on:
         default: ""
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -38,10 +38,38 @@ jobs:
       - name: Cache Cargo registry and target
         uses: Swatinem/rust-cache@v2
 
+      - name: Import Apple Developer ID certificate (optional)
+        if: ${{ secrets.APPLE_CERTIFICATE_P12 != '' && secrets.APPLE_SIGNING_IDENTITY != '' }}
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/sundaydeck-signing.keychain-db"
+          KEYCHAIN_PASS="$(openssl rand -hex 24)"
+          CERT_PATH="$RUNNER_TEMP/developer-id.p12"
+          echo "$APPLE_CERTIFICATE_P12" | base64 --decode > "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          rm -f "$CERT_PATH"
+
       - name: Build SundayDeck.app and macOS DMG
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           chmod +x scripts/build-macos-dmg.sh
           ./scripts/build-macos-dmg.sh
+
+      - name: Remove temporary signing keychain
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/sundaydeck-signing.keychain-db" "$RUNNER_TEMP/developer-id.p12"
 
       - name: Upload macOS DMG artifact
         uses: actions/upload-artifact@v4
@@ -123,6 +151,10 @@ jobs:
     name: Publish GitHub Release & Homebrew Cask
     needs: [build-macos, build-linux, build-windows]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout SundayDeck
         uses: actions/checkout@v4
@@ -154,6 +186,18 @@ jobs:
         with:
           name: sundaydeck-release-all
           path: release-assets/*
+
+      - name: Attest Build Provenance (SLSA / Sigstore)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            release-assets/*.dmg
+            release-assets/*.exe
+            release-assets/*.zip
+            release-assets/*.deb
+            release-assets/*.tar.gz
+            release-assets/*.sdeck-pack
 
       - name: Publish GitHub Release (on v* tag)
         if: startsWith(github.ref, 'refs/tags/v')

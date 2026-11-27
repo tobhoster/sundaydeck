@@ -1,14 +1,26 @@
-use gpui::{AppContext as _, Context, Entity};
+use gpui::{AppContext as _, Context, Div, Entity, InteractiveElement as _};
 use sundaydeck_core::bible_defaults::starter_bibles;
 use sundaydeck_core::{
-    BibleVerse, CustomSlideSpec, ScriptureRef, ServiceItemId, SongId, book_by_number,
+    BibleVerse, CustomSlideSpec, OutputOverride, PresentationCommand, ScriptureRef, ServiceItemId,
+    SongId, book_by_number,
 };
 
+use crate::actions::{
+    CheckForUpdates, ClearStageMessage, CloseActiveWindow, GoLive, HardCutBlack, HardCutClearText,
+    HardCutLogo, ImportPastorPlan, NewCustomSlide, NewService, NewSong, NextLiveSlide,
+    OpenAlertsTimers, OpenBackgroundStudio, OpenBiblesBundles, OpenSettings, OpenWelcomeSetup,
+    PrevLiveSlide, QuitApp, ResetWorkspaceLayout, SwitchTabBible, SwitchTabCustomSlides,
+    SwitchTabSongs, SwitchTabThemes, ToggleAudienceWindow, ToggleBlack, ToggleClearText,
+    ToggleDirectClickLive, ToggleLeftPane, ToggleLibraryDrawer, ToggleLogo, ToggleObsOverlay,
+    ToggleQuickEdit, ToggleRightPane, ToggleStageWindow,
+};
 use crate::components::{TextInput, TextInputEvent};
+use crate::updater::{UpdateCheckOutcome, check_for_updates_blocking};
 use crate::views::custom_slide_modal::CustomSlideModal;
-use crate::views::operator_workspace::{ActiveModal, OperatorWorkspace};
+use crate::views::operator_workspace::{ActiveModal, LibraryTab, OperatorWorkspace};
 use crate::views::quick_edit_modal::ModalClosed;
 use crate::views::settings_modal::{SettingsModal, SettingsTab};
+use crate::views::song_editor_modal::EditorTab;
 use crate::views::welcome_modal::WelcomeModal;
 
 impl OperatorWorkspace {
@@ -208,5 +220,203 @@ impl OperatorWorkspace {
                 cx.notify();
             });
         }
+    }
+
+    pub fn create_new_service_blank(&mut self, cx: &mut Context<Self>) {
+        let created = self
+            .store
+            .update(cx, |s, cx| s.create_new_service(String::new(), cx));
+        if let Some(db) = self.db.clone() {
+            cx.spawn(async move |_, _| {
+                let _ = db.save_service(created).await;
+            })
+            .detach();
+        }
+        self.active_modal = None;
+        self.active_popover = None;
+        cx.notify();
+    }
+
+    pub fn switch_library_tab(&mut self, tab: LibraryTab, cx: &mut Context<Self>) {
+        self.active_library_tab = tab;
+        self.layout.library_collapsed = false;
+        self.active_modal = None;
+        self.active_popover = None;
+        cx.notify();
+    }
+
+    /// Queries GitHub Releases on a background thread without blocking Sunday morning operation.
+    pub fn check_for_updates(&mut self, cx: &mut Context<Self>) {
+        let store = self.store.clone();
+        store.update(cx, |s, cx| {
+            s.set_status("Checking GitHub Releases for SundayDeck updates…", cx);
+        });
+        cx.spawn(async move |this, cx| {
+            let outcome = cx
+                .background_executor()
+                .spawn(async move { check_for_updates_blocking() })
+                .await;
+            let _ = this.update(cx, |ws, cx| {
+                match outcome {
+                    UpdateCheckOutcome::UpToDate { current } => {
+                        ws.available_update = None;
+                        ws.store.update(cx, |s, cx| {
+                            s.set_status(
+                                format!("You're up to date — SundayDeck v{current} is the latest release."),
+                                cx,
+                            );
+                        });
+                    }
+                    UpdateCheckOutcome::UpdateAvailable {
+                        latest,
+                        download_url,
+                        ..
+                    } => {
+                        ws.available_update = Some((latest.clone(), download_url));
+                        ws.store.update(cx, |s, cx| {
+                            s.set_status(format!("SundayDeck v{latest} is available!"), cx);
+                        });
+                    }
+                    UpdateCheckOutcome::OfflineOrError(msg) => {
+                        ws.store.update(cx, |s, cx| s.set_status(msg, cx));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    pub(crate) fn bind_workspace_actions(root: Div, cx: &mut Context<Self>) -> Div {
+        root.on_action(
+            cx.listener(|t, _: &GoLive, _, cx| t.dispatch_cmd(PresentationCommand::GoLive, cx)),
+        )
+        .on_action(cx.listener(|t, _: &NextLiveSlide, _, cx| {
+            t.dispatch_cmd(PresentationCommand::NextLiveSlide, cx)
+        }))
+        .on_action(cx.listener(|t, _: &PrevLiveSlide, _, cx| {
+            t.dispatch_cmd(PresentationCommand::PrevLiveSlide, cx)
+        }))
+        .on_action(cx.listener(|t, _: &ToggleClearText, _, cx| {
+            t.dispatch_cmd(
+                PresentationCommand::ToggleOverride(OutputOverride::ClearText),
+                cx,
+            )
+        }))
+        .on_action(cx.listener(|t, _: &ToggleBlack, _, cx| {
+            t.dispatch_cmd(
+                PresentationCommand::ToggleOverride(OutputOverride::Black),
+                cx,
+            )
+        }))
+        .on_action(cx.listener(|t, _: &ToggleLogo, _, cx| {
+            t.dispatch_cmd(
+                PresentationCommand::ToggleOverride(OutputOverride::Logo),
+                cx,
+            )
+        }))
+        .on_action(cx.listener(|t, _: &HardCutClearText, _, cx| {
+            t.dispatch_cmd_cut(
+                PresentationCommand::ToggleOverride(OutputOverride::ClearText),
+                true,
+                cx,
+            )
+        }))
+        .on_action(cx.listener(|t, _: &HardCutBlack, _, cx| {
+            t.dispatch_cmd_cut(
+                PresentationCommand::ToggleOverride(OutputOverride::Black),
+                true,
+                cx,
+            )
+        }))
+        .on_action(cx.listener(|t, _: &HardCutLogo, _, cx| {
+            t.dispatch_cmd_cut(
+                PresentationCommand::ToggleOverride(OutputOverride::Logo),
+                true,
+                cx,
+            )
+        }))
+        .on_action(cx.listener(|t, _: &ToggleQuickEdit, _, cx| t.open_quick_edit(cx)))
+        .on_action(cx.listener(|t, _: &ToggleAudienceWindow, _, cx| {
+            let s = t.store.clone();
+            t.windows.update(cx, |wm, cx| wm.toggle_audience(s, cx));
+        }))
+        .on_action(cx.listener(|t, _: &ToggleStageWindow, _, cx| {
+            let s = t.store.clone();
+            t.windows.update(cx, |wm, cx| wm.toggle_stage(s, cx));
+        }))
+        .on_action(cx.listener(|t, _: &ToggleObsOverlay, _, cx| {
+            t.store.update(cx, |s, cx| s.toggle_obs_overlay(cx));
+        }))
+        .on_action(cx.listener(|t, _: &ToggleDirectClickLive, _, cx| {
+            let next = !t.store.read(cx).snapshot().direct_click_live;
+            t.dispatch_cmd(PresentationCommand::SetDirectClickLive(next), cx);
+        }))
+        .on_action(cx.listener(|t, _: &ClearStageMessage, _, cx| {
+            t.dispatch_cmd(PresentationCommand::SetStageMessage(None), cx)
+        }))
+        .on_action(cx.listener(|t, _: &NewService, _, cx| t.create_new_service_blank(cx)))
+        .on_action(
+            cx.listener(|t, _: &NewSong, _, cx| t.open_song_editor(None, EditorTab::Edit, cx)),
+        )
+        .on_action(
+            cx.listener(|t, _: &NewCustomSlide, _, cx| t.open_custom_slide_builder(None, cx)),
+        )
+        .on_action(cx.listener(|t, _: &ImportPastorPlan, _, cx| t.open_plan_importer(cx)))
+        .on_action(cx.listener(|t, _: &OpenBiblesBundles, _, cx| {
+            t.open_settings_on_tab(SettingsTab::BiblesBundles, cx)
+        }))
+        .on_action(cx.listener(|t, _: &OpenBackgroundStudio, _, cx| t.open_background_picker(cx)))
+        .on_action(cx.listener(|t, _: &OpenAlertsTimers, _, cx| t.open_alerts_timers(cx)))
+        .on_action(cx.listener(|t, _: &OpenSettings, _, cx| t.open_settings(cx)))
+        .on_action(cx.listener(|t, _: &OpenWelcomeSetup, _, cx| t.open_welcome_modal(cx)))
+        .on_action(cx.listener(|t, _: &CheckForUpdates, _, cx| t.check_for_updates(cx)))
+        .on_action(cx.listener(|t, _: &ToggleLeftPane, _, cx| {
+            t.layout.left_collapsed = !t.layout.left_collapsed;
+            cx.notify();
+        }))
+        .on_action(cx.listener(|t, _: &ToggleRightPane, _, cx| {
+            t.layout.right_collapsed = !t.layout.right_collapsed;
+            cx.notify();
+        }))
+        .on_action(cx.listener(|t, _: &ToggleLibraryDrawer, _, cx| {
+            t.layout.library_collapsed = !t.layout.library_collapsed;
+            cx.notify();
+        }))
+        .on_action(cx.listener(|t, _: &ResetWorkspaceLayout, _, cx| {
+            t.layout.reset();
+            t.store.update(cx, |s, cx| {
+                s.set_status("Workspace layout reset to default", cx)
+            });
+            cx.notify();
+        }))
+        .on_action(cx.listener(|t, _: &CloseActiveWindow, window, cx| {
+            if t.active_modal.is_some() {
+                t.close_modal(cx);
+            } else if t.active_popover.is_some() {
+                t.close_popover(cx);
+            } else {
+                t.windows.update(cx, |wm, cx| wm.close_all_outputs(cx));
+                window.remove_window();
+            }
+        }))
+        .on_action(
+            cx.listener(|t, _: &SwitchTabSongs, _, cx| t.switch_library_tab(LibraryTab::Songs, cx)),
+        )
+        .on_action(
+            cx.listener(|t, _: &SwitchTabBible, _, cx| t.switch_library_tab(LibraryTab::Bible, cx)),
+        )
+        .on_action(cx.listener(|t, _: &SwitchTabCustomSlides, _, cx| {
+            t.switch_library_tab(LibraryTab::CustomSlides, cx)
+        }))
+        .on_action(
+            cx.listener(|t, _: &SwitchTabThemes, _, cx| {
+                t.switch_library_tab(LibraryTab::Themes, cx)
+            }),
+        )
+        .on_action(cx.listener(|t, _: &QuitApp, _, cx| {
+            t.windows.update(cx, |wm, cx| wm.close_all_outputs(cx));
+            cx.quit();
+        }))
     }
 }

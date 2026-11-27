@@ -3,6 +3,7 @@
 #   irm https://tobhoster.github.io/sundaydeck/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $Repo = "tobhoster/sundaydeck"
 $FallbackVersion = "0.0.1"
 
@@ -27,20 +28,17 @@ try {
     Write-Host "Downloading SundayDeck $Tag ($Asset)..."
     Invoke-WebRequest -Uri "$BaseUrl/$Asset" -OutFile $InstallerPath
 
-    try {
-        $Sums = (Invoke-WebRequest -Uri "$BaseUrl/SHA256SUMS.txt" -UseBasicParsing).Content
-        $Line = ($Sums -split "`n") | Where-Object { $_ -match [regex]::Escape($Asset) } | Select-Object -First 1
-        if ($Line) {
-            $Expected = ($Line.Trim() -split '\s+')[0].ToLower()
-            $Actual = (Get-FileHash -Path $InstallerPath -Algorithm SHA256).Hash.ToLower()
-            if ($Actual -ne $Expected) {
-                throw "SHA-256 checksum mismatch for $Asset (expected $Expected, got $Actual)"
-            }
-            Write-Host "Verified SHA-256 checksum."
-        }
-    } catch {
-        Write-Warning "Skipping checksum verification: $_"
+    $Sums = (Invoke-WebRequest -Uri "$BaseUrl/SHA256SUMS.txt" -UseBasicParsing).Content
+    $Line = ($Sums -split "`n") | Where-Object { $_ -match [regex]::Escape($Asset) } | Select-Object -First 1
+    if (-not $Line) {
+        throw "Checksum entry missing for $Asset in SHA256SUMS.txt"
     }
+    $Expected = ($Line.Trim() -split '\s+')[0].ToLower()
+    $Actual = (Get-FileHash -Path $InstallerPath -Algorithm SHA256).Hash.ToLower()
+    if ($Actual -ne $Expected) {
+        throw "SHA-256 checksum mismatch for $Asset (expected $Expected, got $Actual)"
+    }
+    Write-Host "Verified SHA-256 checksum."
 
     Write-Host "Launching SundayDeck $Tag installer..."
     Start-Process -FilePath $InstallerPath -Wait

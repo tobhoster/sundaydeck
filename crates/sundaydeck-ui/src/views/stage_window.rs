@@ -1,10 +1,12 @@
 use chrono::Local;
 use gpui::{
-    Context, Div, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Subscription,
-    Window, div, px, rgb,
+    App, Context, Div, Entity, FocusHandle, Focusable, FontWeight, InteractiveElement, IntoElement,
+    KeyDownEvent, ParentElement, Render, StatefulInteractiveElement, Styled, Subscription, Window,
+    div, px, rgb, rgba,
 };
 use sundaydeck_core::{OutputOverride, StageRenderState, TimerUrgency};
 
+use crate::actions::CloseActiveWindow;
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, FONT_LYRIC_BOLD, FONT_MONO, RADIUS_CONTROL, RADIUS_PILL, TOKENS,
@@ -17,7 +19,15 @@ use crate::store::PresentationStore;
 pub struct StageMonitorView {
     store: Entity<PresentationStore>,
     clock_override: Option<String>,
+    show_escape_badge: bool,
+    focus_handle: FocusHandle,
     _subscription: Subscription,
+}
+
+impl Focusable for StageMonitorView {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
 }
 
 impl StageMonitorView {
@@ -26,8 +36,15 @@ impl StageMonitorView {
         Self {
             store,
             clock_override: None,
+            show_escape_badge: false,
+            focus_handle: cx.focus_handle(),
             _subscription: subscription,
         }
+    }
+
+    pub fn with_escape_badge(mut self, enabled: bool) -> Self {
+        self.show_escape_badge = enabled;
+        self
     }
 
     pub fn with_fixed_clock(mut self, clock_text: impl Into<String>) -> Self {
@@ -53,12 +70,22 @@ impl Render for StageMonitorView {
 
         let has_banner = stage.stage_message.is_some();
         let mut root = div()
+            .relative()
             .size_full()
             .bg(rgb(0x000000))
             .font_family(FONT_BODY)
             .flex()
             .flex_col()
-            .overflow_hidden();
+            .overflow_hidden()
+            .track_focus(&self.focus_handle)
+            .on_key_down(|ev: &KeyDownEvent, window, _| {
+                if ev.keystroke.key == "escape" {
+                    window.remove_window();
+                }
+            })
+            .on_action(|_: &CloseActiveWindow, window, _| {
+                window.remove_window();
+            });
 
         root = root.child(render_stage_top_bar(
             stage,
@@ -75,6 +102,29 @@ impl Render for StageMonitorView {
             .child(render_current_slide_section(stage, has_banner, scale))
             .child(div().w_full().h(px(1.0)).bg(TOKENS.gridline))
             .child(render_next_slide_section(stage, scale));
+
+        if self.show_escape_badge {
+            root = root.child(
+                div()
+                    .id("stage-exit-fs")
+                    .absolute()
+                    .bottom(px(14.0))
+                    .right(px(14.0))
+                    .px(px(12.0))
+                    .py(px(6.0))
+                    .rounded(px(RADIUS_PILL))
+                    .cursor_pointer()
+                    .bg(rgba(0x1314_16C8))
+                    .hover(|s| s.bg(TOKENS.elevated))
+                    .border_1()
+                    .border_color(TOKENS.focus_border)
+                    .font_family(FONT_BODY)
+                    .text_color(TOKENS.ink_primary)
+                    .text_size(px(11.5))
+                    .on_click(|_, window, _| window.remove_window())
+                    .child("Exit Fullscreen (Esc)"),
+            );
+        }
 
         root
     }

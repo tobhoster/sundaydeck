@@ -4,6 +4,7 @@ use gpui::{
     StatefulInteractiveElement, Styled, Window, div, px,
 };
 
+use crate::actions::{EditCopy, EditCut, EditPaste, EditSelectAll};
 use crate::design::tokens::{FONT_BODY, RADIUS_CONTROL, TOKENS};
 
 #[derive(Debug, Clone)]
@@ -254,7 +255,27 @@ impl Render for TextInput {
                 TOKENS.ink_primary
             })
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
-            .on_key_down(cx.listener(Self::on_key_down));
+            .on_key_down(cx.listener(Self::on_key_down))
+            .on_action(cx.listener(|this, _: &EditCut, _, cx| {
+                cx.write_to_clipboard(ClipboardItem::new_string(this.value.clone()));
+                this.value.clear();
+                this.cursor_byte = 0;
+                this.emit_changed(cx);
+            }))
+            .on_action(cx.listener(|this, _: &EditCopy, _, cx| {
+                cx.write_to_clipboard(ClipboardItem::new_string(this.value.clone()));
+            }))
+            .on_action(cx.listener(|this, _: &EditPaste, _, cx| {
+                if let Some(item) = cx.read_from_clipboard()
+                    && let Some(text) = item.text()
+                {
+                    this.insert_str(&text, cx);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &EditSelectAll, _, cx| {
+                this.cursor_byte = this.value.len();
+                cx.notify();
+            }));
 
         if self.multiline {
             box_el = box_el.min_h(px(96.0)).overflow_y_scroll();

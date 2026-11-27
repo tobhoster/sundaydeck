@@ -16,6 +16,12 @@ pub fn render_library_section(
     cx: &mut Context<OperatorWorkspace>,
 ) -> Div {
     let active_tab = workspace.active_library_tab;
+    let collapsed = workspace.layout.library_collapsed;
+    let drawer_height = if collapsed {
+        PANE_HEADER_HEIGHT
+    } else {
+        workspace.layout.library_height
+    };
     let store = workspace.store.read(cx);
     let song_count = store.songs.len();
     let custom_count = store.custom_slides.len();
@@ -42,6 +48,7 @@ pub fn render_library_section(
                 .gap(px(6.0))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.active_library_tab = tab;
+                    this.layout.library_collapsed = false;
                     cx.notify();
                 }))
                 .child(deck_icon(
@@ -142,25 +149,46 @@ pub fn render_library_section(
                     TOKENS.ink_primary,
                     cx,
                     |t, cx| t.open_plan_importer(cx),
+                ))
+                .child(drawer_icon_btn(
+                    "btn-toggle-library-drawer",
+                    if collapsed {
+                        DeckIcon::CaretUp
+                    } else {
+                        DeckIcon::CaretDown
+                    },
+                    TOKENS.ink_secondary,
+                    cx,
+                    |t, cx| {
+                        t.layout.library_collapsed = !t.layout.library_collapsed;
+                        cx.notify();
+                    },
                 )),
         );
 
-    let body: AnyElement = match active_tab {
-        LibraryTab::Songs => render_songs_library(workspace, cx),
-        LibraryTab::Bible => workspace.bible_browser.clone().into_any_element(),
-        LibraryTab::CustomSlides => render_custom_slides_library(workspace, cx),
-        LibraryTab::Themes => render_themes_library(workspace, cx),
-    };
-
-    div()
-        .h(px(300.0))
+    let mut drawer = div()
+        .h(px(drawer_height))
+        .flex_shrink_0()
         .w_full()
         .bg(TOKENS.pane)
+        .border_t_1()
+        .border_color(TOKENS.hairline)
         .flex()
         .flex_col()
         .overflow_hidden()
-        .child(tabs)
-        .child(body)
+        .child(tabs);
+
+    if !collapsed {
+        let body: AnyElement = match active_tab {
+            LibraryTab::Songs => render_songs_library(workspace, cx),
+            LibraryTab::Bible => workspace.bible_browser.clone().into_any_element(),
+            LibraryTab::CustomSlides => render_custom_slides_library(workspace, cx),
+            LibraryTab::Themes => render_themes_library(workspace, cx),
+        };
+        drawer = drawer.child(body);
+    }
+
+    drawer
 }
 
 fn render_songs_library(

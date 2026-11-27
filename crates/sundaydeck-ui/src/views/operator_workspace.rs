@@ -2,19 +2,14 @@ use std::time::Duration;
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, ParentElement, Render, Styled, Subscription, Window, div, rgba,
+    IntoElement, MouseButton, MouseMoveEvent, ParentElement, Render, Styled, Subscription, Window,
+    div, rgba,
 };
-use sundaydeck_core::{
-    GeneratedServicePlan, OutputOverride, PresentationCommand, SlideContent, Song,
-};
+use sundaydeck_core::{GeneratedServicePlan, PresentationCommand, SlideContent, Song};
 use sundaydeck_db::DbWorker;
 
-use crate::actions::{
-    ClearStageMessage, GoLive, HardCutBlack, HardCutClearText, HardCutLogo, NextLiveSlide,
-    PrevLiveSlide, QuitApp, ToggleAudienceWindow, ToggleBlack, ToggleClearText,
-    ToggleDirectClickLive, ToggleLogo, ToggleQuickEdit, ToggleStageWindow,
-};
 use crate::components::TextInput;
+use crate::design::icons::DeckIcon;
 use crate::design::motion::modal_enter;
 use crate::design::tokens::{FONT_BODY, TOKENS};
 use crate::store::PresentationStore;
@@ -23,6 +18,9 @@ use crate::views::background_picker_modal::BackgroundPickerModal;
 use crate::views::bible_browser::BibleBrowserView;
 use crate::views::custom_slide_modal::CustomSlideModal;
 use crate::views::header_popovers::render_header_popover;
+use crate::views::layout_handles::{
+    DragResizeAxis, WorkspaceLayout, render_collapsed_rail_tab, render_vertical_resize_handle,
+};
 use crate::views::library_preview_pane::render_library_preview_pane;
 use crate::views::live_pane::render_live_pane;
 use crate::views::operator_header::render_operator_header;
@@ -71,6 +69,8 @@ pub struct OperatorWorkspace {
     pub bible_browser: Entity<BibleBrowserView>,
     pub active_modal: Option<ActiveModal>,
     pub active_popover: Option<HeaderPopover>,
+    pub layout: WorkspaceLayout,
+    pub available_update: Option<(String, String)>,
     pub(crate) modal_sub: Option<Subscription>,
     focus_handle: FocusHandle,
     _store_sub: Subscription,
@@ -145,6 +145,8 @@ impl OperatorWorkspace {
             bible_browser,
             active_modal: None,
             active_popover: None,
+            layout: WorkspaceLayout::default(),
+            available_update: None,
             modal_sub: None,
             focus_handle: cx.focus_handle(),
             _store_sub: store_sub,
@@ -267,11 +269,11 @@ impl OperatorWorkspace {
         cx.notify();
     }
 
-    fn dispatch_cmd(&mut self, cmd: PresentationCommand, cx: &mut Context<Self>) {
+    pub(crate) fn dispatch_cmd(&mut self, cmd: PresentationCommand, cx: &mut Context<Self>) {
         self.dispatch_cmd_cut(cmd, false, cx);
     }
 
-    fn dispatch_cmd_cut(
+    pub(crate) fn dispatch_cmd_cut(
         &mut self,
         cmd: PresentationCommand,
         hard_cut: bool,
@@ -294,100 +296,93 @@ impl Focusable for OperatorWorkspace {
 impl Render for OperatorWorkspace {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let motion_mode = self.store.read(cx).motion_mode;
-        let header = render_operator_header(self, cx);
-        let left_schedule = render_schedule_pane(self, cx);
-        let center_workspace = render_library_preview_pane(self, cx);
-        let right_live = render_live_pane(self, cx);
+        let active_axis = self.layout.active_drag.map(|(a, _, _)| a);
+        let left_collapsed = self.layout.left_collapsed;
+        let right_collapsed = self.layout.right_collapsed;
 
-        let mut root = div()
-            .relative()
-            .key_context("OperatorWorkspace")
-            .track_focus(&self.focus_handle)
-            .size_full()
-            .bg(TOKENS.canvas)
-            .font_family(FONT_BODY)
-            .flex()
-            .flex_col()
-            .on_action(
-                cx.listener(|t, _: &GoLive, _, cx| t.dispatch_cmd(PresentationCommand::GoLive, cx)),
-            )
-            .on_action(cx.listener(|t, _: &NextLiveSlide, _, cx| {
-                t.dispatch_cmd(PresentationCommand::NextLiveSlide, cx)
-            }))
-            .on_action(cx.listener(|t, _: &PrevLiveSlide, _, cx| {
-                t.dispatch_cmd(PresentationCommand::PrevLiveSlide, cx)
-            }))
-            .on_action(cx.listener(|t, _: &ToggleClearText, _, cx| {
-                t.dispatch_cmd(
-                    PresentationCommand::ToggleOverride(OutputOverride::ClearText),
+        let header = render_operator_header(self, cx);
+        let center_workspace = render_library_preview_pane(self, cx);
+
+        let mut body_row = div().flex_1().w_full().overflow_hidden().flex().flex_row();
+
+        if left_collapsed {
+            body_row = body_row.child(render_collapsed_rail_tab(
+                "expand-left-rail",
+                "Plan",
+                DeckIcon::ListNumbers,
+                true,
+                cx,
+            ));
+        } else {
+            body_row = body_row.child(render_schedule_pane(self, cx)).child(
+                render_vertical_resize_handle(
+                    "resize-left-rail",
+                    DragResizeAxis::LeftRail,
+                    active_axis == Some(DragResizeAxis::LeftRail),
                     cx,
-                )
-            }))
-            .on_action(cx.listener(|t, _: &ToggleBlack, _, cx| {
-                t.dispatch_cmd(
-                    PresentationCommand::ToggleOverride(OutputOverride::Black),
-                    cx,
-                )
-            }))
-            .on_action(cx.listener(|t, _: &ToggleLogo, _, cx| {
-                t.dispatch_cmd(
-                    PresentationCommand::ToggleOverride(OutputOverride::Logo),
-                    cx,
-                )
-            }))
-            .on_action(cx.listener(|t, _: &HardCutClearText, _, cx| {
-                t.dispatch_cmd_cut(
-                    PresentationCommand::ToggleOverride(OutputOverride::ClearText),
-                    true,
-                    cx,
-                )
-            }))
-            .on_action(cx.listener(|t, _: &HardCutBlack, _, cx| {
-                t.dispatch_cmd_cut(
-                    PresentationCommand::ToggleOverride(OutputOverride::Black),
-                    true,
-                    cx,
-                )
-            }))
-            .on_action(cx.listener(|t, _: &HardCutLogo, _, cx| {
-                t.dispatch_cmd_cut(
-                    PresentationCommand::ToggleOverride(OutputOverride::Logo),
-                    true,
-                    cx,
-                )
-            }))
-            .on_action(cx.listener(|t, _: &ToggleQuickEdit, _, cx| t.open_quick_edit(cx)))
-            .on_action(cx.listener(|t, _: &ToggleAudienceWindow, _, cx| {
-                let s = t.store.clone();
-                t.windows.update(cx, |wm, cx| wm.toggle_audience(s, cx));
-            }))
-            .on_action(cx.listener(|t, _: &ToggleStageWindow, _, cx| {
-                let s = t.store.clone();
-                t.windows.update(cx, |wm, cx| wm.toggle_stage(s, cx));
-            }))
-            .on_action(cx.listener(|t, _: &ToggleDirectClickLive, _, cx| {
-                let next = !t.store.read(cx).snapshot().direct_click_live;
-                t.dispatch_cmd(PresentationCommand::SetDirectClickLive(next), cx);
-            }))
-            .on_action(cx.listener(|t, _: &ClearStageMessage, _, cx| {
-                t.dispatch_cmd(PresentationCommand::SetStageMessage(None), cx)
-            }))
-            .on_action(cx.listener(|t, _: &QuitApp, _, cx| {
-                t.windows.update(cx, |wm, cx| wm.close_all_outputs(cx));
-                cx.quit();
-            }))
-            .child(header)
-            .child(
-                div()
-                    .flex_1()
-                    .w_full()
-                    .overflow_hidden()
-                    .flex()
-                    .flex_row()
-                    .child(left_schedule)
-                    .child(center_workspace)
-                    .child(right_live),
+                ),
             );
+        }
+
+        body_row = body_row.child(center_workspace);
+
+        if right_collapsed {
+            body_row = body_row.child(render_collapsed_rail_tab(
+                "expand-right-rail",
+                "Live",
+                DeckIcon::MonitorFill,
+                false,
+                cx,
+            ));
+        } else {
+            body_row = body_row
+                .child(render_vertical_resize_handle(
+                    "resize-right-deck",
+                    DragResizeAxis::RightDeck,
+                    active_axis == Some(DragResizeAxis::RightDeck),
+                    cx,
+                ))
+                .child(render_live_pane(self, cx));
+        }
+
+        let mut root = Self::bind_workspace_actions(
+            div()
+                .relative()
+                .key_context("OperatorWorkspace")
+                .track_focus(&self.focus_handle)
+                .size_full()
+                .bg(TOKENS.canvas)
+                .font_family(FONT_BODY)
+                .flex()
+                .flex_col()
+                .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, _, cx| {
+                    if this
+                        .layout
+                        .apply_drag(f32::from(ev.position.x), f32::from(ev.position.y))
+                    {
+                        cx.notify();
+                    }
+                }))
+                .on_mouse_up(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _, cx| {
+                        if this.layout.end_drag() {
+                            cx.notify();
+                        }
+                    }),
+                )
+                .on_mouse_up_out(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _, cx| {
+                        if this.layout.end_drag() {
+                            cx.notify();
+                        }
+                    }),
+                ),
+            cx,
+        )
+        .child(header)
+        .child(body_row);
 
         if let Some(popover) = self.active_popover {
             let mut slot = div().absolute().top(gpui::px(48.0));

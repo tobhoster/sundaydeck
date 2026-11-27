@@ -1,0 +1,11 @@
+# Require maintainer review on all changes, with explicit ownership on security,
+# release pipelines, dependency lockfiles, and one-line installer scripts.
+*                           @tobhoster
+/.github/                   @tobhoster
+/scripts/                   @tobhoster
+/Cargo.toml                 @tobhoster
+/Cargo.lock                 @tobhoster
+/deny.toml                  @tobhoster
+/SECURITY.md                @tobhoster
+/docs/install.sh            @tobhoster
+/docs/install.ps1           @tobhoster

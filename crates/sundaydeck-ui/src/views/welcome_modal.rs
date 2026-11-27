@@ -66,18 +66,17 @@ impl WelcomeModal {
         cx: &mut Context<Self>,
     ) -> Self {
         let cur = store.read(cx).settings.clone();
-        let church_name_input = cx.new(|cx| {
-            TextInput::single_line(
-                "welcome-church-name",
-                "Enter your church or ministry name",
-                &cur.church_name,
-                cx,
-            )
-        });
         Self {
             store,
             db,
-            church_name_input,
+            church_name_input: cx.new(|cx| {
+                TextInput::single_line(
+                    "welcome-church-name",
+                    "Enter your church or ministry name",
+                    &cur.church_name,
+                    cx,
+                )
+            }),
             selected_profile: cur.church_profile,
             logo_uri: cur.logo_uri,
             status_note: None,
@@ -120,12 +119,10 @@ impl WelcomeModal {
             prompt: Some("Select Church Logo (.png, .jpg, .webp)".into()),
         });
         cx.spawn(async move |this, cx| {
-            let Ok(Ok(Some(paths))) = rx.await else {
+            let Ok(Ok(Some(mut paths))) = rx.await else {
                 return;
             };
-            let Some(src) = paths.into_iter().next() else {
-                return;
-            };
+            let Some(src) = paths.pop() else { return };
             let res = cx
                 .background_executor()
                 .spawn(async move { copy_church_logo_file(&src) })
@@ -155,45 +152,40 @@ impl WelcomeModal {
         });
         let store = self.store.clone();
         cx.spawn(async move |this, cx| {
-            let Ok(Ok(Some(paths))) = rx.await else {
+            let Ok(Ok(Some(mut paths))) = rx.await else {
                 return;
             };
-            let Some(src) = paths.into_iter().next() else {
-                return;
-            };
+            let Some(src) = paths.pop() else { return };
             let loaded = cx
                 .background_executor()
                 .spawn(async move { import_sdeck_pack(&src).map_err(|e| e.to_string()) })
                 .await;
-            match loaded {
+            let result = match loaded {
                 Ok(pack) => {
-                    let name = pack.manifest.name.clone();
-                    let songs = pack.songs.clone();
-                    let res = db.install_sdeck_pack(pack).await.map_err(|e| e.to_string());
-                    let _ = this.update(cx, |m, cx| {
-                        match res {
-                            Ok(r) => {
-                                for song in songs {
-                                    store.update(cx, |s, cx| s.upsert_song_local(song, cx));
-                                }
-                                m.status_note = Some(format!(
-                                    "Installed \"{name}\" ({} Bibles, {} songs).",
-                                    r.bibles_installed, r.songs_installed
-                                ));
-                                m.error_message = None;
-                            }
-                            Err(e) => m.error_message = Some(e),
+                    let (name, songs) = (pack.manifest.name.clone(), pack.songs.clone());
+                    db.install_sdeck_pack(pack)
+                        .await
+                        .map_err(|e| e.to_string())
+                        .map(|r| (name, songs, r))
+                }
+                Err(e) => Err(e),
+            };
+            let _ = this.update(cx, |m, cx| {
+                match result {
+                    Ok((name, songs, r)) => {
+                        for song in songs {
+                            store.update(cx, |s, cx| s.upsert_song_local(song, cx));
                         }
-                        cx.notify();
-                    });
+                        m.status_note = Some(format!(
+                            "Installed \"{name}\" ({} Bibles, {} songs).",
+                            r.bibles_installed, r.songs_installed
+                        ));
+                        m.error_message = None;
+                    }
+                    Err(e) => m.error_message = Some(e),
                 }
-                Err(e) => {
-                    let _ = this.update(cx, |m, cx| {
-                        m.error_message = Some(e);
-                        cx.notify();
-                    });
-                }
-            }
+                cx.notify();
+            });
         })
         .detach();
     }
@@ -255,6 +247,20 @@ fn field_header(label: &'static str) -> gpui::Div {
         .text_size(px(11.5))
         .font_weight(FontWeight::MEDIUM)
         .child(label)
+}
+
+fn quick_btn(
+    id: &'static str,
+    icon: Option<DeckIcon>,
+    label: &'static str,
+    tint: gpui::Rgba,
+    on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App) + 'static,
+) -> impl IntoElement {
+    div()
+        .id(id)
+        .cursor_pointer()
+        .on_click(on_click)
+        .child(sculpted_secondary_button_body(icon, label, tint))
 }
 
 impl Render for WelcomeModal {
@@ -424,47 +430,31 @@ impl Render for WelcomeModal {
                             .flex_wrap()
                             .items_center()
                             .gap(px(8.0))
-                            .child(
-                                div()
-                                    .id("welcome-logo-btn")
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, _, cx| this.choose_logo(cx)))
-                                    .child(sculpted_secondary_button_body(
-                                        Some(DeckIcon::Image),
-                                        if self.logo_uri.is_some() {
-                                            "Logo Ready"
-                                        } else {
-                                            "Add Church Logo"
-                                        },
-                                        TOKENS.ink_primary,
-                                    )),
-                            )
-                            .child(
-                                div()
-                                    .id("welcome-pack-btn")
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.import_starter_pack(cx);
-                                    }))
-                                    .child(sculpted_secondary_button_body(
-                                        Some(DeckIcon::Stack),
-                                        "Import .sdeck-pack",
-                                        TOKENS.ink_primary,
-                                    )),
-                            )
-                            .child(
-                                div()
-                                    .id("welcome-migrate-btn")
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.migrate_songs(cx);
-                                    }))
-                                    .child(sculpted_secondary_button_body(
-                                        Some(DeckIcon::UploadSimple),
-                                        "Migrate Existing Songs",
-                                        TOKENS.signal_preview,
-                                    )),
-                            ),
+                            .child(quick_btn(
+                                "welcome-logo-btn",
+                                Some(DeckIcon::Image),
+                                if self.logo_uri.is_some() {
+                                    "Logo Ready"
+                                } else {
+                                    "Add Church Logo"
+                                },
+                                TOKENS.ink_primary,
+                                cx.listener(|this, _, _, cx| this.choose_logo(cx)),
+                            ))
+                            .child(quick_btn(
+                                "welcome-pack-btn",
+                                Some(DeckIcon::Stack),
+                                "Import .sdeck-pack",
+                                TOKENS.ink_primary,
+                                cx.listener(|this, _, _, cx| this.import_starter_pack(cx)),
+                            ))
+                            .child(quick_btn(
+                                "welcome-migrate-btn",
+                                Some(DeckIcon::UploadSimple),
+                                "Migrate Existing Songs",
+                                TOKENS.signal_preview,
+                                cx.listener(|this, _, _, cx| this.migrate_songs(cx)),
+                            )),
                     ),
             )
             .child(
@@ -486,17 +476,13 @@ impl Render for WelcomeModal {
                             .flex()
                             .items_center()
                             .gap(px(8.0))
-                            .child(
-                                div()
-                                    .id("welcome-skip")
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, _, cx| this.finish(false, cx)))
-                                    .child(sculpted_secondary_button_body(
-                                        None,
-                                        "Skip for now",
-                                        TOKENS.ink_secondary,
-                                    )),
-                            )
+                            .child(quick_btn(
+                                "welcome-skip",
+                                None,
+                                "Skip for now",
+                                TOKENS.ink_secondary,
+                                cx.listener(|this, _, _, cx| this.finish(false, cx)),
+                            ))
                             .child(
                                 div()
                                     .id("welcome-start")

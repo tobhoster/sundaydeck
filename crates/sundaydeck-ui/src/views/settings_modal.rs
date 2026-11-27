@@ -1,12 +1,18 @@
 use gpui::{
-    AppContext as _, Context, Entity, EventEmitter, IntoElement, PathPromptOptions, Render, Window,
+    AppContext as _, Context, Entity, EventEmitter, InteractiveElement as _, IntoElement,
+    ParentElement as _, PathPromptOptions, Render, StatefulInteractiveElement as _, Styled as _,
+    Window, div,
 };
 use sundaydeck_core::ServiceId;
 use sundaydeck_db::DbWorker;
 
 use crate::components::TextInput;
 use crate::deck_import::copy_church_logo_file;
+use crate::design::icons::DeckIcon;
+use crate::design::primitives::sculpted_secondary_button_body;
+use crate::design::tokens::TOKENS;
 use crate::store::PresentationStore;
+use crate::updater::{CURRENT_VERSION, UpdateCheckOutcome, check_for_updates_blocking};
 use crate::views::quick_edit_modal::ModalClosed;
 use crate::views::settings_ui::render_settings_modal;
 
@@ -74,6 +80,7 @@ pub struct SettingsModal {
     pub(crate) new_service_input: Entity<TextInput>,
     pub(crate) status_note: Option<String>,
     pub(crate) error_message: Option<String>,
+    pub(crate) update_url: Option<(String, String)>,
     pub(crate) busy: bool,
 }
 
@@ -140,6 +147,7 @@ impl SettingsModal {
             new_service_input,
             status_note: None,
             error_message: None,
+            update_url: None,
             busy: false,
         }
     }
@@ -243,6 +251,69 @@ impl SettingsModal {
         self.status_note = Some(format!("Active service: \"{title}\"."));
         self.error_message = None;
         cx.notify();
+    }
+
+    pub(crate) fn check_for_updates(&mut self, cx: &mut Context<Self>) {
+        self.busy = true;
+        self.error_message = None;
+        self.status_note = Some("Checking GitHub Releases for updates…".to_owned());
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let outcome = cx
+                .background_executor()
+                .spawn(async move { check_for_updates_blocking() })
+                .await;
+            let _ = this.update(cx, |m, cx| {
+                m.busy = false;
+                match outcome {
+                    UpdateCheckOutcome::UpToDate { current } => {
+                        m.update_url = None;
+                        m.status_note = Some(format!(
+                            "Up to date — SundayDeck v{current} is the latest release."
+                        ));
+                    }
+                    UpdateCheckOutcome::UpdateAvailable {
+                        latest,
+                        download_url,
+                        ..
+                    } => {
+                        m.status_note = Some(format!(
+                            "SundayDeck v{latest} is available — click Download Update."
+                        ));
+                        m.update_url = Some((latest, download_url));
+                    }
+                    UpdateCheckOutcome::OfflineOrError(msg) => {
+                        m.status_note = Some(msg);
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    pub(crate) fn render_update_action(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some((ver, url)) = self.update_url.clone() {
+            div()
+                .id("settings-download-update")
+                .cursor_pointer()
+                .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url)))
+                .child(sculpted_secondary_button_body(
+                    Some(DeckIcon::UploadSimple),
+                    &format!("Download v{ver}"),
+                    TOKENS.signal_voice,
+                ))
+        } else {
+            div()
+                .id("settings-check-updates")
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, _, cx| this.check_for_updates(cx)))
+                .child(sculpted_secondary_button_body(
+                    Some(DeckIcon::UploadSimple),
+                    &format!("v{CURRENT_VERSION} · Check for Updates"),
+                    TOKENS.ink_secondary,
+                ))
+        }
     }
 }
 

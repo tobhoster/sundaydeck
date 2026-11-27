@@ -85,8 +85,13 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-echo "==> Ad-hoc signing ${APP_BUNDLE}..."
-codesign --force --deep --sign - "$APP_BUNDLE"
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+  echo "==> Signing ${APP_BUNDLE} with Developer ID (Hardened Runtime)..."
+  codesign --force --deep --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$APP_BUNDLE"
+else
+  echo "==> Ad-hoc signing ${APP_BUNDLE} (set APPLE_SIGNING_IDENTITY for Developer ID signing)..."
+  codesign --force --deep --sign - "$APP_BUNDLE"
+fi
 
 echo "==> Packaging ${DMG_PATH}..."
 cp -R "$APP_BUNDLE" "$STAGING_DIR/${APP_NAME}.app"
@@ -100,6 +105,23 @@ hdiutil create \
   "$DMG_PATH"
 
 rm -rf "$STAGING_DIR"
+
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+  echo "==> Signing ${DMG_PATH}..."
+  codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$DMG_PATH"
+  if [[ -n "${APPLE_ID:-}" && -n "${APPLE_APP_PASSWORD:-}" && -n "${APPLE_TEAM_ID:-}" ]]; then
+    echo "==> Submitting ${DMG_PATH} to Apple Notarization service..."
+    xcrun notarytool submit "$DMG_PATH" \
+      --apple-id "$APPLE_ID" \
+      --password "$APPLE_APP_PASSWORD" \
+      --team-id "$APPLE_TEAM_ID" \
+      --wait
+    echo "==> Stapling notarization ticket to ${DMG_PATH}..."
+    xcrun stapler staple "$DMG_PATH"
+    spctl -a -t open --context context:primary-signature -v "$DMG_PATH" || true
+  fi
+fi
+
 echo ""
 echo "DONE: Built macOS installer DMG:"
 echo "  $DMG_PATH"

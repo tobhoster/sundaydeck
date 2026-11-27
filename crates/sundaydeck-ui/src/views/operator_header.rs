@@ -201,25 +201,56 @@ pub fn render_operator_header(
                 })
                 .child(
                     div()
-                        .id("toggle-audience-window")
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.toggle_popover(HeaderPopover::Projector, cx);
-                        }))
-                        .child(display_status_pill(
-                            if audience_open {
-                                DeckIcon::MonitorFill
-                            } else {
-                                DeckIcon::Monitor
-                            },
-                            projector_label,
-                            projector_ready,
-                            if audience_open {
-                                TOKENS.signal_live_dot
-                            } else {
-                                TOKENS.signal_voice
-                            },
-                        )),
+                        .flex()
+                        .items_center()
+                        .gap(px(3.0))
+                        .child(
+                            div()
+                                .id("toggle-audience-window")
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    let store = this.store.clone();
+                                    this.windows
+                                        .update(cx, |wm, cx| wm.toggle_audience(store, cx));
+                                }))
+                                .child(display_status_pill(
+                                    if audience_open {
+                                        DeckIcon::MonitorFill
+                                    } else {
+                                        DeckIcon::Monitor
+                                    },
+                                    projector_label,
+                                    projector_ready,
+                                    if audience_open {
+                                        TOKENS.signal_live_dot
+                                    } else {
+                                        TOKENS.signal_voice
+                                    },
+                                )),
+                        )
+                        .child(
+                            div()
+                                .id("btn-projector-displays")
+                                .w(px(26.0))
+                                .h(px(30.0))
+                                .rounded(px(RADIUS_PILL))
+                                .cursor_pointer()
+                                .bg(TOKENS.status_surface)
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
+                                .border_1()
+                                .border_color(rgb(0x2B2F3A))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.toggle_popover(HeaderPopover::Projector, cx);
+                                }))
+                                .child(deck_icon(
+                                    DeckIcon::CaretDown,
+                                    IconSize::Sm,
+                                    TOKENS.ink_secondary,
+                                )),
+                        ),
                 )
                 .child(
                     div()
@@ -279,7 +310,43 @@ pub fn render_operator_header(
 
     wrapper = wrapper.child(bar);
 
+    let available_update = workspace.available_update.clone();
+
     if let Some(msg) = notice {
+        let mut right_actions = div().flex().items_center().gap(px(10.0));
+        if let Some((ver, url)) = available_update {
+            right_actions = right_actions.child(
+                div()
+                    .id("banner-download-update")
+                    .px(px(10.0))
+                    .py(px(2.5))
+                    .rounded(px(RADIUS_CONTROL))
+                    .cursor_pointer()
+                    .bg(TOKENS.ivory_bg)
+                    .font_family(FONT_BODY)
+                    .text_color(TOKENS.ivory_ink)
+                    .text_size(px(11.0))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url)))
+                    .child(format!("Download v{ver}")),
+            );
+        }
+        right_actions = right_actions.child(
+            div()
+                .id("dismiss-status")
+                .cursor_pointer()
+                .flex()
+                .items_center()
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.store.update(cx, |s, cx| s.clear_status(cx));
+                    this.windows.update(cx, |w, cx| {
+                        w.last_notice = None;
+                        cx.notify();
+                    });
+                }))
+                .child(deck_icon(DeckIcon::X, IconSize::Sm, TOKENS.ink_secondary)),
+        );
+
         wrapper = wrapper.child(
             div()
                 .w_full()
@@ -311,21 +378,7 @@ pub fn render_operator_header(
                                 .child(msg),
                         ),
                 )
-                .child(
-                    div()
-                        .id("dismiss-status")
-                        .cursor_pointer()
-                        .flex()
-                        .items_center()
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.store.update(cx, |s, cx| s.clear_status(cx));
-                            this.windows.update(cx, |w, cx| {
-                                w.last_notice = None;
-                                cx.notify();
-                            });
-                        }))
-                        .child(deck_icon(DeckIcon::X, IconSize::Sm, TOKENS.ink_secondary)),
-                ),
+                .child(right_actions),
         );
     }
 

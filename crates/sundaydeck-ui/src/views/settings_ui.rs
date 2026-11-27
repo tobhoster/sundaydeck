@@ -132,17 +132,24 @@ pub(crate) fn render_settings_modal(modal: &SettingsModal, cx: &mut Context<Sett
                 )
                 .child(
                     div()
-                        .id("settings-close")
-                        .w(px(28.0))
-                        .h(px(28.0))
-                        .rounded(px(RADIUS_CONTROL))
-                        .cursor_pointer()
-                        .hover(|s| s.bg(TOKENS.elevated_hover))
                         .flex()
                         .items_center()
-                        .justify_center()
-                        .on_click(cx.listener(|_, _, _, cx| cx.emit(ModalClosed)))
-                        .child(deck_icon(DeckIcon::X, IconSize::Sm, TOKENS.ink_secondary)),
+                        .gap(px(8.0))
+                        .child(modal.render_update_action(cx))
+                        .child(
+                            div()
+                                .id("settings-close")
+                                .w(px(28.0))
+                                .h(px(28.0))
+                                .rounded(px(RADIUS_CONTROL))
+                                .cursor_pointer()
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .on_click(cx.listener(|_, _, _, cx| cx.emit(ModalClosed)))
+                                .child(deck_icon(DeckIcon::X, IconSize::Sm, TOKENS.ink_secondary)),
+                        ),
                 ),
         )
         .child(

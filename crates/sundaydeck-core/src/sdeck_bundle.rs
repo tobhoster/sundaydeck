@@ -252,7 +252,12 @@ pub fn import_sdeck_bundle(
             .map_err(|err| ImportError::InvalidArchive {
                 detail: err.to_string(),
             })?;
-        let raw_name = entry.name().to_owned();
+        let raw_name = entry
+            .name()
+            .map_err(|err| ImportError::InvalidArchive {
+                detail: err.to_string(),
+            })?
+            .into_owned();
         let Some(rel) = raw_name.strip_prefix("media/") else {
             continue;
         };

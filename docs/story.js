@@ -55,6 +55,7 @@
   const chapters = Array.from(document.querySelectorAll(".story-chapter"));
   const slides = Array.from(document.querySelectorAll(".story-slide"));
   const dots = Array.from(document.querySelectorAll(".story-dot"));
+  const storyViewport = document.getElementById("story-viewport");
   const stageTime = document.getElementById("story-stage-time");
   const stageLabel = document.getElementById("story-stage-label");
   const stageCaption = document.getElementById("story-stage-caption");
@@ -68,9 +69,11 @@
     chapters.forEach((el, i) => el.classList.toggle("is-active", i === index));
     slides.forEach((el, i) => el.classList.toggle("is-active", i === index));
     dots.forEach((el, i) => el.classList.toggle("is-active", i === index));
+    if (storyViewport) storyViewport.dataset.step = String(index);
     if (stageTime) stageTime.textContent = ch.dataset.time || "";
     if (stageLabel) stageLabel.textContent = ch.dataset.stage || "";
     if (stageCaption) stageCaption.textContent = ch.dataset.caption || "";
+    window.dispatchEvent(new CustomEvent("sundaydeck:story-step", { detail: { index } }));
   }
 
   chapters.forEach((ch, idx) => {
@@ -96,8 +99,11 @@
     );
     chapters.forEach((ch) => storyObs.observe(ch));
   }
+  setStoryStep(0);
 
   // 4. Interactive Sanctuary Booth Recovery Simulator (Space, F1, F2, F3 + Live Backdrops)
+  const shortcutsSec = document.getElementById("shortcuts");
+  const boothSim = document.querySelector(".booth-sim");
   const screen = document.getElementById("sim-screen");
   const lyricsEl = document.getElementById("sim-lyrics");
   const subEl = document.getElementById("sim-sub");
@@ -141,10 +147,12 @@
   function setSimBackdrop(key) {
     const spec = SIM_BACKDROPS[key];
     if (!spec || !screen) return;
-    screen.dataset.bgKind = spec.kind;
+    let resolvedKind = spec.kind;
+    let resolvedSrc = spec.src;
     if (spec.kind === "video" && simBgVideo) {
       if (reducedMotion) {
-        screen.dataset.bgKind = "photo";
+        resolvedKind = "photo";
+        resolvedSrc = spec.poster;
         if (simBgPhoto) simBgPhoto.style.backgroundImage = `url("${spec.poster}")`;
       } else {
         simBgVideo.poster = spec.poster;
@@ -159,7 +167,13 @@
       simBgPhoto.style.backgroundImage = `url("${spec.src}")`;
       if (simBgVideo) simBgVideo.pause();
     }
+    screen.dataset.bgKind = resolvedKind;
     simBgPills.forEach((p) => p.classList.toggle("is-active", p.dataset.simBg === key));
+    window.dispatchEvent(
+      new CustomEvent("sundaydeck:sim-backdrop", {
+        detail: { key, kind: resolvedKind, src: resolvedSrc },
+      })
+    );
   }
 
   // Respect prefers-reduced-motion on all ambient looping videos
@@ -231,17 +245,66 @@
     });
   }
 
+  function pressKeycap(btn) {
+    if (!btn || reducedMotion) return;
+    btn.classList.remove("is-pressed");
+    void btn.offsetWidth;
+    btn.classList.add("is-pressed");
+    window.setTimeout(() => btn.classList.remove("is-pressed"), 180);
+  }
+
+  function triggerSimAction(action) {
+    const btn = simBtns.find((b) => b.dataset.sim === action);
+    pressKeycap(btn);
+    if (action === "next") {
+      verseIdx = (verseIdx + 1) % verses.length;
+      simMode = "live";
+    } else {
+      simMode = simMode === action ? "live" : action;
+    }
+    renderSim();
+  }
+
   simBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const action = btn.dataset.sim;
-      if (action === "next") {
-        verseIdx = (verseIdx + 1) % verses.length;
-        simMode = "live";
-      } else {
-        simMode = simMode === action ? "live" : action;
-      }
-      renderSim();
-    });
+    btn.addEventListener("click", () => triggerSimAction(btn.dataset.sim));
+  });
+
+  // Tactile real-keyboard controls when booth simulator is in view / engaged
+  let simInView = false;
+  let simHovered = false;
+  if (shortcutsSec && "IntersectionObserver" in window) {
+    const simObs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) simInView = e.isIntersecting;
+      },
+      { threshold: 0.35 }
+    );
+    simObs.observe(shortcutsSec);
+  }
+  if (boothSim) {
+    boothSim.addEventListener("pointerenter", () => { simHovered = true; });
+    boothSim.addEventListener("pointerleave", () => { simHovered = false; });
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (!simInView || e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    const focusedInside = Boolean(boothSim && boothSim.contains(document.activeElement));
+
+    if (e.key === "F1") {
+      e.preventDefault();
+      triggerSimAction("clear");
+    } else if (e.key === "F2") {
+      e.preventDefault();
+      triggerSimAction("black");
+    } else if (e.key === "F3") {
+      e.preventDefault();
+      triggerSimAction("logo");
+    } else if (e.code === "Space" && (simHovered || focusedInside)) {
+      e.preventDefault();
+      triggerSimAction("next");
+    }
   });
 
   setSimBackdrop("golden-motion");

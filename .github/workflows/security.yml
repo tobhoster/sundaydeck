@@ -1,0 +1,85 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust-security:
+    name: Rust Security Audit & License Check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Audit Cargo.lock against RustSec Advisory DB
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enforce cargo-deny policy (advisories, licenses, trusted sources)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licenses sources
+
+  dependency-review:
+    name: Dependency Review (PRs)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Review dependency changes for CVEs and license issues
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.1, LGPL-3.0
+
+  web-and-scripts-security:
+    name: Shell & Web Security Checks
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout SundayDeck
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Lint installer and release shell scripts with ShellCheck
+        run: |
+          shellcheck -S warning docs/install.sh scripts/build-macos-dmg.sh scripts/build-linux-packages.sh scripts/update-homebrew-cask.sh
+
+      - name: Verify strict Content-Security-Policy and JSON-LD across docs/
+        run: |
+          node - <<'EOF'
+          const fs = require("fs");
+          for (const f of ["docs/index.html", "docs/download.html", "docs/packs.html", "docs/cheat-sheet.html"]) {
+            const html = fs.readFileSync(f, "utf8");
+            const csp = html.match(/http-equiv="Content-Security-Policy"[\s\S]*?content="([^"]+)"/i);
+            if (!csp) throw new Error(`${f}: missing Content-Security-Policy meta tag`);
+            const scriptSrc = csp[1].match(/script-src\s+([^;]+)/i);
+            if (!scriptSrc || scriptSrc[1].includes("unsafe-inline") || scriptSrc[1].includes("unsafe-eval")) {
+              throw new Error(`${f}: unsafe script-src in CSP: ${csp[1]}`);
+            }
+            if (!html.includes('name="referrer"')) {
+              throw new Error(`${f}: missing Referrer-Policy meta tag`);
+            }
+          }
+          const idx = fs.readFileSync("docs/index.html", "utf8");
+          const ld = idx.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+          if (!ld) throw new Error("docs/index.html: missing JSON-LD");
+          JSON.parse(ld[1]);
+          console.log("All CSP, Referrer-Policy, and JSON-LD security checks passed.");
+          EOF

@@ -9,6 +9,7 @@ pub mod custom_slide_modal;
 pub mod custom_slide_ui;
 pub mod display_popover;
 pub mod header_popovers;
+pub mod layout_handles;
 pub mod library_browser;
 pub mod library_custom_slides;
 pub mod library_preview_pane;

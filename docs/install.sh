@@ -30,9 +30,9 @@ need_cmd() {
 
 fetch() {
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL -H "User-Agent: SundayDeck-Installer" "$1"
+    curl -fsSL --proto '=https' --tlsv1.2 -H "User-Agent: SundayDeck-Installer" "$1"
   elif command -v wget >/dev/null 2>&1; then
-    wget -qO- "$1"
+    wget -qO- --https-only --secure-protocol=TLSv1_2 "$1"
   else
     err "either curl or wget is required"
   fi
@@ -42,9 +42,9 @@ download_file() {
   _url="$1"
   _dest="$2"
   if command -v curl >/dev/null 2>&1; then
-    curl -fL --progress-bar -H "User-Agent: SundayDeck-Installer" "$_url" -o "$_dest"
+    curl -fL --proto '=https' --tlsv1.2 --progress-bar -H "User-Agent: SundayDeck-Installer" "$_url" -o "$_dest"
   elif command -v wget >/dev/null 2>&1; then
-    wget -q --show-progress "$_url" -O "$_dest"
+    wget -q --https-only --secure-protocol=TLSv1_2 --show-progress "$_url" -O "$_dest"
   else
     err "either curl or wget is required"
   fi
@@ -79,13 +79,17 @@ verify_checksum() {
   _file="$1"
   _asset_name="$2"
   _sums_url="$3"
-  _expected="$(fetch "$_sums_url" 2>/dev/null | awk -v name="$_asset_name" '$2 == name || $2 == ("*" name) {print $1; exit}' || true)"
+  _sums="$(fetch "$_sums_url" 2>/dev/null || true)"
+  if [ -z "$_sums" ]; then
+    err "failed to download SHA256SUMS.txt to verify $_asset_name"
+  fi
+  _expected="$(printf '%s\n' "$_sums" | awk -v name="$_asset_name" '$2 == name || $2 == ("*" name) {print $1; exit}')"
   if [ -z "$_expected" ]; then
-    return 0
+    err "checksum entry missing for $_asset_name in SHA256SUMS.txt"
   fi
   _actual="$(sha256_file "$_file")"
   if [ -z "$_actual" ]; then
-    return 0
+    err "no sha256sum or shasum utility available to verify $_asset_name"
   fi
   if [ "$_actual" != "$_expected" ]; then
     err "SHA-256 mismatch for $_asset_name (expected $_expected, got $_actual)"
@@ -94,6 +98,7 @@ verify_checksum() {
 }
 
 main() {
+  umask 077
   OS="$(uname -s)"
   ARCH="$(uname -m)"
   VERSION="$(resolve_version)"

@@ -1,6 +1,6 @@
 use gpui::{
-    App, AppContext as _, Bounds, Context, DisplayId, Entity, TitlebarOptions, WindowBounds,
-    WindowHandle, WindowKind, WindowOptions, point, px, size,
+    App, AppContext as _, Bounds, Context, DisplayId, Entity, Focusable as _, TitlebarOptions,
+    WindowBounds, WindowHandle, WindowKind, WindowOptions, point, px, size,
 };
 
 use crate::store::PresentationStore;
@@ -139,7 +139,7 @@ impl WindowManager {
             return;
         }
 
-        let (options, label, fullscreen) = build_output_window_options(
+        let (options, label, fullscreen, single_screen_fs) = build_output_window_options(
             "SundayDeck — Audience Output",
             self.audience_target,
             1,
@@ -156,21 +156,25 @@ impl WindowManager {
                 });
                 true
             });
-            cx.new(|cx| AudienceOutputView::new(store, cx))
+            let view =
+                cx.new(|cx| AudienceOutputView::new(store, cx).with_escape_badge(single_screen_fs));
+            let handle = view.read(cx).focus_handle(cx);
+            window.focus(&handle, cx);
+            view
         }) {
             Ok(handle) => {
                 self.audience = Some(OutputSlot {
                     handle,
                     display_label: label.clone(),
                 });
-                self.last_notice = Some(format!(
-                    "Audience output active on {label}{}",
-                    if fullscreen {
-                        " (Fullscreen)"
-                    } else {
-                        " (Windowed)"
-                    }
-                ));
+                self.last_notice = Some(if single_screen_fs {
+                    format!("Audience fullscreen on {label} — press Esc or Cmd+W to close")
+                } else if fullscreen {
+                    format!("Audience output active on {label} (Fullscreen)")
+                } else {
+                    "Audience output opened in a separate 16:9 window (Esc or Cmd+W to close)"
+                        .to_owned()
+                });
             }
             Err(err) => {
                 self.last_notice = Some(format!("Failed to open Audience window: {err}"));
@@ -190,7 +194,7 @@ impl WindowManager {
             return;
         }
 
-        let (options, label, fullscreen) = build_output_window_options(
+        let (options, label, fullscreen, single_screen_fs) = build_output_window_options(
             "SundayDeck — Stage Monitor",
             self.stage_target,
             2,
@@ -207,21 +211,24 @@ impl WindowManager {
                 });
                 true
             });
-            cx.new(|cx| StageMonitorView::new(store, cx))
+            let view =
+                cx.new(|cx| StageMonitorView::new(store, cx).with_escape_badge(single_screen_fs));
+            let handle = view.read(cx).focus_handle(cx);
+            window.focus(&handle, cx);
+            view
         }) {
             Ok(handle) => {
                 self.stage = Some(OutputSlot {
                     handle,
                     display_label: label.clone(),
                 });
-                self.last_notice = Some(format!(
-                    "Stage monitor active on {label}{}",
-                    if fullscreen {
-                        " (Fullscreen)"
-                    } else {
-                        " (Windowed)"
-                    }
-                ));
+                self.last_notice = Some(if single_screen_fs {
+                    format!("Stage fullscreen on {label} — press Esc or Cmd+W to close")
+                } else if fullscreen {
+                    format!("Stage monitor active on {label} (Fullscreen)")
+                } else {
+                    "Stage monitor opened in a separate window (Esc or Cmd+W to close)".to_owned()
+                });
             }
             Err(err) => {
                 self.last_notice = Some(format!("Failed to open Stage window: {err}"));
@@ -253,7 +260,7 @@ fn build_output_window_options(
     auto_display_index: usize,
     fallback_origin: gpui::Point<gpui::Pixels>,
     cx: &App,
-) -> (WindowOptions, String, bool) {
+) -> (WindowOptions, String, bool, bool) {
     let displays = cx.displays();
     let chosen_index = match target {
         DisplayTarget::Windowed => None,
@@ -267,16 +274,17 @@ fn build_output_window_options(
         let display_id: DisplayId = disp.id();
         let bounds = disp.bounds();
         let label = format!("Display {}", idx + 1);
+        let single_screen_fs = displays.len() <= 1 || idx == 0;
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Fullscreen(bounds)),
             titlebar: None,
-            focus: false,
+            focus: single_screen_fs,
             show: true,
             kind: WindowKind::Normal,
             display_id: Some(display_id),
             ..Default::default()
         };
-        return (options, label, true);
+        return (options, label, true, single_screen_fs);
     }
 
     let options = WindowOptions {
@@ -288,10 +296,10 @@ fn build_output_window_options(
             title: Some(title.to_owned().into()),
             ..Default::default()
         }),
-        focus: false,
+        focus: true,
         show: true,
         kind: WindowKind::Normal,
         ..Default::default()
     };
-    (options, "Rehearsal".to_owned(), false)
+    (options, "Rehearsal".to_owned(), false, false)
 }

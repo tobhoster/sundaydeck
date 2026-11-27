@@ -83,11 +83,15 @@ pub(crate) fn render_projector_popover(
                 .font_family(FONT_BODY)
                 .text_color(TOKENS.ink_secondary)
                 .text_size(px(11.5))
-                .child(format!(
-                    "{} display{} detected · Choose target screen per output",
-                    displays.len(),
-                    if displays.len() == 1 { "" } else { "s" }
-                )),
+                .child(if displays.len() <= 1 {
+                    "Single screen detected · Auto opens a separate 16:9 window (Esc closes fullscreen)"
+                        .to_owned()
+                } else {
+                    format!(
+                        "{} displays detected · Choose target screen per output",
+                        displays.len()
+                    )
+                }),
         )
         .child(
             div()

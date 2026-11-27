@@ -17,9 +17,10 @@
       "hero.ctaDownload": "Download Free",
       "hero.ctaFilm": "Watch the Film",
       "hero.ctaStory": "Walk through Sunday morning",
+      "hero.ctaAllPlatforms": "All platforms & install script",
       "hero.meta1": "100% Offline & Private",
       "hero.meta2": "Sanctuary, Stage & Livestream Ready",
-      "hero.meta3": "Zero Licenses · Zero Subscriptions",
+      "hero.meta3": "1-Click EasyWorship & ProPresenter Song Import",
       "film.label": "One-Minute Overview",
       "film.h2": "From pastor's notes to full sanctuary screens before the doors open.",
       "film.copy": "Watch how SundayDeck moves calmly from a pastor's sermon notes to custom slide layouts, peaceful photography and motion backgrounds, hands-free microphone auto-follow, and bilingual worship across North and South America.",
@@ -50,9 +51,29 @@
       "try.label": "Try the Booth Controls",
       "try.h2": "Feel how calm recovery keys are when plans change live.",
       "try.copy": "Click any control below to test what the sanctuary screen does — advancing slides, hiding words while keeping your background steady, fading gently to black, or bringing up your church logo in one tap.",
+      "cmp.label": "Switching from EasyWorship or ProPresenter?",
+      "cmp.h2": "A calm, free alternative to <span class=\"serif-accent\">EasyWorship</span> — without annual licenses.",
+      "cmp.copy": "Bring your congregation's existing song library over in minutes without paying per-seat campus renewals or overwhelming Sunday volunteers with cluttered menus.",
+      "mig.p1.h3": "Zero Seat Licenses or Subscriptions",
+      "mig.p1.p": "Install freely on unlimited sanctuary, stage, and volunteer laptops across macOS, Windows, and Linux — unlike Windows-only seat or campus licensing.",
+      "mig.p2.h3": "Direct EasyWorship Library Import",
+      "mig.p2.p": "Import existing EasyWorship song databases, schedules, and backgrounds alongside ProPresenter, OpenLP, VideoPsalm, FreeShow, and SongSelect files.",
+      "mig.p3.h3": "Offline Voice Auto-Follow & OBS Overlays",
+      "mig.p3.p": "Native local microphone lyric tracking, 66 & 73-book offline Bibles (EN/ES/PT/FR), and transparent OBS livestream lower-thirds included out of the box.",
+      "faq.label": "Common Questions",
+      "faq.h2": "Questions churches ask before switching.",
+      "faq.copy": "Straightforward answers for pastors, worship leaders, and media volunteers evaluating a free EasyWorship or ProPresenter alternative.",
+      "faq.q1": "Is SundayDeck a free alternative to EasyWorship?",
+      "faq.a1": "Yes. SundayDeck is 100% free and open source (MIT / Apache-2.0) with zero seat licenses, zero annual renewals, and zero watermarks. Churches can install it on unlimited sanctuary, stage, and volunteer laptops on macOS, Windows, and Linux.",
+      "faq.q2": "Can I import my existing EasyWorship songs and schedules into SundayDeck?",
+      "faq.a2": "Yes. SundayDeck imports EasyWorship song databases (Songs.db), schedules, and backgrounds alongside ProPresenter (.pro6), OpenLP (songs.sqlite), VideoPsalm (.vpc), FreeShow (.show), OpenLyrics (.xml), ChordPro, and SongSelect files.",
+      "faq.q3": "Does SundayDeck work on Mac and Linux as well as Windows?",
+      "faq.a3": "Yes. Unlike Windows-only church presentation suites, SundayDeck runs natively on macOS (Apple Silicon and Intel), Windows 64-bit, and Linux (Debian/Ubuntu and portable archives) with lightweight startup even on modest older church laptops.",
+      "faq.q4": "Does SundayDeck require an internet connection on Sunday morning?",
+      "faq.a4": "No. Songs, 66-book Protestant and 73-book Catholic Bibles, Public Domain sanctuary photography and motion loops, local OBS livestream lower-thirds, and offline microphone lyric auto-follow all run completely locally with zero internet required.",
       "install.label": "Download SundayDeck",
       "install.h2": "Free installers for Mac, Windows, and Linux.",
-      "install.copy": "No account sign-up, no seat licenses, and no watermark. Starts in under a second even on modest older church laptops.",
+      "install.copy": "Click your operating system below to start downloading immediately — no account sign-up, no seat licenses, and SHA-256 verified builds.",
       "conv.label": "Our Conviction",
       "conv.h2": "Church software should be <span class=\"serif-accent\">free and fully accessible.</span>",
       "conv.copy": "No seat licenses. No annual renewals. No locked features, watermarks, or forced upgrades. Whether you are a small church plant meeting in a living room or a busy Sunday sanctuary, every feature in SundayDeck is free forever — and we warmly welcome contributions from the community.",
@@ -78,9 +99,10 @@
       "hero.ctaDownload": "Descargar Gratis",
       "hero.ctaFilm": "Ver el Video",
       "hero.ctaStory": "Recorre un domingo por la mañana",
+      "hero.ctaAllPlatforms": "Todas las plataformas y script",
       "hero.meta1": "100% Sin Internet y Privado",
       "hero.meta2": "Templo, Escenario y Transmisión",
-      "hero.meta3": "Cero Licencias · Cero Suscripciones",
+      "hero.meta3": "Importación en 1 Clic desde EasyWorship y ProPresenter",
       "film.label": "Resumen en Un Minuto",
       "film.h2": "De las notas del pastor a todas las pantallas antes de abrir las puertas.",
       "film.copy": "Mira cómo SundayDeck transforma las notas del pastor en un orden de servicio claro, con diseños integrados, fondos tranquilos, seguimiento por micrófono sin internet y adoración bilingüe para toda América.",
@@ -111,9 +133,29 @@
       "try.label": "Prueba los Controles en Vivo",
       "try.h2": "Siente lo tranquilas que son las teclas de emergencia.",
       "try.copy": "Haz clic en cualquier botón para probar cómo responde la pantalla del templo: avanzar diapositivas, ocultar texto manteniendo el fondo, fundir a negro para oración o mostrar el logo de la iglesia.",
+      "cmp.label": "¿Cambiando desde EasyWorship o ProPresenter?",
+      "cmp.h2": "Una alternativa gratis y serena a <span class=\"serif-accent\">EasyWorship</span> — sin licencias anuales.",
+      "cmp.copy": "Trae el repertorio que tu iglesia ya canta en minutos sin pagar renovaciones anuales ni abrumar a los nuevos voluntarios.",
+      "mig.p1.h3": "Cero Licencias o Suscripciones",
+      "mig.p1.p": "Instala sin límites en computadoras de templo, escenario y voluntarios en macOS, Windows y Linux, sin licencias exclusivas de Windows.",
+      "mig.p2.h3": "Importación Directa de EasyWorship",
+      "mig.p2.p": "Importa bases de datos de cantos, horarios y fondos de EasyWorship junto con archivos de ProPresenter, OpenLP, VideoPsalm, FreeShow y SongSelect.",
+      "mig.p3.h3": "Seguimiento por Voz Offline y Subtítulos OBS",
+      "mig.p3.p": "Seguimiento local de letras por micrófono, Biblias sin internet de 66 y 73 libros (ES/EN/PT/FR) y subtítulos transparentes para OBS incluidos.",
+      "faq.label": "Preguntas Frecuentes",
+      "faq.h2": "Preguntas que hacen las iglesias antes de cambiar.",
+      "faq.copy": "Respuestas directas para pastores, líderes de alabanza y voluntarios que evalúan una alternativa gratuita a EasyWorship o ProPresenter.",
+      "faq.q1": "¿Es SundayDeck una alternativa gratuita a EasyWorship?",
+      "faq.a1": "Sí. SundayDeck es 100% gratuito y de código abierto (MIT / Apache-2.0), sin licencias por computadora, sin renovaciones anuales y sin marcas de agua, en macOS, Windows y Linux.",
+      "faq.q2": "¿Puedo importar mis cantos y servicios existentes de EasyWorship a SundayDeck?",
+      "faq.a2": "Sí. SundayDeck importa bases de datos de EasyWorship (Songs.db), horarios y fondos, además de archivos de ProPresenter (.pro6), OpenLP (songs.sqlite), VideoPsalm (.vpc), FreeShow (.show), OpenLyrics (.xml), ChordPro y SongSelect.",
+      "faq.q3": "¿Funciona SundayDeck en Mac y Linux además de Windows?",
+      "faq.a3": "Sí. A diferencia de los programas exclusivos de Windows, SundayDeck funciona de forma nativa en macOS (Apple Silicon e Intel), Windows de 64 bits y Linux, incluso en equipos sencillos de iglesia.",
+      "faq.q4": "¿Necesita SundayDeck conexión a internet el domingo por la mañana?",
+      "faq.a4": "No. Los cantos, Biblias de 66 y 73 libros, fotografías y fondos en movimiento de dominio público, subtítulos para OBS y el seguimiento por micrófono funcionan completamente sin internet.",
       "install.label": "Descargar SundayDeck",
       "install.h2": "Instaladores gratuitos para Mac, Windows y Linux.",
-      "install.copy": "Sin cuentas, sin claves de licencia y sin marcas de agua. Abre en menos de un segundo incluso en computadoras antiguas de iglesia.",
+      "install.copy": "Haz clic en tu sistema operativo para comenzar la descarga directa: sin cuentas, sin licencias y con verificación SHA-256.",
       "conv.label": "Nuestra Convicción",
       "conv.h2": "El software para iglesias debe ser <span class=\"serif-accent\">gratuito y accesible para todos.</span>",
       "conv.copy": "Sin licencias por asiento. Sin renovaciones anuales. Sin funciones bloqueadas ni marcas de agua. Desde una iglesia pequeña hasta un templo grande, todo en SundayDeck es gratis para siempre — y recibimos con alegría tus contribuciones.",
@@ -139,9 +181,10 @@
       "hero.ctaDownload": "Baixar Grátis",
       "hero.ctaFilm": "Assistir ao Vídeo",
       "hero.ctaStory": "Acompanhe uma manhã de domingo",
+      "hero.ctaAllPlatforms": "Todas as plataformas e script",
       "hero.meta1": "100% Offline e Privado",
       "hero.meta2": "Templo, Palco e Transmissão",
-      "hero.meta3": "Zero Licenças · Zero Assinaturas",
+      "hero.meta3": "Importação em 1 Clique do EasyWorship e ProPresenter",
       "film.label": "Visão Geral em Um Minuto",
       "film.h2": "Das notas do pastor para todas as telas antes das portas abrirem.",
       "film.copy": "Veja como o SundayDeck transforma as notas do pastor em uma ordem de culto clara, com layouts prontos, fundos serenos, acompanhamento por microfone offline e louvor bilíngue nas Américas.",
@@ -172,9 +215,29 @@
       "try.label": "Teste os Controles ao Vivo",
       "try.h2": "Sinta como as teclas de emergência são tranquilas ao vivo.",
       "try.copy": "Clique nos botões abaixo para testar a tela do templo: avançar slides, ocultar letras mantendo o fundo, escurecer suavemente para oração ou mostrar o logotipo da igreja.",
+      "cmp.label": "Migrando do EasyWorship ou ProPresenter?",
+      "cmp.h2": "Uma alternativa gratuita e serena ao <span class=\"serif-accent\">EasyWorship</span> — sem licenças anuais.",
+      "cmp.copy": "Traga a biblioteca de louvores da sua igreja em minutos, sem pagar renovações anuais por computador nem complicar a vida dos voluntários.",
+      "mig.p1.h3": "Zero Licenças ou Assinaturas",
+      "mig.p1.p": "Instale livremente em quantos notebooks do templo, palco e voluntários precisar no macOS, Windows e Linux — sem licenciamento exclusivo de Windows.",
+      "mig.p2.h3": "Importação Direta do EasyWorship",
+      "mig.p2.p": "Importe bancos de músicas, ordens de culto e fundos do EasyWorship junto com arquivos de ProPresenter, OpenLP, VideoPsalm, FreeShow e SongSelect.",
+      "mig.p3.h3": "Microfone Offline e Legendas para OBS",
+      "mig.p3.p": "Acompanhamento local de letras por voz, Bíblias offline de 66 e 73 livros (PT/EN/ES/FR) e legendas transparentes para OBS incluídas de fábrica.",
+      "faq.label": "Perguntas Frequentes",
+      "faq.h2": "Dúvidas comuns antes de migrar.",
+      "faq.copy": "Respostas diretas para pastores, líderes de louvor e voluntários avaliando uma alternativa gratuita ao EasyWorship ou ProPresenter.",
+      "faq.q1": "O SundayDeck é uma alternativa gratuita ao EasyWorship?",
+      "faq.a1": "Sim. O SundayDeck é 100% gratuito e de código aberto (MIT / Apache-2.0), sem licenças por máquina, sem renovações anuais e sem marcas d'água no macOS, Windows e Linux.",
+      "faq.q2": "Posso importar minhas músicas e cultos do EasyWorship para o SundayDeck?",
+      "faq.a2": "Sim. O SundayDeck importa bancos de músicas do EasyWorship (Songs.db), cultos e fundos, além de arquivos do ProPresenter (.pro6), OpenLP (songs.sqlite), VideoPsalm (.vpc), FreeShow (.show), OpenLyrics (.xml), ChordPro e SongSelect.",
+      "faq.q3": "O SundayDeck funciona em Mac e Linux além de Windows?",
+      "faq.a3": "Sim. Ao contrário de programas exclusivos para Windows, o SundayDeck roda nativamente em macOS (Apple Silicon e Intel), Windows 64-bit e Linux, abrindo rápido até em notebooks antigos.",
+      "faq.q4": "O SundayDeck precisa de internet no domingo de manhã?",
+      "faq.a4": "Não. Músicas, Bíblias de 66 e 73 livros, fotos e loops em domínio público, legendas para OBS e o acompanhamento por microfone funcionam 100% offline.",
       "install.label": "Baixar o SundayDeck",
       "install.h2": "Instaladores gratuitos para Mac, Windows e Linux.",
-      "install.copy": "Sem cadastro, sem chaves de licença e sem marca d'água. Abre em menos de um segundo mesmo em notebooks antigos da igreja.",
+      "install.copy": "Clique no seu sistema operacional abaixo para baixar na hora — sem cadastro, sem licenças e com verificação SHA-256.",
       "conv.label": "Nossa Convicção",
       "conv.h2": "Software para igrejas deve ser <span class=\"serif-accent\">gratuito e acessível a todos.</span>",
       "conv.copy": "Sem licenças por computador. Sem renovações anuais. Sem recursos bloqueados ou marcas d'água. De uma igreja pequena em início até um grande templo, tudo no SundayDeck é grátis para sempre — e contribuições são muito bem-vindas.",
@@ -216,13 +279,18 @@
 
   let initial = "en";
   try {
-    const saved = localStorage.getItem("sundaydeck_lang");
-    if (saved && COPY[saved]) {
-      initial = saved;
-    } else if (navigator.language) {
-      const lower = navigator.language.toLowerCase();
-      if (lower.startsWith("es")) initial = "es";
-      else if (lower.startsWith("pt")) initial = "pt";
+    const queryLang = new URLSearchParams(window.location.search).get("lang");
+    if (queryLang && COPY[queryLang.toLowerCase()]) {
+      initial = queryLang.toLowerCase();
+    } else {
+      const saved = localStorage.getItem("sundaydeck_lang");
+      if (saved && COPY[saved]) {
+        initial = saved;
+      } else if (navigator.language) {
+        const lower = navigator.language.toLowerCase();
+        if (lower.startsWith("es")) initial = "es";
+        else if (lower.startsWith("pt")) initial = "pt";
+      }
     }
   } catch (_) {}
   applyLang(initial);

@@ -3,11 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sunday Volunteer Cheat Sheet — SundayDeck</title>
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;"
+  />
+  <title>Sunday Volunteer Cheat Sheet — SundayDeck Church Presentation Software</title>
   <meta
     name="description"
     content="One-page printable Sunday morning quick reference for church media booth volunteers using SundayDeck."
   />
+  <link rel="canonical" href="https://tobhoster.github.io/sundaydeck/cheat-sheet.html" />
   <meta property="og:title" content="Sunday Volunteer Cheat Sheet — SundayDeck" />
   <meta property="og:description" content="Print and tape next to your media booth laptop. Every shortcut and recovery key on one clean page." />
   <meta property="og:url" content="https://tobhoster.github.io/sundaydeck/cheat-sheet.html" />
@@ -74,7 +80,7 @@
         >
           <span class="ic" style="--ic: url('icons/github.svg');"></span>
         </a>
-        <button class="btn-primary" type="button" onclick="window.print()" style="height: 36px; padding: 0 14px; font-size: 13px;">
+        <button class="btn-primary" type="button" data-print-page style="height: 36px; padding: 0 14px; font-size: 13px;">
           <span class="ic ic-sm" style="--ic: url('icons/check.svg');"></span>
           <span>Print 1-Page Sheet</span>
         </button>
@@ -95,7 +101,7 @@
         </p>
       </div>
       <div class="no-print" style="display: flex; gap: 10px;">
-        <button class="btn-primary" type="button" onclick="window.print()">Print 1-Page Sheet</button>
+        <button class="btn-primary" type="button" data-print-page>Print 1-Page Sheet</button>
         <a class="btn-secondary" href="index.html">Back to Home</a>
       </div>
     </div>
@@ -166,5 +172,6 @@
       </section>
     </div>
   </main>
+  <script src="downloads.js" defer></script>
 </body>
 </html>

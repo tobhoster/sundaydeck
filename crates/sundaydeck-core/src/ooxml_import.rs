@@ -79,10 +79,16 @@ pub fn extract_office_bytes(
     }
     if is_zip_magic {
         let archive = open_zip(bytes)?;
-        if archive.file_names().any(|n| n == "ppt/presentation.xml") {
+        if archive
+            .file_names()
+            .any(|n| n.is_ok_and(|s| s == "ppt/presentation.xml"))
+        {
             return extract_pptx_bytes(source_name, bytes);
         }
-        if archive.file_names().any(|n| n == "word/document.xml") {
+        if archive
+            .file_names()
+            .any(|n| n.is_ok_and(|s| s == "word/document.xml"))
+        {
             return extract_docx_bytes(source_name, bytes);
         }
         return Err(ImportError::UnsupportedFormat {
@@ -190,11 +196,12 @@ fn resolve_pptx_slide_paths(
     let mut fallback: Vec<(usize, String)> = archive
         .file_names()
         .filter_map(|name| {
+            let name = name.ok()?;
             let suffix = name
                 .strip_prefix("ppt/slides/slide")?
                 .strip_suffix(".xml")?;
             let num: usize = suffix.parse().ok()?;
-            Some((num, name.to_owned()))
+            Some((num, name.into_owned()))
         })
         .collect();
     fallback.sort_by_key(|(num, _)| *num);

@@ -1,14 +1,18 @@
 <div align="center">
 
-# SundayDeck
+<img src="docs/media/sundaydeck-cover.png" alt="SundayDeck — Calm, free, offline church presentation software for Mac, Windows, and Linux" width="100%" />
 
-**Calm, free, offline church presentation software built for real Sunday volunteers.**
-
-*Zero subscriptions. Zero internet required. Instant startup on Mac, Windows, and Linux — with songs, Protestant & Catholic Bibles, numbered hymnbooks, built-in slide layouts, stage monitor, livestream lower-thirds, and hands-free microphone auto-follow.*
+<br />
+<br />
 
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-1a1c20?style=flat-square)](.github/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-MIT%20%2F%20Apache--2.0-1a1c20?style=flat-square)](LICENSE-MIT)
 [![Offline First](https://img.shields.io/badge/Works-100%25%20Offline-38b780?style=flat-square)](#why-sundaydeck)
+[![Website](https://img.shields.io/badge/Download-tobhoster.github.io%2Fsundaydeck-e2a83b?style=flat-square)](https://tobhoster.github.io/sundaydeck/)
+
+**Calm, free, offline church presentation software built for real Sunday volunteers.**
+
+*Zero subscriptions. Zero internet required. Instant startup on Mac, Windows, and Linux — with songs, Protestant & Catholic Bibles, numbered hymnbooks, built-in slide layouts, stage monitor, livestream lower-thirds, and hands-free microphone auto-follow.*
 
 <br />
 

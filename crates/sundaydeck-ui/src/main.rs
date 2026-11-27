@@ -1,10 +1,13 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
-use gpui::{App, AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
+use gpui::{
+    App, AppContext, Bounds, Focusable as _, TitlebarOptions, WindowBounds, WindowOptions, px, size,
+};
 use sundaydeck_db::{BootstrapData, Database, DbWorker};
 use sundaydeck_ui::actions::register_keybindings;
 use sundaydeck_ui::design::{DeckAssetSource, DesignGalleryView, register_fonts};
+use sundaydeck_ui::menus::register_app_menus;
 use sundaydeck_ui::store::{AppServices, PresentationStore};
 use sundaydeck_ui::views::OperatorWorkspace;
 use sundaydeck_ui::windows::WindowManager;
@@ -27,6 +30,7 @@ fn main() -> anyhow::Result<()> {
                 eprintln!("SundayDeck font registration warning: {err}");
             }
             register_keybindings(cx);
+            register_app_menus(cx);
 
             let voice_cfg = VoiceConfig {
                 asr_endpoint_url: bootstrap.settings.whisper_url.clone(),
@@ -70,17 +74,21 @@ fn main() -> anyhow::Result<()> {
                     cx.quit();
                     true
                 });
-                cx.new(|cx| {
+                let ws = cx.new(|cx| {
                     let mut ws = OperatorWorkspace::new(store, windows, Some(db_worker), cx);
                     if show_first_run {
                         ws.open_welcome_modal(cx);
                     }
                     ws
-                })
+                });
+                let focus_handle = ws.read(cx).focus_handle(cx);
+                window.focus(&focus_handle, cx);
+                ws
             }) {
                 eprintln!("SundayDeck failed to open operator window: {err}");
                 cx.quit();
             }
+            cx.activate(true);
         });
 
     Ok(())

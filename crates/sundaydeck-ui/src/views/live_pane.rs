@@ -10,8 +10,7 @@ use crate::design::primitives::{
     VoiceSyncMode, live_meta_indicator, next_up_caption, section_meta_label,
 };
 use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, LIVE_DECK_WIDTH, MONITOR_HEIGHT_PX, MONITOR_WIDTH_PX,
-    PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
+    FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
 };
 use crate::media::load_background_image;
 use crate::renderer::render_audience_canvas;
@@ -74,10 +73,14 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
         OutputOverride::Logo => Some("Showing Logo · Active"),
     };
 
+    let deck_width = workspace.layout.right_width;
+    let monitor_w = (deck_width - 28.0).clamp(240.0, 524.0);
+    let monitor_h = (monitor_w * 9.0 / 16.0).round();
+
     let mut monitor = div()
         .relative()
-        .w(px(MONITOR_WIDTH_PX))
-        .h(px(MONITOR_HEIGHT_PX))
+        .w(px(monitor_w))
+        .h(px(monitor_h))
         .rounded(px(RADIUS_TILE))
         .overflow_hidden()
         .border(px(1.5))
@@ -85,7 +88,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
         .bg(rgb(0x0E0F12))
         .child(render_audience_canvas(
             &snapshot.audience,
-            MONITOR_WIDTH_PX,
+            monitor_w,
             now_ms,
             cx,
         ));
@@ -281,11 +284,10 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
     }
 
     div()
-        .w(px(LIVE_DECK_WIDTH))
+        .w(px(deck_width))
+        .flex_shrink_0()
         .h_full()
         .bg(TOKENS.pane)
-        .border_l_1()
-        .border_color(TOKENS.hairline)
         .flex()
         .flex_col()
         .child(
@@ -420,6 +422,27 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                                     DeckIcon::CaretRight,
                                     IconSize::Sm,
                                     TOKENS.ink_primary,
+                                )),
+                        )
+                        .child(
+                            div()
+                                .id("btn-collapse-right-rail")
+                                .w(px(22.0))
+                                .h(px(26.0))
+                                .rounded(px(RADIUS_CONTROL))
+                                .cursor_pointer()
+                                .hover(|s| s.bg(TOKENS.elevated_hover))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.layout.right_collapsed = true;
+                                    cx.notify();
+                                }))
+                                .child(deck_icon(
+                                    DeckIcon::CaretRight,
+                                    IconSize::Sm,
+                                    TOKENS.ink_muted,
                                 )),
                         ),
                 ),
