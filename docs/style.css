@@ -240,6 +240,25 @@ header {
   border-color: #545b6e;
 }
 
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: var(--pane);
+  color: var(--ink-secondary);
+  border: 1px solid var(--border);
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+
+.btn-icon:hover {
+  background: var(--elevated);
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
 .nav-right {
   display: flex;
   align-items: center;
@@ -1218,6 +1237,12 @@ footer {
 .foot-links a {
   color: var(--ink-secondary);
   transition: color 0.16s ease;
+}
+
+.foot-gh {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .foot-links a:hover {
