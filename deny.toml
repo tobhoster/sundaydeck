@@ -11,7 +11,9 @@ db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 unmaintained = "workspace"
 yanked = "warn"
-ignore = []
+ignore = [
+  { id = "RUSTSEC-2026-0543", reason = "Informational unmaintained notice on chrono (also required by mhr-gpui 0.2.0); no security vulnerability." },
+]
 
 [licenses]
 version = 2
@@ -23,17 +25,13 @@ allow = [
   "BSD-2-Clause",
   "BSD-3-Clause",
   "BSL-1.0",
-  "Bitstream-Vera",
   "CC0-1.0",
   "CDLA-Permissive-2.0",
   "ISC",
   "MIT",
   "MIT-0",
   "MPL-2.0",
-  "NCSA",
-  "OFL-1.1",
   "Unicode-3.0",
-  "Unicode-DFS-2016",
   "Unlicense",
   "Zlib",
   "bzip2-1.0.6",
