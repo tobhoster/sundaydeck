@@ -2,6 +2,7 @@ use gpui::{
     Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, px, rgb,
 };
+use sundaydeck_voice::config::DEFAULT_INPUT_DEVICE_NAME;
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::primitives::{
@@ -31,8 +32,8 @@ fn render_auto_follow_popover(
 ) -> Div {
     let store_ref = workspace.store.read(cx);
     let mode = store_ref.voice_sync_mode;
-    let telemetry = store_ref.voice_telemetry.clone();
-    let devices = store_ref.voice_devices.clone();
+    let telemetry = &store_ref.voice_telemetry;
+    let devices = &store_ref.voice_devices;
 
     let mut options = div().flex().flex_col().gap(px(5.0));
     for opt in VoiceSyncMode::ALL {
@@ -120,7 +121,7 @@ fn render_auto_follow_popover(
         neutral_option_chip(
             "pop-mic-default",
             "System Default",
-            telemetry.device_name == "System Default Input",
+            telemetry.device_name == DEFAULT_INPUT_DEVICE_NAME,
             TOKENS.signal_voice,
         )
         .on_click(cx.listener(|this, _, _, cx| {
@@ -228,7 +229,7 @@ fn render_auto_follow_popover(
                         .font_family(FONT_BODY)
                         .text_color(TOKENS.ink_muted)
                         .text_size(px(10.5))
-                        .child(telemetry.status_label),
+                        .child(telemetry.status_label.clone()),
                 ),
         );
     }

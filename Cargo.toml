@@ -41,3 +41,24 @@ tracing = "0.1"
 ureq = "3"
 uuid = { version = "1.29", features = ["v5", "v7", "serde"] }
 zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+
+# Background images decode in debug builds too (headless capture tests, `cargo run`). Unoptimized,
+# one 1920×1080 JPEG takes ~0.5 s; optimizing just the codec crates keeps tests and dev runs fast
+# without slowing the workspace build.
+[profile.dev.package.image]
+opt-level = 3
+
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+
+[profile.dev.package.zune-core]
+opt-level = 3
+
+[profile.dev.package.png]
+opt-level = 3
+
+[profile.dev.package.fdeflate]
+opt-level = 3
+
+[profile.dev.package.image-webp]
+opt-level = 3

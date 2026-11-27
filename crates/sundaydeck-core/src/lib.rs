@@ -12,6 +12,7 @@ pub mod hymnal_importers;
 pub mod ids;
 pub mod legacy_formats;
 pub mod live_state;
+mod office_zip;
 pub mod ooxml_import;
 pub mod openlyrics;
 pub mod plan_builder;
@@ -28,6 +29,7 @@ pub mod theme;
 pub mod theme_defaults;
 pub mod timer;
 pub mod usfm_import;
+pub mod zip_limits;
 
 pub use alerts::{AlertPosition, AlertTimeout, AudienceAlert};
 pub use bible_aliases::{DEUTEROCANON_BOOKS, strip_diacritics};

@@ -31,6 +31,12 @@ impl VoiceSyncMode {
     }
 }
 
+/// Device label shown when the OS default input is used or a device cannot name itself.
+pub const DEFAULT_INPUT_DEVICE_NAME: &str = "System Default Input";
+
+/// Auto-Follow status shown while voice following is off.
+pub const AUTO_FOLLOW_PAUSED_STATUS: &str = "Auto-Follow paused";
+
 /// Discovered OS microphone / audio-interface input device.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AudioInputDevice {
@@ -103,11 +109,49 @@ impl Default for VoiceTelemetry {
             suggested_slide_index: None,
             confidence: 0.0,
             last_transcript: String::new(),
-            status_label: "Auto-Follow paused".to_owned(),
+            status_label: AUTO_FOLLOW_PAUSED_STATUS.to_owned(),
             backend_label: "Local Whisper (Offline)".to_owned(),
-            device_name: "System Default Input".to_owned(),
+            device_name: DEFAULT_INPUT_DEVICE_NAME.to_owned(),
             locked_by_override: false,
             rehearsal_running: false,
         }
+    }
+}
+
+impl VoiceTelemetry {
+    /// Whether `self` and `other` render identically: every field except `mic_level` matches.
+    /// No view reads the raw `mic_level`; its quantized `meter_bars` is displayed and compared.
+    /// The exhaustive destructuring makes a new field a compile error here until it is
+    /// classified, and the comparison allocates nothing on the telemetry hot path.
+    pub fn same_display(&self, other: &Self) -> bool {
+        let Self {
+            mode,
+            listening,
+            mic_level: _,
+            meter_bars,
+            active_slide_index,
+            active_slide_progress,
+            suggested_slide_index,
+            confidence,
+            last_transcript,
+            status_label,
+            backend_label,
+            device_name,
+            locked_by_override,
+            rehearsal_running,
+        } = self;
+        *mode == other.mode
+            && *listening == other.listening
+            && *meter_bars == other.meter_bars
+            && *active_slide_index == other.active_slide_index
+            && *active_slide_progress == other.active_slide_progress
+            && *suggested_slide_index == other.suggested_slide_index
+            && *confidence == other.confidence
+            && *last_transcript == other.last_transcript
+            && *status_label == other.status_label
+            && *backend_label == other.backend_label
+            && *device_name == other.device_name
+            && *locked_by_override == other.locked_by_override
+            && *rehearsal_running == other.rehearsal_running
     }
 }

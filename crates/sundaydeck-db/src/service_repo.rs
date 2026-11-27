@@ -6,6 +6,9 @@ use sundaydeck_core::{
 use crate::connection::now_epoch_ms;
 use crate::error::DbError;
 
+/// Offset added to `position` to park rows clear of `0..n` (the schema forbids negatives).
+const PARK_OFFSET: i64 = 1 << 40;
+
 pub fn list_services(conn: &Connection) -> Result<Vec<ServiceSchedule>, DbError> {
     let mut stmt = conn.prepare(
         "SELECT id, title, service_date, notes
@@ -91,9 +94,10 @@ pub fn upsert_service(conn: &mut Connection, schedule: &ServiceSchedule) -> Resu
         ],
     )?;
 
+    park_skipped_rows(&tx, schedule)?;
     tx.execute(
-        "DELETE FROM service_items WHERE service_id = ?1",
-        [&service_id_str],
+        "DELETE FROM service_items WHERE service_id = ?1 AND position < ?2",
+        params![&service_id_str, PARK_OFFSET],
     )?;
 
     for (pos, item) in schedule.items.iter().enumerate() {
@@ -124,7 +128,7 @@ pub fn upsert_service(conn: &mut Connection, schedule: &ServiceSchedule) -> Resu
             params![
                 item.id.to_string(),
                 service_id_str,
-                i64::try_from(pos).unwrap_or(0),
+                to_position(pos),
                 item.payload.db_kind(),
                 item.title,
                 song_id,
@@ -136,6 +140,7 @@ pub fn upsert_service(conn: &mut Connection, schedule: &ServiceSchedule) -> Resu
         )?;
     }
 
+    renumber_parked_rows(&tx, &service_id_str, schedule.items.len())?;
     tx.commit()?;
     Ok(())
 }
@@ -147,23 +152,16 @@ pub fn reorder_service_items(
     ordered_ids: &[ServiceItemId],
 ) -> Result<(), DbError> {
     let service_id_str = service_id.to_string();
-    let offset: i64 = 1_000_000;
     let tx = conn.transaction()?;
 
+    park_all_rows(&tx, &service_id_str)?;
     for (idx, item_id) in ordered_ids.iter().enumerate() {
-        let temp_pos = offset + i64::try_from(idx).unwrap_or(0);
         tx.execute(
             "UPDATE service_items SET position = ?1 WHERE service_id = ?2 AND id = ?3",
-            params![temp_pos, &service_id_str, item_id.to_string()],
+            params![to_position(idx), &service_id_str, item_id.to_string()],
         )?;
     }
-    for (idx, item_id) in ordered_ids.iter().enumerate() {
-        let final_pos = i64::try_from(idx).unwrap_or(0);
-        tx.execute(
-            "UPDATE service_items SET position = ?1 WHERE service_id = ?2 AND id = ?3",
-            params![final_pos, &service_id_str, item_id.to_string()],
-        )?;
-    }
+    renumber_parked_rows(&tx, &service_id_str, ordered_ids.len())?;
     tx.execute(
         "UPDATE services SET updated_at = ?1 WHERE id = ?2",
         params![now_epoch_ms(), &service_id_str],
@@ -178,10 +176,72 @@ pub fn delete_service(conn: &Connection, id: ServiceId) -> Result<(), DbError> {
     Ok(())
 }
 
+fn to_position(idx: usize) -> i64 {
+    i64::try_from(idx).unwrap_or(i64::MAX)
+}
+
+/// Moves every row of the service to `position + PARK_OFFSET`,
+/// freeing `0..n` while keeping the prior order recoverable.
+fn park_all_rows(conn: &Connection, service_id_str: &str) -> Result<(), DbError> {
+    conn.execute(
+        "UPDATE service_items SET position = position + ?2 WHERE service_id = ?1",
+        params![service_id_str, PARK_OFFSET],
+    )?;
+    Ok(())
+}
+
+/// Parks only the rows bootstrap skips (undeserializable payloads) so a save keeps them,
+/// unless the schedule now supplies an item with the same id.
+fn park_skipped_rows(conn: &Connection, schedule: &ServiceSchedule) -> Result<(), DbError> {
+    let (_, skipped_ids) = read_service_items(conn, schedule.id)?;
+    let replaced = |id: &String| schedule.items.iter().any(|i| i.id.to_string() == *id);
+    for id in skipped_ids.iter().filter(|id| !replaced(id)) {
+        conn.execute(
+            "UPDATE service_items SET position = position + ?2 WHERE id = ?1",
+            params![id, PARK_OFFSET],
+        )?;
+    }
+    Ok(())
+}
+
+/// Renumbers parked (offset-position) rows to `first..` in their prior order.
+fn renumber_parked_rows(
+    conn: &Connection,
+    service_id_str: &str,
+    first: usize,
+) -> Result<(), DbError> {
+    let mut stmt = conn.prepare(
+        "SELECT id FROM service_items
+         WHERE service_id = ?1 AND position >= ?2
+         ORDER BY position ASC",
+    )?;
+    let ids = stmt
+        .query_map(params![service_id_str, PARK_OFFSET], |row| {
+            row.get::<_, String>(0)
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    for (offset, id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE service_items SET position = ?1 WHERE id = ?2",
+            params![to_position(first + offset), id],
+        )?;
+    }
+    Ok(())
+}
+
 fn load_service_items(
     conn: &Connection,
     service_id: ServiceId,
 ) -> Result<Vec<ServiceItem>, DbError> {
+    Ok(read_service_items(conn, service_id)?.0)
+}
+
+/// Reads a service's items in order; undeserializable rows are skipped (with a warning)
+/// and their raw ids returned separately.
+fn read_service_items(
+    conn: &Connection,
+    service_id: ServiceId,
+) -> Result<(Vec<ServiceItem>, Vec<String>), DbError> {
     let mut stmt = conn.prepare(
         "SELECT id, title, theme_override_id, payload_json
          FROM service_items
@@ -198,9 +258,17 @@ fn load_service_items(
     })?;
 
     let mut items = Vec::new();
+    let mut skipped = Vec::new();
     for row in rows {
         let (id_str, title, theme_str, payload_json) = row?;
-        let payload: ServiceItemPayload = serde_json::from_str(&payload_json)?;
+        let payload: ServiceItemPayload = match serde_json::from_str(&payload_json) {
+            Ok(payload) => payload,
+            Err(err) => {
+                tracing::warn!(item_id = %id_str, %err, "skipping undeserializable service item");
+                skipped.push(id_str);
+                continue;
+            }
+        };
         items.push(ServiceItem {
             id: ServiceItemId::parse_str(&id_str)?,
             title,
@@ -208,5 +276,5 @@ fn load_service_items(
             payload,
         });
     }
-    Ok(items)
+    Ok((items, skipped))
 }

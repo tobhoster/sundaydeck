@@ -1,5 +1,5 @@
 use crate::bible_books::book_by_usfx;
-use crate::bible_import::{ParsedBible, ParsedVerse, import_bible_xml};
+use crate::bible_import::{FORMAT_SNIFF_BYTES, ParsedBible, ParsedVerse, import_bible_xml};
 use crate::error::ImportError;
 
 /// Trait-based Bible importer pipeline enabling pluggable support for USFM, USFX, OSIS,
@@ -56,7 +56,7 @@ pub fn detect_and_import_bible(
     filename: &str,
     raw: &str,
 ) -> Result<ParsedBible, ImportError> {
-    let sample = &raw[..raw.len().min(600)];
+    let sample = &raw[..raw.floor_char_boundary(raw.len().min(FORMAT_SNIFF_BYTES))];
     let importers: [&dyn BibleImporter; 2] = [&UsfmBibleImporter, &XmlBibleImporter];
     for importer in importers {
         if importer.can_handle(filename, sample) {

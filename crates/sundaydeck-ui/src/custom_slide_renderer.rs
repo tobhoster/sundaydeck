@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use gpui::{
-    Div, FontWeight, ObjectFit, ParentElement, Pixels, Styled, StyledImage, div, img, px, rgb, rgba,
+    Div, Edges, FontWeight, ObjectFit, ParentElement, Pixels, RenderImage, Styled, StyledImage,
+    div, img, px, rgb, rgba,
 };
 use sundaydeck_core::{CustomSlideLayout, HorizontalAlign, ServiceTimer, Theme};
 
@@ -7,24 +10,38 @@ use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
     rgba8_to_gpui, weight_from_u16,
 };
-use crate::media::load_background_image;
+use crate::media_cache::MediaLookup;
 pub use crate::overlay_badges::{render_audience_alert_banner, render_audience_timer_badge};
+
+/// Dark matte behind photos (and in their place while the photo is still decoding).
+pub(crate) const PHOTO_MATTE: u32 = 0x0B0C0E;
+
+/// The canvas a slide's foreground is laid out on: theme, live timer, clock, canvas scale,
+/// safe-area padding, and the state of the slide's image decode (photo or image layout).
+pub struct SlideCanvas<'a> {
+    pub theme: &'a Theme,
+    pub timer: Option<&'a ServiceTimer>,
+    pub now_ms: i64,
+    pub scale: f32,
+    pub padding: Edges<Pixels>,
+    pub image: MediaLookup<Arc<RenderImage>>,
+}
 
 /// Renders all curated [`CustomSlideLayout`] templates cleanly, inheriting the active [`Theme`]'s
 /// typography, colors, and safe margins so volunteer-authored slides always look professionally typeset.
-#[allow(clippy::too_many_arguments)]
 pub fn render_custom_slide_layout(
     layout: &CustomSlideLayout,
     revealed_steps: Option<usize>,
-    theme: &Theme,
-    active_timer: Option<&ServiceTimer>,
-    now_ms: i64,
-    scale: f32,
-    pad_t: Pixels,
-    pad_r: Pixels,
-    pad_b: Pixels,
-    pad_l: Pixels,
+    canvas: &SlideCanvas<'_>,
 ) -> Div {
+    let SlideCanvas {
+        theme,
+        timer: active_timer,
+        now_ms,
+        scale,
+        padding,
+        ..
+    } = *canvas;
     let text_color = rgba8_to_gpui(theme.text_color);
     let weight = weight_from_u16(theme.font_weight);
 
@@ -34,7 +51,7 @@ pub fn render_custom_slide_layout(
             subtitle,
             align,
         } => {
-            let mut col = padded_stage(pad_t, pad_r, pad_b, pad_l, *align)
+            let mut col = padded_stage(padding, *align)
                 .justify_center()
                 .gap(px((18.0 * scale).max(4.0)));
             col = col.child(
@@ -72,7 +89,7 @@ pub fn render_custom_slide_layout(
             attribution,
             align,
         } => {
-            let mut col = padded_stage(pad_t, pad_r, pad_b, pad_l, *align)
+            let mut col = padded_stage(padding, *align)
                 .justify_center()
                 .gap(px((24.0 * scale).max(5.0)));
             col = col.child(
@@ -145,7 +162,7 @@ pub fn render_custom_slide_layout(
                 );
             }
 
-            padded_stage(pad_t, pad_r, pad_b, pad_l, HorizontalAlign::Left)
+            padded_stage(padding, HorizontalAlign::Left)
                 .justify_center()
                 .gap(px((28.0 * scale).max(6.0)))
                 .child(
@@ -165,8 +182,8 @@ pub fn render_custom_slide_layout(
         CustomSlideLayout::ImageTextSplit {
             heading,
             body,
-            image_uri,
             image_on_left,
+            ..
         } => {
             let media_box = div()
                 .flex_1()
@@ -180,19 +197,17 @@ pub fn render_custom_slide_layout(
                 .flex()
                 .items_center()
                 .justify_center()
-                .child(
-                    if let Some(render_img) = image_uri.as_deref().and_then(load_background_image) {
-                        div()
-                            .size_full()
-                            .child(img(render_img).size_full().object_fit(ObjectFit::Cover))
-                    } else {
-                        div()
-                            .font_family(FONT_BODY)
-                            .text_color(TOKENS.ink_muted)
-                            .text_size(px((24.0 * scale).max(7.0)))
-                            .child("Image Slot")
-                    },
-                );
+                .child(match canvas.image.clone() {
+                    MediaLookup::Ready(render_img) => div()
+                        .size_full()
+                        .child(img(render_img).size_full().object_fit(ObjectFit::Cover)),
+                    MediaLookup::Pending => div().size_full().bg(rgb(PHOTO_MATTE)),
+                    MediaLookup::Failed => div()
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_muted)
+                        .text_size(px((24.0 * scale).max(7.0)))
+                        .child("Image Slot"),
+                });
 
             let text_box = div()
                 .flex_1()
@@ -225,10 +240,10 @@ pub fn render_custom_slide_layout(
             let row = div()
                 .relative()
                 .size_full()
-                .pt(pad_t)
-                .pr(pad_r)
-                .pb(pad_b)
-                .pl(pad_l)
+                .pt(padding.top)
+                .pr(padding.right)
+                .pb(padding.bottom)
+                .pl(padding.left)
                 .flex()
                 .flex_row()
                 .items_center()
@@ -240,17 +255,17 @@ pub fn render_custom_slide_layout(
                 row.child(text_box).child(media_box)
             }
         }
-        CustomSlideLayout::FullBleedImage { image_uri, caption } => {
+        CustomSlideLayout::FullBleedImage { caption, .. } => {
             let mut full = div()
                 .absolute()
                 .inset_0()
                 .size_full()
-                .bg(rgb(0x0B0C0E))
+                .bg(rgb(PHOTO_MATTE))
                 .flex()
                 .items_center()
                 .justify_center();
 
-            if let Some(render_img) = image_uri.as_deref().and_then(load_background_image) {
+            if let MediaLookup::Ready(render_img) = canvas.image.clone() {
                 full = full.child(img(render_img).size_full().object_fit(ObjectFit::Cover));
             }
             if let Some(cap) = caption
@@ -284,7 +299,7 @@ pub fn render_custom_slide_layout(
                 Some(timer) => timer.display(now_ms).formatted,
                 None => format!("{:02}:{:02}", duration_secs / 60, duration_secs % 60),
             };
-            let mut col = padded_stage(pad_t, pad_r, pad_b, pad_l, HorizontalAlign::Center)
+            let mut col = padded_stage(padding, HorizontalAlign::Center)
                 .justify_center()
                 .gap(px((20.0 * scale).max(4.5)))
                 .child(
@@ -387,7 +402,7 @@ pub fn render_custom_slide_layout(
                 }
                 list = list.child(item);
             }
-            padded_stage(pad_t, pad_r, pad_b, pad_l, HorizontalAlign::Left)
+            padded_stage(padding, HorizontalAlign::Left)
                 .justify_center()
                 .gap(px((22.0 * scale).max(5.0)))
                 .child(
@@ -407,20 +422,14 @@ pub fn render_custom_slide_layout(
     }
 }
 
-fn padded_stage(
-    pad_t: Pixels,
-    pad_r: Pixels,
-    pad_b: Pixels,
-    pad_l: Pixels,
-    align: HorizontalAlign,
-) -> Div {
+fn padded_stage(padding: Edges<Pixels>, align: HorizontalAlign) -> Div {
     let base = div()
         .relative()
         .size_full()
-        .pt(pad_t)
-        .pr(pad_r)
-        .pb(pad_b)
-        .pl(pad_l)
+        .pt(padding.top)
+        .pr(padding.right)
+        .pb(padding.bottom)
+        .pl(padding.left)
         .flex()
         .flex_col();
     match align {

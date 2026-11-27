@@ -11,7 +11,8 @@ use crate::design::primitives::{
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_MODAL, RADIUS_TILE, TOKENS,
 };
-use crate::media::load_background_image;
+use crate::media_cache::background_image;
+use crate::media_decode::ImageTier;
 use crate::views::background_picker_modal::{
     BackgroundPickerModal, BackgroundTab, FONT_CHOICES, SANCTUARY_PRESETS, SCRIM_CHOICES,
 };
@@ -241,7 +242,7 @@ fn render_public_domain_gallery_body(
             .justify_center();
 
         if let Some(embedded) = preset.embedded_preview
-            && let Some(render_img) = load_background_image(embedded)
+            && let Some(render_img) = background_image(embedded, ImageTier::Thumbnail, cx)
         {
             preview = preview
                 .child(

@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use gpui::{
-    Div, FontWeight, ObjectFit, ParentElement, Rgba, Styled, StyledImage, div, img, px, rgba,
+    App, Div, FontWeight, ObjectFit, ParentElement, RenderImage, Rgba, Styled, StyledImage, div,
+    img, px, rgba,
 };
 use sundaydeck_core::SectionKind;
 
@@ -7,9 +10,11 @@ use crate::design::primitives::{
     keycap, live_meta_indicator, next_up_caption, section_meta_label, status_dot_label,
 };
 use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, FONT_LYRIC_BOLD, FONT_MONO, FONT_SCRIPTURE_SERIF, RADIUS_TILE, TOKENS,
+    FONT_BODY, FONT_DISPLAY, FONT_LYRIC_BOLD, FONT_MONO, FONT_SCRIPTURE_SERIF, RADIUS_TILE,
+    TILE_H_PX, TILE_W_PX, TOKENS,
 };
-use crate::media::load_background_image;
+use crate::media_cache::background_image;
+use crate::media_decode::ImageTier;
 
 /// Open, borderless gallery section header — generous breathing room with zero box-inside-box clutter.
 pub(crate) fn section_frame(title: &str, subtitle: &str) -> Div {
@@ -235,7 +240,7 @@ enum GallerySlideState {
     Live { progress: f32 },
 }
 
-pub(crate) fn render_slide_tile_showcase() -> Div {
+pub(crate) fn render_slide_tile_showcase(cx: &App) -> Div {
     let tiles = div()
         .w_full()
         .flex()
@@ -273,7 +278,11 @@ pub(crate) fn render_slide_tile_showcase() -> Div {
             Some(SectionKind::Bridge),
             "Praise the Lord, praise the Lord,\nO my soul!",
             FONT_LYRIC_BOLD,
-            Some("backgrounds/sanctuary-mountains.jpg"),
+            background_image(
+                "backgrounds/sanctuary-mountains.jpg",
+                ImageTier::Thumbnail,
+                cx,
+            ),
             GallerySlideState::Default,
             Some("Photo"),
         ))
@@ -282,7 +291,7 @@ pub(crate) fn render_slide_tile_showcase() -> Div {
             None,
             "We know that all things work together for good for those who love God.",
             FONT_SCRIPTURE_SERIF,
-            Some("backgrounds/golden-loop-02.jpg"),
+            background_image("backgrounds/golden-loop-02.jpg", ImageTier::Thumbnail, cx),
             GallerySlideState::Default,
             Some("Motion"),
         ));
@@ -299,7 +308,7 @@ fn mock_slide_tile(
     kind: Option<SectionKind>,
     text: &str,
     body_font: &str,
-    bg_uri: Option<&str>,
+    bg_image: Option<Arc<RenderImage>>,
     state: GallerySlideState,
     right_meta: Option<&str>,
 ) -> Div {
@@ -311,8 +320,8 @@ fn mock_slide_tile(
 
     let mut tile = div()
         .relative()
-        .w(px(256.0))
-        .h(px(144.0)) // exact 16:9
+        .w(px(TILE_W_PX))
+        .h(px(TILE_H_PX))
         .rounded(px(RADIUS_TILE))
         .overflow_hidden()
         .bg(TOKENS.slide_card)
@@ -321,9 +330,7 @@ fn mock_slide_tile(
         .flex()
         .flex_col();
 
-    if let Some(uri) = bg_uri
-        && let Some(render_img) = load_background_image(uri)
-    {
+    if let Some(render_img) = bg_image {
         tile = tile
             .child(
                 img(render_img)

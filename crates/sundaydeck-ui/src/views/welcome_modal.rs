@@ -16,7 +16,9 @@ use crate::design::tokens::{
 };
 use crate::store::PresentationStore;
 use crate::views::quick_edit_modal::ModalClosed;
-use crate::views::settings_migration::import_external_song_files;
+use crate::views::settings_migration::{
+    ImportedSongsSink, import_external_song_files, merge_and_save_imported_songs,
+};
 
 const WELCOME_PROFILES: &[(&str, &str, &str)] = &[
     (
@@ -173,9 +175,7 @@ impl WelcomeModal {
             let _ = this.update(cx, |m, cx| {
                 match result {
                     Ok((name, songs, r)) => {
-                        for song in songs {
-                            store.update(cx, |s, cx| s.upsert_song_local(song, cx));
-                        }
+                        store.update(cx, |s, cx| s.merge_imported_songs(songs, cx));
                         m.status_note = Some(format!(
                             "Installed \"{name}\" ({} Bibles, {} songs).",
                             r.bibles_installed, r.songs_installed
@@ -215,13 +215,12 @@ impl WelcomeModal {
                 .await;
             match res {
                 Ok((songs, src)) => {
+                    let sink = ImportedSongsSink {
+                        store: &store,
+                        db: db.as_ref(),
+                    };
                     let n = songs.len();
-                    for song in songs {
-                        store.update(cx, |s, cx| s.upsert_song_local(song.clone(), cx));
-                        if let Some(worker) = db.as_ref() {
-                            let _ = worker.upsert_song(song).await;
-                        }
-                    }
+                    merge_and_save_imported_songs(sink, songs, cx).await;
                     let _ = this.update(cx, |m, cx| {
                         m.status_note = Some(format!("Migrated {n} song(s) from {src}."));
                         m.error_message = None;

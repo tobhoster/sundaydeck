@@ -15,14 +15,13 @@ use crate::design::primitives::{
     next_up_caption, primary_ivory_button_body, section_meta_label, status_dot_label,
 };
 use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
+    FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE,
+    TILE_H_PX, TILE_W_PX, TOKENS,
 };
-use crate::media::{apply_theme_background, load_background_image};
-use crate::renderer::render_audience_canvas;
+use crate::media::{BackgroundPaint, apply_theme_background};
+use crate::media_decode::ImageTier;
+use crate::renderer::{photo_slide_thumbnail, render_audience_canvas};
 use crate::views::operator_workspace::OperatorWorkspace;
-
-const TILE_W_PX: f32 = 256.0;
-const TILE_H_PX: f32 = 144.0; // exact 16:9
 
 /// Top half of the Center Pane:
 /// Clean 16:9 sanctuary slide cards with typographic dot+label metadata (`Verse 1`, `Chorus`),
@@ -45,7 +44,7 @@ pub fn render_preview_section(
             cursor.title.clone(),
             cursor.len(),
             cursor.active_index,
-            cursor.slides.to_vec(),
+            Arc::clone(&cursor.slides),
             resolve_font_family(&cursor.theme.font_family, cx),
             cursor.theme.background.clone(),
         ),
@@ -53,7 +52,7 @@ pub fn render_preview_section(
             "Select an item from Service Order".to_owned(),
             0,
             0,
-            Vec::new(),
+            Arc::from([]),
             resolve_font_family(&active_theme.font_family, cx),
             active_theme.background.clone(),
         ),
@@ -231,10 +230,7 @@ pub fn render_preview_section(
             .flex()
             .flex_col();
 
-        let slide_image = match &slide.content {
-            SlideContent::Image { uri, .. } => uri.as_deref().and_then(load_background_image),
-            _ => None,
-        };
+        let slide_image = photo_slide_thumbnail(&slide.content, cx);
         let is_custom_layout = matches!(slide.content, SlideContent::Custom { .. });
 
         let mut styled_tile = if is_custom_layout {
@@ -274,7 +270,12 @@ pub fn render_preview_section(
                 )
                 .child(div().absolute().inset_0().bg(rgba(0x0B0C_0E66)))
         } else if has_media_bg {
-            apply_theme_background(base_tile, &preview_bg_spec, now_ms)
+            let paint = BackgroundPaint {
+                spec: &preview_bg_spec,
+                now_ms,
+                tier: ImageTier::Thumbnail,
+            };
+            apply_theme_background(base_tile, paint, cx)
         } else {
             base_tile.bg(TOKENS.slide_card)
         };

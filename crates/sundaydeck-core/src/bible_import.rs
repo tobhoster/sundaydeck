@@ -4,6 +4,9 @@ use quick_xml::events::{BytesStart, Event};
 use crate::bible_books::{book_by_number, book_by_osis, book_by_usfx};
 use crate::error::ImportError;
 
+/// Bytes inspected at the start of an input to detect its Bible format.
+pub(crate) const FORMAT_SNIFF_BYTES: usize = 600;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedVerse {
     pub book_number: u8,
@@ -28,7 +31,8 @@ pub fn import_bible_xml(code: &str, name: &str, xml: &str) -> Result<ParsedBible
         return Err(ImportError::EmptyInput);
     }
 
-    let head = &trimmed[..trimmed.len().min(600)].to_ascii_lowercase();
+    let sniff_end = trimmed.floor_char_boundary(trimmed.len().min(FORMAT_SNIFF_BYTES));
+    let head = &trimmed[..sniff_end].to_ascii_lowercase();
     if head.contains("<xmlbible") || head.contains("<biblebook") {
         import_zefania_xml(code, name, trimmed)
     } else if head.contains("<osis") {

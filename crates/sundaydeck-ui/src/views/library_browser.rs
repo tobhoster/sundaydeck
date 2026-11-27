@@ -1,13 +1,20 @@
+use std::ops::Range;
+
 use gpui::{
     AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, px, rgb, rgba,
+    SharedString, StatefulInteractiveElement, Styled, div, px, rgb, rgba, uniform_list,
 };
+use sundaydeck_core::{Song, SongId};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::tokens::{FONT_BODY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, TOKENS};
 use crate::views::library_custom_slides::{render_custom_slides_library, render_themes_library};
 use crate::views::operator_workspace::{LibraryTab, OperatorWorkspace};
 use crate::views::song_editor_modal::EditorTab;
+
+/// Gap between song rows. `uniform_list` lays rows out at a fixed pitch, so the gap is a bottom
+/// padding on every row instead of a flex `gap`.
+const SONG_ROW_GAP_PX: f32 = 4.0;
 
 /// Bottom docked drawer of the Center Pane:
 /// Offline browser for Songs, Bible, Structured Custom Slides, and Sanctuary Themes / Media.
@@ -191,144 +198,26 @@ pub fn render_library_section(
     drawer
 }
 
+/// Virtualized song library: only the rows in view are built, so a 2,000-song library costs the
+/// same per frame as a short one, and rendering never clones a `Song`.
 fn render_songs_library(
     workspace: &OperatorWorkspace,
     cx: &mut Context<OperatorWorkspace>,
 ) -> AnyElement {
-    let songs = workspace.store.read(cx).visible_songs();
-    let mut list = div()
-        .id("songs-library-list")
-        .flex_1()
-        .overflow_y_scroll()
-        .p(px(10.0))
-        .flex()
-        .flex_col()
-        .gap(px(4.0));
-
-    for song in songs {
-        let song_id = song.id;
-        let song_for_edit = song.clone();
-        let meta = if song.ccli_number.is_empty() {
-            song.author.clone()
-        } else {
-            format!("{} · CCLI {}", song.author, song.ccli_number)
-        };
-        let section_summary = format!(
-            "{} sections · {} arr.",
-            song.sections.len(),
-            song.arrangements.len()
-        );
-
-        list = list.child(
-            div()
-                .id(format!("lib-song-{song_id}"))
-                .w_full()
-                .px(px(12.0))
-                .py(px(9.0))
-                .rounded(px(RADIUS_TILE))
-                .cursor_pointer()
-                .bg(TOKENS.status_surface)
-                .hover(|s| s.bg(TOKENS.elevated_hover))
-                .border_1()
-                .border_color(TOKENS.hairline)
-                .flex()
-                .items_center()
-                .justify_between()
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.store
-                        .update(cx, |s, cx| s.stage_library_song(song_id, cx));
-                }))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(10.0))
-                        .child(deck_icon(
-                            DeckIcon::MusicNotes,
-                            IconSize::Sm,
-                            TOKENS.ink_secondary,
-                        ))
-                        .child(
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap(px(2.0))
-                                .child(
-                                    div()
-                                        .font_family(FONT_BODY)
-                                        .text_color(TOKENS.ink_primary)
-                                        .text_size(px(13.0))
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .child(song.title),
-                                )
-                                .child(
-                                    div()
-                                        .font_family(FONT_BODY)
-                                        .text_color(TOKENS.ink_muted)
-                                        .text_size(px(11.0))
-                                        .child(meta),
-                                ),
-                        ),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(8.0))
-                        .child(
-                            div()
-                                .font_family(FONT_BODY)
-                                .text_color(TOKENS.ink_muted)
-                                .text_size(px(11.0))
-                                .child(section_summary),
-                        )
-                        .child(
-                            div()
-                                .id(format!("edit-song-{song_id}"))
-                                .w(px(28.0))
-                                .h(px(28.0))
-                                .rounded(px(RADIUS_CONTROL))
-                                .bg(TOKENS.elevated)
-                                .hover(|s| s.bg(TOKENS.elevated_hover))
-                                .border_1()
-                                .border_color(TOKENS.gridline)
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.open_song_editor(
-                                        Some(song_for_edit.clone()),
-                                        EditorTab::Edit,
-                                        cx,
-                                    );
-                                }))
-                                .child(deck_icon(
-                                    DeckIcon::PencilSimple,
-                                    IconSize::Sm,
-                                    TOKENS.ink_secondary,
-                                )),
-                        )
-                        .child(
-                            div()
-                                .id(format!("add-song-sched-{song_id}"))
-                                .w(px(28.0))
-                                .h(px(28.0))
-                                .rounded(px(RADIUS_CONTROL))
-                                .bg(TOKENS.elevated)
-                                .hover(|s| s.bg(TOKENS.elevated_hover))
-                                .border_1()
-                                .border_color(TOKENS.key_border)
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.add_song_to_schedule(song_id, cx);
-                                }))
-                                .child(deck_icon(DeckIcon::Plus, IconSize::Sm, TOKENS.ink_primary)),
-                        ),
-                ),
-        );
-    }
+    let song_count = workspace.store.read(cx).visible_song_count();
+    let list = uniform_list(
+        "songs-library-list",
+        song_count,
+        cx.processor(|this, visible: Range<usize>, _, cx| {
+            let store = this.store.read(cx);
+            visible
+                .filter_map(|ix| store.visible_song_at(ix))
+                .map(|song| render_song_row(song, cx))
+                .collect::<Vec<_>>()
+        }),
+    )
+    .flex_1()
+    .p(px(10.0));
 
     div()
         .flex_1()
@@ -354,6 +243,136 @@ fn render_songs_library(
         )
         .child(list)
         .into_any_element()
+}
+
+fn render_song_row(song: &Song, cx: &Context<OperatorWorkspace>) -> Div {
+    let song_id = song.id;
+    let meta = if song.ccli_number.is_empty() {
+        song.author.clone()
+    } else {
+        format!("{} · CCLI {}", song.author, song.ccli_number)
+    };
+    let section_summary = format!(
+        "{} sections · {} arr.",
+        song.sections.len(),
+        song.arrangements.len()
+    );
+    let row = div()
+        .id(format!("lib-song-{song_id}"))
+        .w_full()
+        .px(px(12.0))
+        .py(px(9.0))
+        .rounded(px(RADIUS_TILE))
+        .cursor_pointer()
+        .bg(TOKENS.status_surface)
+        .hover(|s| s.bg(TOKENS.elevated_hover))
+        .border_1()
+        .border_color(TOKENS.hairline)
+        .flex()
+        .items_center()
+        .justify_between()
+        .on_click(cx.listener(move |this, _, _, cx| {
+            this.store
+                .update(cx, |s, cx| s.stage_library_song(song_id, cx));
+        }))
+        .child(render_song_title_block(&song.title, meta))
+        .child(render_song_row_actions(song_id, section_summary, cx));
+    div().w_full().pb(px(SONG_ROW_GAP_PX)).child(row)
+}
+
+/// Title and author/CCLI lines. Both truncate so every row keeps the uniform list height.
+fn render_song_title_block(title: &str, meta: String) -> Div {
+    div()
+        .flex()
+        .flex_1()
+        .overflow_hidden()
+        .items_center()
+        .gap(px(10.0))
+        .child(deck_icon(
+            DeckIcon::MusicNotes,
+            IconSize::Sm,
+            TOKENS.ink_secondary,
+        ))
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .overflow_hidden()
+                .gap(px(2.0))
+                .child(
+                    div()
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_primary)
+                        .text_size(px(13.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .truncate()
+                        .child(SharedString::from(title.to_owned())),
+                )
+                .child(
+                    div()
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_muted)
+                        .text_size(px(11.0))
+                        .truncate()
+                        .child(meta),
+                ),
+        )
+}
+
+fn render_song_row_actions(
+    song_id: SongId,
+    section_summary: String,
+    cx: &Context<OperatorWorkspace>,
+) -> Div {
+    div()
+        .flex()
+        .flex_none()
+        .items_center()
+        .gap(px(8.0))
+        .child(
+            div()
+                .font_family(FONT_BODY)
+                .text_color(TOKENS.ink_muted)
+                .text_size(px(11.0))
+                .child(section_summary),
+        )
+        .child(
+            song_action_button(format!("edit-song-{song_id}"), TOKENS.gridline)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    // Resolved at click time, so rendering never clones the song.
+                    let Some(song) = this.store.read(cx).song_by_id(song_id).cloned() else {
+                        return;
+                    };
+                    this.open_song_editor(Some(song), EditorTab::Edit, cx);
+                }))
+                .child(deck_icon(
+                    DeckIcon::PencilSimple,
+                    IconSize::Sm,
+                    TOKENS.ink_secondary,
+                )),
+        )
+        .child(
+            song_action_button(format!("add-song-sched-{song_id}"), TOKENS.key_border)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.add_song_to_schedule(song_id, cx);
+                }))
+                .child(deck_icon(DeckIcon::Plus, IconSize::Sm, TOKENS.ink_primary)),
+        )
+}
+
+fn song_action_button(id: String, border: gpui::Rgba) -> gpui::Stateful<Div> {
+    div()
+        .id(id)
+        .w(px(28.0))
+        .h(px(28.0))
+        .rounded(px(RADIUS_CONTROL))
+        .bg(TOKENS.elevated)
+        .hover(|s| s.bg(TOKENS.elevated_hover))
+        .border_1()
+        .border_color(border)
+        .flex()
+        .items_center()
+        .justify_center()
 }
 
 fn drawer_icon_btn(

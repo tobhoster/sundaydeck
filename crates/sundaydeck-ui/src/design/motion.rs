@@ -35,6 +35,9 @@ pub const OPERATOR_SNAP_MS: u64 = 120;
 pub const PALETTE_ENTER_MS: u64 = 120;
 pub const VOICE_BAR_MS: u64 = 100;
 pub const TALLY_PULSE_MS: u64 = 1800;
+/// Cap for the infinitely repeating tally pulse. The 1.8 s breathe reads identically at 12 fps,
+/// while uncapped it redraws the whole Operator window on every display frame (120 Hz on M1).
+pub const TALLY_PULSE_MAX_FPS: f32 = 12.0;
 
 // Cinematic projector timings (260ms-550ms).
 pub const SLIDE_CROSSFADE_MS: u64 = 280;
@@ -55,6 +58,7 @@ pub fn tally_pulse_dot(
             id,
             Animation::new(Duration::from_millis(TALLY_PULSE_MS))
                 .repeat()
+                .with_max_fps(TALLY_PULSE_MAX_FPS)
                 .with_easing(pulsating_between(0.45, 1.0)),
             |el, opacity| el.opacity(opacity),
         )

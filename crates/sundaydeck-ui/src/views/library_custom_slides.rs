@@ -14,7 +14,8 @@ use crate::design::primitives::status_dot_label;
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_TILE, TOKENS, rgba8_to_gpui,
 };
-use crate::media::apply_theme_background;
+use crate::media::{BackgroundPaint, apply_theme_background};
+use crate::media_decode::ImageTier;
 use crate::renderer::render_audience_canvas;
 use crate::views::operator_workspace::OperatorWorkspace;
 
@@ -26,7 +27,6 @@ pub(crate) fn render_custom_slides_library(
     cx: &mut Context<OperatorWorkspace>,
 ) -> AnyElement {
     let store = workspace.store.read(cx);
-    let specs = store.custom_slides.clone();
     let active_theme = store.active_theme();
     let now_ms = store.now_epoch_ms();
 
@@ -41,10 +41,8 @@ pub(crate) fn render_custom_slides_library(
         .content_start()
         .gap(px(10.0));
 
-    for spec in specs {
+    for spec in &store.custom_slides {
         let slide_id = spec.id;
-        let spec_for_edit = spec.clone();
-        let spec_for_sched = spec.clone();
         let template_label = spec.layout.template_label();
         let tr = spec
             .transition_override
@@ -127,7 +125,11 @@ pub(crate) fn render_custom_slides_library(
                                 TOKENS.ink_secondary,
                                 cx,
                                 move |this, cx| {
-                                    this.open_custom_slide_builder(Some(spec_for_edit.clone()), cx);
+                                    let spec =
+                                        this.store.read(cx).custom_slide_by_id(slide_id).cloned();
+                                    if let Some(spec) = spec {
+                                        this.open_custom_slide_builder(Some(spec), cx);
+                                    }
                                 },
                             ))
                             .child(mini_action_btn(
@@ -136,13 +138,13 @@ pub(crate) fn render_custom_slides_library(
                                 TOKENS.ink_primary,
                                 cx,
                                 move |this, cx| {
+                                    let spec =
+                                        this.store.read(cx).custom_slide_by_id(slide_id).cloned();
+                                    let Some(spec) = spec else {
+                                        return;
+                                    };
                                     let sched = this.store.update(cx, |s, cx| {
-                                        s.upsert_custom_slide(
-                                            spec_for_sched.clone(),
-                                            true,
-                                            None,
-                                            cx,
-                                        )
+                                        s.upsert_custom_slide(spec, true, None, cx)
                                     });
                                     if let (Some(schedule), Some(db)) = (sched, this.db.clone()) {
                                         cx.spawn(async move |_, _| {
@@ -225,8 +227,12 @@ pub(crate) fn render_themes_library(
                 .flex()
                 .items_center()
                 .justify_center(),
-            &theme.background,
-            now_ms,
+            BackgroundPaint {
+                spec: &theme.background,
+                now_ms,
+                tier: ImageTier::Thumbnail,
+            },
+            cx,
         )
         .child(
             div()
@@ -300,7 +306,7 @@ fn mini_action_btn(
     id: String,
     icon: DeckIcon,
     tint: gpui::Rgba,
-    cx: &mut Context<OperatorWorkspace>,
+    cx: &Context<OperatorWorkspace>,
     on_click: impl Fn(&mut OperatorWorkspace, &mut Context<OperatorWorkspace>) + 'static,
 ) -> gpui::Stateful<Div> {
     div()

@@ -3,21 +3,21 @@ use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 
 use crate::error::ImportError;
-use crate::ooxml_import::{
-    ExtractedBlock, ExtractedDocument, OfficeFormat, open_zip, read_zip_text,
-};
+use crate::office_zip::OfficeZip;
+use crate::ooxml_import::{ExtractedBlock, ExtractedDocument, OfficeFormat};
 
 /// Extracts heading-grouped sections and body/bullet paragraphs from a `.docx` archive.
 pub fn extract_docx_bytes(
     source_name: &str,
     bytes: &[u8],
 ) -> Result<ExtractedDocument, ImportError> {
-    let mut archive = open_zip(bytes)?;
-    let xml = read_zip_text(&mut archive, "word/document.xml")?.ok_or_else(|| {
-        ImportError::UnsupportedFormat {
-            detail: "missing word/document.xml inside .docx archive".to_owned(),
-        }
-    })?;
+    let mut archive = OfficeZip::open(bytes)?;
+    let xml =
+        archive
+            .read_text("word/document.xml")?
+            .ok_or_else(|| ImportError::UnsupportedFormat {
+                detail: "missing word/document.xml inside .docx archive".to_owned(),
+            })?;
 
     let raw_paragraphs = parse_docx_paragraphs(&xml)?;
     let blocks = group_docx_paragraphs(raw_paragraphs);

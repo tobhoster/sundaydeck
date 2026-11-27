@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::sync::mpsc::{self, RecvTimeoutError, SyncSender};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -10,20 +11,28 @@ use crate::asr::{WhisperHttpClient, rehearsal_chunks_for_slide};
 use crate::audio::{
     AudioChunk, LiveAudioCapture, TARGET_SAMPLE_RATE_HZ, level_to_meter_bars, list_input_devices,
 };
-use crate::config::{AudioInputDevice, VoiceConfig, VoiceSyncMode, VoiceTelemetry};
+use crate::config::{
+    AUTO_FOLLOW_PAUSED_STATUS, AudioInputDevice, DEFAULT_INPUT_DEVICE_NAME, VoiceConfig,
+    VoiceSyncMode, VoiceTelemetry,
+};
+use crate::error::VoiceError;
 
 const COMMAND_QUEUE_CAP: usize = 64;
 const EVENT_QUEUE_CAP: usize = 128;
 const AUDIO_QUEUE_CAP: usize = 32;
 const ASR_WINDOW_SAMPLES: usize = (TARGET_SAMPLE_RATE_HZ as usize) * 2; // 2.0s rolling window
+const WHISPER_READY_LABEL: &str = "Local Whisper Server (Ready)";
+const MIC_UNAVAILABLE_STATUS_PREFIX: &str = "Mic unavailable";
+const MIC_DISCONNECTED_STATUS: &str = "Microphone disconnected · pick an input or reconnect";
 
 /// Commands dispatched from the GPUI main thread to the background `sundaydeck-voice` worker.
 #[derive(Debug, Clone)]
 pub enum VoiceCommand {
     SetMode(VoiceSyncMode),
     SelectDevice(Option<String>),
+    /// Replaces the deck. Shared, so resending an unchanged deck costs a pointer copy.
     UpdateLiveDeck {
-        slides: Vec<Slide>,
+        slides: Arc<[Slide]>,
         active_index: usize,
     },
     NoteSlideChanged {
@@ -83,8 +92,14 @@ impl VoiceEngineHandle {
         Self { cmd_tx, event_rx }
     }
 
-    pub fn send(&self, cmd: VoiceCommand) {
-        let _ = self.cmd_tx.try_send(cmd);
+    /// Queues `cmd` for the worker without blocking. `Err` means it was dropped (the queue of
+    /// 64 is full while the worker is busy, or the worker has stopped).
+    pub fn send(&self, cmd: VoiceCommand) -> Result<(), VoiceError> {
+        self.cmd_tx
+            .try_send(cmd)
+            .map_err(|err| VoiceError::CommandRejected {
+                detail: err.to_string(),
+            })
     }
 
     pub fn drain_events(&self) -> Vec<VoiceEvent> {
@@ -103,8 +118,10 @@ impl VoiceEngineHandle {
 struct WorkerState {
     config: VoiceConfig,
     aligner: DeckVoiceAligner,
-    slides: Vec<Slide>,
+    slides: Arc<[Slide]>,
     telemetry: VoiceTelemetry,
+    /// Last telemetry actually delivered to GPUI; maintained by `emit_telemetry` only.
+    last_emitted: VoiceTelemetry,
     capture: Option<LiveAudioCapture>,
     audio_tx: Sender<AudioChunk>,
     audio_rx: Receiver<AudioChunk>,
@@ -117,41 +134,47 @@ struct WorkerState {
     last_scripture_ref: Option<ScriptureRef>,
 }
 
+impl WorkerState {
+    /// Fresh worker state with its own bounded audio queue; probes the Whisper server once.
+    fn new(config: VoiceConfig) -> Self {
+        let (audio_tx, audio_rx) = bounded::<AudioChunk>(AUDIO_QUEUE_CAP);
+        let whisper = WhisperHttpClient::new(config.asr_endpoint_url.clone());
+        let whisper_online = whisper.is_server_reachable();
+        Self {
+            telemetry: VoiceTelemetry {
+                mode: config.mode,
+                backend_label: if whisper_online {
+                    WHISPER_READY_LABEL.to_owned()
+                } else {
+                    "Offline Aligner · Whisper server idle".to_owned()
+                },
+                ..VoiceTelemetry::default()
+            },
+            last_emitted: VoiceTelemetry::default(),
+            config,
+            aligner: DeckVoiceAligner::new(),
+            slides: Arc::from([]),
+            capture: None,
+            audio_tx,
+            audio_rx,
+            pcm_ring: Vec::with_capacity(ASR_WINDOW_SAMPLES * 2),
+            last_asr_call: Instant::now(),
+            whisper,
+            whisper_online,
+            rehearsal_queue: Vec::new(),
+            next_rehearsal_tick: Instant::now(),
+            last_scripture_ref: None,
+        }
+    }
+}
+
 fn voice_worker_loop(
     config: VoiceConfig,
     cmd_rx: mpsc::Receiver<VoiceCommand>,
     event_tx: Sender<VoiceEvent>,
 ) {
-    let (audio_tx, audio_rx) = bounded::<AudioChunk>(AUDIO_QUEUE_CAP);
-    let whisper = WhisperHttpClient::new(config.asr_endpoint_url.clone());
-    let whisper_online = whisper.is_server_reachable();
-
-    let mut state = WorkerState {
-        telemetry: VoiceTelemetry {
-            mode: config.mode,
-            backend_label: if whisper_online {
-                "Local Whisper Server (Ready)".to_owned()
-            } else {
-                "Offline Aligner · Whisper server idle".to_owned()
-            },
-            ..VoiceTelemetry::default()
-        },
-        config,
-        aligner: DeckVoiceAligner::new(),
-        slides: Vec::new(),
-        capture: None,
-        audio_tx,
-        audio_rx,
-        pcm_ring: Vec::with_capacity(ASR_WINDOW_SAMPLES * 2),
-        last_asr_call: Instant::now(),
-        whisper,
-        whisper_online,
-        rehearsal_queue: Vec::new(),
-        next_rehearsal_tick: Instant::now(),
-        last_scripture_ref: None,
-    };
-
-    emit_telemetry(&state.telemetry, &event_tx);
+    let mut state = WorkerState::new(config);
+    emit_telemetry(&mut state, &event_tx);
 
     loop {
         match cmd_rx.recv_timeout(Duration::from_millis(75)) {
@@ -161,6 +184,7 @@ fn voice_worker_loop(
             Err(RecvTimeoutError::Timeout) => {}
         }
 
+        drop_failed_capture(&mut state, &event_tx);
         drain_audio_chunks(&mut state, &event_tx);
         step_rehearsal_demo(&mut state, &event_tx);
     }
@@ -169,36 +193,13 @@ fn voice_worker_loop(
 fn handle_command(state: &mut WorkerState, cmd: VoiceCommand, event_tx: &Sender<VoiceEvent>) {
     let now_ms = current_epoch_ms();
     match cmd {
-        VoiceCommand::SetMode(mode) => {
-            state.config.mode = mode;
-            state.telemetry.mode = mode;
-            state.telemetry.suggested_slide_index = None;
-            if mode == VoiceSyncMode::Off {
-                state.capture = None;
-                state.rehearsal_queue.clear();
-                state.telemetry.listening = false;
-                state.telemetry.rehearsal_running = false;
-                state.telemetry.mic_level = 0.0;
-                state.telemetry.meter_bars = 0;
-                state.telemetry.status_label = "Auto-Follow paused".to_owned();
-            } else {
-                state.whisper_online = state.whisper.is_server_reachable();
-                state.telemetry.backend_label = if state.whisper_online {
-                    "Local Whisper Server (Ready)".to_owned()
-                } else {
-                    "Offline Aligner · Rehearsal Ready".to_owned()
-                };
-                start_mic_if_available(state);
-            }
-            emit_telemetry(&state.telemetry, event_tx);
-        }
+        VoiceCommand::SetMode(mode) => set_mode(state, mode),
         VoiceCommand::SelectDevice(name) => {
             state.config.device_name = name;
             if state.config.mode != VoiceSyncMode::Off {
-                state.capture = None;
+                stop_capture(state);
                 start_mic_if_available(state);
             }
-            emit_telemetry(&state.telemetry, event_tx);
         }
         VoiceCommand::UpdateLiveDeck {
             slides,
@@ -208,17 +209,11 @@ fn handle_command(state: &mut WorkerState, cmd: VoiceCommand, event_tx: &Sender<
             state
                 .aligner
                 .update_deck(&state.slides, active_index, now_ms);
-            state.telemetry.active_slide_index = state.aligner.active_index();
-            state.telemetry.active_slide_progress = 0.0;
-            state.telemetry.suggested_slide_index = None;
-            emit_telemetry(&state.telemetry, event_tx);
+            reset_slide_progress(state);
         }
         VoiceCommand::NoteSlideChanged { active_index } => {
             state.aligner.note_slide_changed(active_index, now_ms);
-            state.telemetry.active_slide_index = state.aligner.active_index();
-            state.telemetry.active_slide_progress = 0.0;
-            state.telemetry.suggested_slide_index = None;
-            emit_telemetry(&state.telemetry, event_tx);
+            reset_slide_progress(state);
         }
         VoiceCommand::SetOverrideLocked(locked) => {
             state.aligner.set_override_locked(locked);
@@ -226,33 +221,15 @@ fn handle_command(state: &mut WorkerState, cmd: VoiceCommand, event_tx: &Sender<
             if locked && state.telemetry.listening {
                 state.telemetry.status_label = "Paused while screen override is active".to_owned();
             }
-            emit_telemetry(&state.telemetry, event_tx);
         }
         VoiceCommand::InjectTranscript { text, mic_level } => {
             process_transcript(state, &text, mic_level, now_ms, event_tx);
+            return;
         }
-        VoiceCommand::StartRehearsalDemo => {
-            if state.config.mode == VoiceSyncMode::Off {
-                state.config.mode = VoiceSyncMode::Suggest;
-                state.telemetry.mode = VoiceSyncMode::Suggest;
-            }
-            state.rehearsal_queue.clear();
-            let start_idx = state.aligner.active_index();
-            for (offset, slide) in state.slides.iter().enumerate().skip(start_idx).take(3) {
-                for chunk in rehearsal_chunks_for_slide(slide) {
-                    state.rehearsal_queue.push((offset, chunk));
-                }
-            }
-            state.telemetry.listening = true;
-            state.telemetry.rehearsal_running = !state.rehearsal_queue.is_empty();
-            state.telemetry.status_label = "Rehearsal listening to live slides".to_owned();
-            state.next_rehearsal_tick = Instant::now();
-            emit_telemetry(&state.telemetry, event_tx);
-        }
+        VoiceCommand::StartRehearsalDemo => start_rehearsal_demo(state),
         VoiceCommand::StopRehearsalDemo => {
             state.rehearsal_queue.clear();
             state.telemetry.rehearsal_running = false;
-            emit_telemetry(&state.telemetry, event_tx);
         }
         VoiceCommand::UpdateConfig {
             asr_endpoint_url,
@@ -264,16 +241,61 @@ fn handle_command(state: &mut WorkerState, cmd: VoiceCommand, event_tx: &Sender<
                 advance_confidence_threshold.clamp(0.45, 0.95);
             state.config.lock_during_override = lock_during_override;
             state.whisper = WhisperHttpClient::new(asr_endpoint_url);
-            state.whisper_online = state.whisper.is_server_reachable();
-            state.telemetry.backend_label = if state.whisper_online {
-                "Local Whisper Server (Ready)".to_owned()
-            } else {
-                "Offline Aligner · Rehearsal Ready".to_owned()
-            };
-            emit_telemetry(&state.telemetry, event_tx);
+            refresh_whisper_status(state);
         }
-        VoiceCommand::Shutdown => {}
+        VoiceCommand::Shutdown => return,
     }
+    emit_telemetry(state, event_tx);
+}
+
+fn set_mode(state: &mut WorkerState, mode: VoiceSyncMode) {
+    state.config.mode = mode;
+    state.telemetry.mode = mode;
+    state.telemetry.suggested_slide_index = None;
+    if mode == VoiceSyncMode::Off {
+        release_mic(state, AUTO_FOLLOW_PAUSED_STATUS);
+        state.rehearsal_queue.clear();
+        state.telemetry.rehearsal_running = false;
+        return;
+    }
+    refresh_whisper_status(state);
+    if state.capture.is_none() {
+        start_mic_if_available(state);
+    }
+}
+
+fn refresh_whisper_status(state: &mut WorkerState) {
+    state.whisper_online = state.whisper.is_server_reachable();
+    state.telemetry.backend_label = if state.whisper_online {
+        WHISPER_READY_LABEL
+    } else {
+        "Offline Aligner · Rehearsal Ready"
+    }
+    .to_owned();
+}
+
+fn reset_slide_progress(state: &mut WorkerState) {
+    state.telemetry.active_slide_index = state.aligner.active_index();
+    state.telemetry.active_slide_progress = 0.0;
+    state.telemetry.suggested_slide_index = None;
+}
+
+fn start_rehearsal_demo(state: &mut WorkerState) {
+    if state.config.mode == VoiceSyncMode::Off {
+        state.config.mode = VoiceSyncMode::Suggest;
+        state.telemetry.mode = VoiceSyncMode::Suggest;
+    }
+    state.rehearsal_queue.clear();
+    let start_idx = state.aligner.active_index();
+    for (offset, slide) in state.slides.iter().enumerate().skip(start_idx).take(3) {
+        for chunk in rehearsal_chunks_for_slide(slide) {
+            state.rehearsal_queue.push((offset, chunk));
+        }
+    }
+    state.telemetry.listening = true;
+    state.telemetry.rehearsal_running = !state.rehearsal_queue.is_empty();
+    state.telemetry.status_label = "Rehearsal listening to live slides".to_owned();
+    state.next_rehearsal_tick = Instant::now();
 }
 
 fn start_mic_if_available(state: &mut WorkerState) {
@@ -284,16 +306,47 @@ fn start_mic_if_available(state: &mut WorkerState) {
             state.telemetry.status_label = format!("Listening · {}", cap.device_name);
             state.capture = Some(cap);
         }
-        Err(_) => {
+        Err(err) => {
+            // Stays "listening" so rehearsal and injected transcripts keep working without a mic.
             state.telemetry.listening = true;
             state.telemetry.device_name = state
                 .config
                 .device_name
                 .clone()
-                .unwrap_or_else(|| "System Default Input".to_owned());
-            state.telemetry.status_label = "Ready (use Test Auto-Follow or attach mic)".to_owned();
+                .unwrap_or_else(|| DEFAULT_INPUT_DEVICE_NAME.to_owned());
+            state.telemetry.status_label =
+                format!("{MIC_UNAVAILABLE_STATUS_PREFIX} ({err}) · use Test Auto-Follow");
         }
     }
+}
+
+/// Releases the microphone and forgets buffered audio so no stale PCM reaches the next capture.
+fn stop_capture(state: &mut WorkerState) {
+    state.capture = None;
+    state.pcm_ring.clear();
+    while state.audio_rx.try_recv().is_ok() {}
+}
+
+/// Stops listening: releases the microphone, idles the meter and shows why in `status`.
+fn release_mic(state: &mut WorkerState, status: &str) {
+    stop_capture(state);
+    state.telemetry.listening = false;
+    state.telemetry.mic_level = 0.0;
+    state.telemetry.meter_bars = 0;
+    state.telemetry.status_label = status.to_owned();
+}
+
+/// Drops a capture whose stream died (e.g. unplugged mic) so GPUI stops showing "Listening".
+fn drop_failed_capture(state: &mut WorkerState, event_tx: &Sender<VoiceEvent>) {
+    if !state
+        .capture
+        .as_ref()
+        .is_some_and(LiveAudioCapture::has_failed)
+    {
+        return;
+    }
+    release_mic(state, MIC_DISCONNECTED_STATUS);
+    emit_telemetry(state, event_tx);
 }
 
 fn drain_audio_chunks(state: &mut WorkerState, event_tx: &Sender<VoiceEvent>) {
@@ -315,7 +368,10 @@ fn drain_audio_chunks(state: &mut WorkerState, event_tx: &Sender<VoiceEvent>) {
     if let Some(level) = latest_level {
         state.telemetry.mic_level = level;
         state.telemetry.meter_bars = level_to_meter_bars(level);
-        emit_telemetry(&state.telemetry, event_tx);
+        // Raw level jitter alone is invisible; only a meter-bar change is worth a redraw.
+        if !state.telemetry.same_display(&state.last_emitted) {
+            emit_telemetry(state, event_tx);
+        }
     }
 
     if any_voice
@@ -349,7 +405,7 @@ fn step_rehearsal_demo(state: &mut WorkerState, event_tx: &Sender<VoiceEvent>) {
     process_transcript(state, &phrase, 0.68, current_epoch_ms(), event_tx);
     if state.rehearsal_queue.is_empty() {
         state.telemetry.rehearsal_running = false;
-        emit_telemetry(&state.telemetry, event_tx);
+        emit_telemetry(state, event_tx);
     }
 }
 
@@ -398,7 +454,7 @@ fn process_transcript(
         }
     }
 
-    emit_telemetry(&state.telemetry, event_tx);
+    emit_telemetry(state, event_tx);
 
     // Sermon Scripture Listener: surface spoken Bible references into the 1-Click Staging Queue.
     for sref in extract_scripture_refs_from_text(text) {
@@ -412,8 +468,15 @@ fn process_transcript(
     }
 }
 
-fn emit_telemetry(telemetry: &VoiceTelemetry, tx: &Sender<VoiceEvent>) {
-    let _ = tx.try_send(VoiceEvent::Telemetry(telemetry.clone()));
+/// Sends the current telemetry and, once delivered, records it as `last_emitted` so every emit
+/// site keeps the redraw gate in `drain_audio_chunks` in sync.
+fn emit_telemetry(state: &mut WorkerState, tx: &Sender<VoiceEvent>) {
+    if tx
+        .try_send(VoiceEvent::Telemetry(state.telemetry.clone()))
+        .is_ok()
+    {
+        state.last_emitted.clone_from(&state.telemetry);
+    }
 }
 
 fn current_epoch_ms() -> i64 {
@@ -423,3 +486,7 @@ fn current_epoch_ms() -> i64 {
         .unwrap_or(0);
     i64::try_from(millis).unwrap_or(i64::MAX)
 }
+
+#[cfg(test)]
+#[path = "engine_tests.rs"]
+mod tests;

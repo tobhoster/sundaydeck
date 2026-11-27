@@ -6,7 +6,7 @@ use sundaydeck_core::{
     BibleTranslation, BibleVerse, BilingualDisplayMode, CustomSlideSpec, DeckCursor,
     PresentationCommand, PresentationEngine, PresentationError, PresentationSnapshot, ReflowMode,
     ScriptureRef, ServiceId, ServiceItem, ServiceItemId, ServiceItemPayload, ServiceSchedule,
-    SlideId, Song, SongId, Theme, ThemeId, ThemeTarget, default_custom_slide_templates,
+    Slide, SlideId, Song, SongId, Theme, ThemeId, ThemeTarget, default_custom_slide_templates,
     reflow_song_bilingual,
 };
 use sundaydeck_db::{AppSettings, BootstrapData, DbWorker};
@@ -47,7 +47,9 @@ pub struct PresentationStore {
     pub themes: Vec<Arc<Theme>>,
     pub songs: Vec<Song>,
     pub custom_slides: Vec<CustomSlideSpec>,
-    pub filtered_song_ids: Option<Vec<SongId>>,
+    pub(crate) filtered_song_ids: Option<Vec<SongId>>,
+    /// Positions in `songs` of `filtered_song_ids`; both written only by the filter helpers.
+    pub(crate) filtered_song_indices: Option<Vec<usize>>,
     pub song_search_query: String,
     pub services: Vec<ServiceSchedule>,
     pub service: ServiceSchedule,
@@ -67,6 +69,8 @@ pub struct PresentationStore {
     pub voice_telemetry: VoiceTelemetry,
     pub voice_devices: Vec<AudioInputDevice>,
     pub(crate) voice_engine: Option<VoiceEngineHandle>,
+    /// Deck last sent to the voice worker; slide steps within it only send the new index.
+    pub(crate) last_voice_deck: Option<Arc<[Slide]>>,
     pub overlay_server: Option<OverlayServerHandle>,
     pub(crate) last_loop_advance_ms: i64,
 }
@@ -104,6 +108,8 @@ impl PresentationStore {
             .or_else(|| data.bible_translations.first())
             .map(|t| t.code.clone())
             .unwrap_or_else(|| "WEB".to_owned());
+        // Never pre-select a verse in an empty chapter ("Add next verse" indexes this range).
+        let selected_verse_range = (!data.initial_chapter_verses.is_empty()).then_some((0, 0));
 
         let mut store = Self {
             engine,
@@ -112,6 +118,7 @@ impl PresentationStore {
             songs: data.loaded_songs,
             custom_slides: default_custom_slide_templates(),
             filtered_song_ids: None,
+            filtered_song_indices: None,
             song_search_query: String::new(),
             services,
             service,
@@ -124,7 +131,7 @@ impl PresentationStore {
                 chapter: 23,
             },
             bible_verses: data.initial_chapter_verses,
-            selected_verse_range: Some((0, 0)),
+            selected_verse_range,
             queued_scriptures: Vec::new(),
             status_banner: None,
             clock_override_ms: None,
@@ -134,6 +141,7 @@ impl PresentationStore {
             voice_telemetry: VoiceTelemetry::default(),
             voice_devices: Vec::new(),
             voice_engine: None,
+            last_voice_deck: None,
             overlay_server: None,
             last_loop_advance_ms: 0,
         };
@@ -255,26 +263,26 @@ impl PresentationStore {
         self.songs.iter().find(|s| s.id == id)
     }
 
-    pub fn visible_songs(&self) -> Vec<Song> {
-        match &self.filtered_song_ids {
-            None => self.songs.clone(),
-            Some(ids) => ids
-                .iter()
-                .filter_map(|id| self.song_by_id(*id).cloned())
-                .collect(),
-        }
+    /// Number of songs the library list shows: every song, or the current search hits.
+    pub fn visible_song_count(&self) -> usize {
+        self.filtered_song_indices
+            .as_ref()
+            .map_or(self.songs.len(), Vec::len)
+    }
+
+    /// The `ix`-th song the library list shows, in O(1) and borrowed (no per-render clone).
+    pub fn visible_song_at(&self, ix: usize) -> Option<&Song> {
+        let song_ix = match &self.filtered_song_indices {
+            None => ix,
+            Some(indices) => *indices.get(ix)?,
+        };
+        self.songs.get(song_ix)
     }
 
     pub fn upsert_song_local(&mut self, song: Song, cx: &mut Context<Self>) {
         let song_id = song.id;
-        if let Some(existing) = self.songs.iter_mut().find(|s| s.id == song_id) {
-            *existing = song;
-        } else {
-            self.songs.push(song);
-            self.songs.sort_by_key(|a| a.title.to_lowercase());
-        }
-        self.filtered_song_ids = None;
-        self.song_search_query.clear();
+        self.upsert_song_sorted(song);
+        self.clear_song_filter();
         self.stage_library_song(song_id, cx);
     }
 

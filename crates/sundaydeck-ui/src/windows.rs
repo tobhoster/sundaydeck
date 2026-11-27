@@ -1,10 +1,14 @@
 use gpui::{
-    App, AppContext as _, Bounds, Context, DisplayId, Entity, Focusable as _, TitlebarOptions,
-    WindowBounds, WindowHandle, WindowKind, WindowOptions, point, px, size,
+    App, AppContext as _, Bounds, Context, DisplayId, Entity, Focusable as _, Subscription,
+    TitlebarOptions, WindowBounds, WindowHandle, WindowId, WindowKind, WindowOptions, point, px,
+    size,
 };
 
 use crate::store::PresentationStore;
 use crate::views::{AudienceOutputView, StageMonitorView};
+
+const AUDIENCE_CLOSED_NOTICE: &str = "Audience output closed";
+const STAGE_CLOSED_NOTICE: &str = "Stage monitor closed";
 
 /// Explicit display targeting preference for Audience Projector or Stage Confidence Monitor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -38,6 +42,16 @@ pub struct WindowManager {
 struct OutputSlot<V: 'static> {
     handle: WindowHandle<V>,
     display_label: String,
+    /// Clears this slot when the window closes on its own (Esc, Cmd+W, the Exit Fullscreen
+    /// badge, the OS close button). Dropping the slot unregisters it.
+    _closed: Subscription,
+}
+
+impl<V: 'static> OutputSlot<V> {
+    /// Whether this slot holds the window `id`.
+    fn shows(&self, id: WindowId) -> bool {
+        self.handle.window_id() == id
+    }
 }
 
 impl Default for WindowManager {
@@ -131,10 +145,8 @@ impl WindowManager {
     /// Toggles the Audience Projector window on the selected display target.
     pub fn toggle_audience(&mut self, store: Entity<PresentationStore>, cx: &mut Context<Self>) {
         if let Some(slot) = self.audience.take() {
-            let _ = slot
-                .handle
-                .update(cx, |_, window, _| window.remove_window());
-            self.last_notice = Some("Audience output closed".to_owned());
+            close_output_window(slot.handle, cx);
+            self.last_notice = Some(AUDIENCE_CLOSED_NOTICE.to_owned());
             cx.notify();
             return;
         }
@@ -147,15 +159,7 @@ impl WindowManager {
             cx,
         );
 
-        let manager = cx.entity().downgrade();
         match cx.open_window(options, |window, cx| {
-            window.on_window_should_close(cx, move |_, cx| {
-                let _ = manager.update(cx, |this, cx| {
-                    this.audience = None;
-                    cx.notify();
-                });
-                true
-            });
             let view =
                 cx.new(|cx| AudienceOutputView::new(store, cx).with_escape_badge(single_screen_fs));
             let handle = view.read(cx).focus_handle(cx);
@@ -166,6 +170,7 @@ impl WindowManager {
                 self.audience = Some(OutputSlot {
                     handle,
                     display_label: label.clone(),
+                    _closed: Self::observe_output_closed(cx),
                 });
                 self.last_notice = Some(if single_screen_fs {
                     format!("Audience fullscreen on {label} — press Esc or Cmd+W to close")
@@ -186,10 +191,8 @@ impl WindowManager {
     /// Toggles the Stage / Confidence Monitor window on the selected display target.
     pub fn toggle_stage(&mut self, store: Entity<PresentationStore>, cx: &mut Context<Self>) {
         if let Some(slot) = self.stage.take() {
-            let _ = slot
-                .handle
-                .update(cx, |_, window, _| window.remove_window());
-            self.last_notice = Some("Stage monitor closed".to_owned());
+            close_output_window(slot.handle, cx);
+            self.last_notice = Some(STAGE_CLOSED_NOTICE.to_owned());
             cx.notify();
             return;
         }
@@ -202,15 +205,7 @@ impl WindowManager {
             cx,
         );
 
-        let manager = cx.entity().downgrade();
         match cx.open_window(options, |window, cx| {
-            window.on_window_should_close(cx, move |_, cx| {
-                let _ = manager.update(cx, |this, cx| {
-                    this.stage = None;
-                    cx.notify();
-                });
-                true
-            });
             let view =
                 cx.new(|cx| StageMonitorView::new(store, cx).with_escape_badge(single_screen_fs));
             let handle = view.read(cx).focus_handle(cx);
@@ -221,6 +216,7 @@ impl WindowManager {
                 self.stage = Some(OutputSlot {
                     handle,
                     display_label: label.clone(),
+                    _closed: Self::observe_output_closed(cx),
                 });
                 self.last_notice = Some(if single_screen_fs {
                     format!("Stage fullscreen on {label} — press Esc or Cmd+W to close")
@@ -241,16 +237,58 @@ impl WindowManager {
     /// so fullscreen projector windows are never left orphaned.
     pub fn close_all_outputs(&mut self, cx: &mut Context<Self>) {
         if let Some(slot) = self.audience.take() {
-            let _ = slot
-                .handle
-                .update(cx, |_, window, _| window.remove_window());
+            close_output_window(slot.handle, cx);
         }
         if let Some(slot) = self.stage.take() {
-            let _ = slot
-                .handle
-                .update(cx, |_, window, _| window.remove_window());
+            close_output_window(slot.handle, cx);
         }
         cx.notify();
+    }
+
+    /// Subscribes to window closes so a slot never outlives its window.
+    fn observe_output_closed(cx: &mut Context<Self>) -> Subscription {
+        let manager = cx.entity().downgrade();
+        cx.on_window_closed(move |cx, closed_id| {
+            let manager = manager.clone();
+            // Window-closed observers run synchronously while the closing window's update
+            // unwinds, possibly inside a `WindowManager` update (`close_all_outputs`), so the
+            // slot is cleared on the next effect cycle instead of re-entering the manager.
+            cx.defer(move |cx| {
+                // `Err` only means the manager is already released (app shutdown).
+                let _ = manager.update(cx, |wm, cx| wm.forget_output(closed_id, cx));
+            });
+        })
+    }
+
+    /// Clears the slot of an output window that closed on its own, so the header stops showing
+    /// it as live and the next toggle opens a fresh window.
+    fn forget_output(&mut self, closed_id: WindowId, cx: &mut Context<Self>) {
+        let notice = if self.audience.as_ref().is_some_and(|s| s.shows(closed_id)) {
+            self.audience = None;
+            AUDIENCE_CLOSED_NOTICE
+        } else if self.stage.as_ref().is_some_and(|s| s.shows(closed_id)) {
+            self.stage = None;
+            STAGE_CLOSED_NOTICE
+        } else {
+            return;
+        };
+        self.last_notice = Some(notice.to_owned());
+        cx.notify();
+    }
+}
+
+/// Closes an output window immediately, so a retarget never shows two fullscreen outputs at
+/// once. From inside that same window's update (a shortcut or menu item used while the output
+/// window is focused) the handle cannot be updated, so the close waits for that update to end.
+fn close_output_window<V: 'static>(handle: WindowHandle<V>, cx: &mut App) {
+    if handle
+        .update(cx, |_, window, _| window.remove_window())
+        .is_err()
+    {
+        cx.defer(move |cx| {
+            // A second `Err` means the window is already gone.
+            let _ = handle.update(cx, |_, window, _| window.remove_window());
+        });
     }
 }
 

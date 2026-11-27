@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{BufReader, Write};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,9 @@ use crate::bible_import::ParsedBible;
 use crate::error::ImportError;
 use crate::ids::{ArrangementId, SUNDAYDECK_NAMESPACE, SectionId, SongId};
 use crate::song::{Arrangement, ReflowMode, SectionKind, Song, SongSection};
+use crate::zip_limits::{
+    MAX_ARCHIVE_JSON_ENTRY_BYTES, open_archive_checked, parse_json_entry, read_entry_capped,
+};
 
 pub const SDECK_PACK_SCHEMA_VERSION: u32 = 1;
 
@@ -310,10 +313,13 @@ pub fn import_sdeck_pack(src_path: &Path) -> Result<SdeckPack, ImportError> {
     let file = File::open(src_path).map_err(|e| ImportError::InvalidArchive {
         detail: format!("could not open pack '{}': {e}", src_path.display()),
     })?;
-    let mut archive = ZipArchive::new(file).map_err(|e| ImportError::InvalidArchive {
-        detail: format!("invalid .sdeck-pack archive: {e}"),
-    })?;
-    let manifest: SdeckPackManifest = read_zip_json(&mut archive, "manifest.json")?;
+    let mut archive = open_archive_checked(BufReader::new(file), "invalid .sdeck-pack archive")?;
+    let manifest: SdeckPackManifest =
+        read_pack_json(&mut archive, "manifest.json")?.ok_or_else(|| {
+            ImportError::InvalidArchive {
+                detail: "missing 'manifest.json' in .sdeck-pack".to_owned(),
+            }
+        })?;
     if manifest.schema_version != SDECK_PACK_SCHEMA_VERSION {
         return Err(ImportError::UnsupportedFormat {
             detail: format!(
@@ -322,15 +328,27 @@ pub fn import_sdeck_pack(src_path: &Path) -> Result<SdeckPack, ImportError> {
             ),
         });
     }
-    let bibles = read_zip_json(&mut archive, "bibles.json").unwrap_or_default();
-    let songs = read_zip_json(&mut archive, "songs.json").unwrap_or_default();
-    let liturgies = read_zip_json(&mut archive, "liturgies.json").unwrap_or_default();
+    // Content entries are optional: only an absent entry means "empty"; an oversized or
+    // malformed one still fails the import.
+    let bibles = read_pack_json(&mut archive, "bibles.json")?.unwrap_or_default();
+    let songs = read_pack_json(&mut archive, "songs.json")?.unwrap_or_default();
+    let liturgies = read_pack_json(&mut archive, "liturgies.json")?.unwrap_or_default();
     Ok(SdeckPack {
         manifest,
         bibles,
         songs,
         liturgies,
     })
+}
+
+/// Parses the JSON entry `name` from a pack; `Ok(None)` when the entry is absent.
+fn read_pack_json<T: serde::de::DeserializeOwned>(
+    archive: &mut ZipArchive<BufReader<File>>,
+    name: &str,
+) -> Result<Option<T>, ImportError> {
+    read_entry_capped(archive, name, MAX_ARCHIVE_JSON_ENTRY_BYTES)?
+        .map(|bytes| parse_json_entry(name, &bytes))
+        .transpose()
 }
 
 /// Verified 100% Public Domain starter liturgical templates (Catholic Order of Mass & Methodist Creed).
@@ -461,24 +479,4 @@ fn write_zip_json<T: Serialize>(
         .map_err(|e| ImportError::InvalidArchive {
             detail: e.to_string(),
         })
-}
-
-fn read_zip_json<T: for<'de> Deserialize<'de>>(
-    archive: &mut ZipArchive<File>,
-    name: &str,
-) -> Result<T, ImportError> {
-    let mut entry = archive
-        .by_name(name)
-        .map_err(|_| ImportError::InvalidArchive {
-            detail: format!("missing '{name}' in .sdeck-pack"),
-        })?;
-    let mut text = String::new();
-    entry
-        .read_to_string(&mut text)
-        .map_err(|e| ImportError::InvalidArchive {
-            detail: e.to_string(),
-        })?;
-    serde_json::from_str(&text).map_err(|e| ImportError::InvalidArchive {
-        detail: format!("malformed '{name}': {e}"),
-    })
 }

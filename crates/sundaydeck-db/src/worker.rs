@@ -341,8 +341,10 @@ pub fn load_bootstrap_sync(db: &Database) -> Result<BootstrapData, DbError> {
     let songs = list_songs(conn)?;
     let mut loaded_songs = Vec::with_capacity(songs.len());
     for summary in &songs {
-        if let Some(full) = get_song(conn, summary.id)? {
-            loaded_songs.push(full);
+        match get_song(conn, summary.id) {
+            Ok(Some(full)) => loaded_songs.push(full),
+            Ok(None) => {}
+            Err(err) => tracing::warn!(song_id = %summary.id, %err, "skipping unreadable song"),
         }
     }
     let services = list_services(conn)?;

@@ -154,16 +154,23 @@ pub const OVERLAY_HTML: &str = r#"<!DOCTYPE html>
       requestAnimationFrame(() => card.classList.add('visible'));
     }
 
+    // The server can deliver the same state twice (e.g. a client that connects while a frame is
+    // pending); replaying it would restart the enter animation, so identical payloads are skipped.
+    let lastPayload = null;
+    function applyPayload(text) {
+      if (text === lastPayload) return;
+      lastPayload = text;
+      try { applyState(JSON.parse(text)); } catch (_) {}
+    }
+
     function connect() {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(proto + '//' + location.host + '/ws');
-      ws.onmessage = (ev) => {
-        try { applyState(JSON.parse(ev.data)); } catch (_) {}
-      };
+      ws.onmessage = (ev) => applyPayload(ev.data);
       ws.onclose = () => setTimeout(connect, 1200);
     }
 
-    fetch('/state.json').then(r => r.json()).then(applyState).catch(() => {});
+    fetch('/state.json').then(r => r.text()).then(applyPayload).catch(() => {});
     connect();
   </script>
 </body>

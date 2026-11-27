@@ -1,17 +1,19 @@
-use std::collections::HashMap;
-use std::io::{Cursor, Read};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use quick_xml::XmlVersion;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
-use zip::ZipArchive;
 
 use crate::docx_outline_import::{
     collapse_inline_whitespace, extract_docx_bytes, extract_plain_outline, infer_document_title,
     local_name,
 };
 use crate::error::ImportError;
+use crate::office_zip::OfficeZip;
+
+/// Most slides read from one `.pptx`; duplicate slide references are dropped before the cap.
+const MAX_PPTX_SLIDES: usize = 2_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OfficeFormat {
@@ -78,17 +80,11 @@ pub fn extract_office_bytes(
         return extract_docx_bytes(source_name, bytes);
     }
     if is_zip_magic {
-        let archive = open_zip(bytes)?;
-        if archive
-            .file_names()
-            .any(|n| n.is_ok_and(|s| s == "ppt/presentation.xml"))
-        {
+        let archive = OfficeZip::open(bytes)?;
+        if archive.has_entry("ppt/presentation.xml") {
             return extract_pptx_bytes(source_name, bytes);
         }
-        if archive
-            .file_names()
-            .any(|n| n.is_ok_and(|s| s == "word/document.xml"))
-        {
+        if archive.has_entry("word/document.xml") {
             return extract_docx_bytes(source_name, bytes);
         }
         return Err(ImportError::UnsupportedFormat {
@@ -108,19 +104,20 @@ pub fn extract_pptx_bytes(
     source_name: &str,
     bytes: &[u8],
 ) -> Result<ExtractedDocument, ImportError> {
-    let mut archive = open_zip(bytes)?;
+    let mut archive = OfficeZip::open(bytes)?;
     let slide_paths = resolve_pptx_slide_paths(&mut archive)?;
     if slide_paths.is_empty() {
         return Err(ImportError::NoContent { kind: "slides" });
     }
 
     let mut blocks = Vec::new();
+    let mut read_notes = HashSet::new();
     for (idx, slide_path) in slide_paths.iter().enumerate() {
-        let Some(xml) = read_zip_text(&mut archive, slide_path)? else {
+        let Some(xml) = archive.read_text(slide_path)? else {
             continue;
         };
         let (heading, paragraphs) = parse_pptx_slide_xml(&xml)?;
-        let speaker_note = read_pptx_notes_for_slide(&mut archive, slide_path)?;
+        let speaker_note = read_pptx_notes_for_slide(&mut archive, slide_path, &mut read_notes)?;
 
         if heading.is_none() && paragraphs.is_empty() && speaker_note.is_none() {
             continue;
@@ -146,47 +143,21 @@ pub fn extract_pptx_bytes(
     })
 }
 
-pub(crate) fn open_zip(bytes: &[u8]) -> Result<ZipArchive<Cursor<&[u8]>>, ImportError> {
-    ZipArchive::new(Cursor::new(bytes)).map_err(|err| ImportError::InvalidArchive {
-        detail: err.to_string(),
-    })
-}
-
-pub(crate) fn read_zip_text(
-    archive: &mut ZipArchive<Cursor<&[u8]>>,
-    entry_name: &str,
-) -> Result<Option<String>, ImportError> {
-    let mut file = match archive.by_name(entry_name) {
-        Ok(f) => f,
-        Err(zip::result::ZipError::FileNotFound) => return Ok(None),
-        Err(err) => {
-            return Err(ImportError::InvalidArchive {
-                detail: format!("{entry_name}: {err}"),
-            });
-        }
-    };
-    let mut buf = String::new();
-    file.read_to_string(&mut buf)
-        .map_err(|err| ImportError::InvalidArchive {
-            detail: format!("failed reading {entry_name}: {err}"),
-        })?;
-    Ok(Some(buf))
-}
-
-fn resolve_pptx_slide_paths(
-    archive: &mut ZipArchive<Cursor<&[u8]>>,
-) -> Result<Vec<String>, ImportError> {
-    if let Some(pres_xml) = read_zip_text(archive, "ppt/presentation.xml")?
-        && let Some(rels_xml) = read_zip_text(archive, "ppt/_rels/presentation.xml.rels")?
+fn resolve_pptx_slide_paths(archive: &mut OfficeZip<'_>) -> Result<Vec<String>, ImportError> {
+    if let Some(pres_xml) = archive.read_text("ppt/presentation.xml")?
+        && let Some(rels_xml) = archive.read_text("ppt/_rels/presentation.xml.rels")?
     {
         let rels = parse_rels_xml(&rels_xml)?;
         let rids = parse_slide_order_rids(&pres_xml)?;
+        let mut seen = HashSet::new();
         let ordered: Vec<String> = rids
             .into_iter()
             .filter_map(|rid| {
                 rels.get(&rid)
                     .map(|target| normalize_ppt_path("ppt", target))
             })
+            .filter(|path| seen.insert(path.clone()))
+            .take(MAX_PPTX_SLIDES)
             .collect();
         if !ordered.is_empty() {
             return Ok(ordered);
@@ -194,36 +165,45 @@ fn resolve_pptx_slide_paths(
     }
 
     let mut fallback: Vec<(usize, String)> = archive
-        .file_names()
+        .entry_names()
         .filter_map(|name| {
-            let name = name.ok()?;
             let suffix = name
                 .strip_prefix("ppt/slides/slide")?
                 .strip_suffix(".xml")?;
             let num: usize = suffix.parse().ok()?;
-            Some((num, name.into_owned()))
+            Some((num, name))
         })
         .collect();
     fallback.sort_by_key(|(num, _)| *num);
-    Ok(fallback.into_iter().map(|(_, path)| path).collect())
+    Ok(fallback
+        .into_iter()
+        .map(|(_, path)| path)
+        .take(MAX_PPTX_SLIDES)
+        .collect())
 }
 
+/// Reads the speaker notes linked from `slide_path`. A notes part already read for an earlier
+/// slide (tracked in `read_notes`) is skipped, so a shared part is read and attached once.
 fn read_pptx_notes_for_slide(
-    archive: &mut ZipArchive<Cursor<&[u8]>>,
+    archive: &mut OfficeZip<'_>,
     slide_path: &str,
+    read_notes: &mut HashSet<String>,
 ) -> Result<Option<String>, ImportError> {
     let Some(file_name) = slide_path.rsplit('/').next() else {
         return Ok(None);
     };
     let rels_path = format!("ppt/slides/_rels/{file_name}.rels");
-    let Some(rels_xml) = read_zip_text(archive, &rels_path)? else {
+    let Some(rels_xml) = archive.read_text(&rels_path)? else {
         return Ok(None);
     };
     let Some(target) = find_notes_slide_target(&rels_xml)? else {
         return Ok(None);
     };
     let notes_path = normalize_ppt_path("ppt/slides", &target);
-    let Some(notes_xml) = read_zip_text(archive, &notes_path)? else {
+    if !read_notes.insert(notes_path.clone()) {
+        return Ok(None);
+    }
+    let Some(notes_xml) = archive.read_text(&notes_path)? else {
         return Ok(None);
     };
     let (_, paras) = parse_pptx_slide_xml(&notes_xml)?;

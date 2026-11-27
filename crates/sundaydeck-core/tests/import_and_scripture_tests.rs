@@ -1,7 +1,8 @@
 use sundaydeck_core::{
-    BibleVerse, PaginationBudget, ScriptureParseError, ScriptureRef, SectionKind,
-    autocomplete_books, detect_and_import_song, import_bible_xml, import_openlyrics_xml,
-    import_plain_text_song, import_songselect_usr, paginate_scripture, parse_scripture_ref,
+    BibleVerse, ImportError, PaginationBudget, ParsedBible, ScriptureParseError, ScriptureRef,
+    SectionKind, autocomplete_books, detect_and_import_bible, detect_and_import_song,
+    import_bible_xml, import_openlyrics_xml, import_plain_text_song, import_songselect_usr,
+    paginate_scripture, parse_scripture_ref,
 };
 
 #[test]
@@ -166,4 +167,75 @@ fn bible_xml_importers_parse_osis_usfx_and_zefania() {
     let hints = autocomplete_books("1c", 5);
     assert!(hints.iter().any(|b| b.name == "1 Corinthians"));
     assert!(hints.iter().any(|b| b.name == "1 Chronicles"));
+}
+
+/// Pads `prefix` with ASCII so that `ch` starts at byte 599 and byte 600 falls inside it.
+fn straddle_byte_600(prefix: &str, ch: char) -> String {
+    let mut out = prefix.to_owned();
+    out.push_str(&"a".repeat(599 - prefix.len()));
+    out.push(ch);
+    assert!(!out.is_char_boundary(600), "byte 600 must split {ch:?}");
+    out
+}
+
+#[test]
+fn bible_format_sniffing_survives_a_multibyte_char_at_byte_600() {
+    type Importer = fn(&str) -> Result<ParsedBible, ImportError>;
+    const ZEFANIA_BODY: &str = r#""><BIBLEBOOK bnumber="1"><CHAPTER cnumber="1"><VERS vnumber="1">In the beginning God created.</VERS><VERS vnumber="2">The earth was formless.</VERS></CHAPTER></BIBLEBOOK></XMLBIBLE>"#;
+    // (label, head before padding, tail after padding, importer, expected book number)
+    let cases: [(&str, &str, &str, Importer, u8); 5] = [
+        (
+            "zefania via import_bible_xml",
+            r#"<XMLBIBLE biblename=""#,
+            ZEFANIA_BODY,
+            |raw| import_bible_xml("ZEF", "", raw),
+            1,
+        ),
+        (
+            "osis via import_bible_xml",
+            "<osis><!-- ",
+            r#" --><osisText><div type="book" osisID="John"><chapter osisID="John.3">
+                <verse osisID="John.3.16">For God so loved the world.</verse>
+                <verse osisID="John.3.17">For God did not send his Son.</verse>
+            </chapter></div></osisText></osis>"#,
+            |raw| import_bible_xml("OSIS", "Test OSIS", raw),
+            43,
+        ),
+        (
+            "usfx via import_bible_xml",
+            "<usfx><!-- ",
+            r#" --><book id="PSA"><c id="23"/><p><v id="1"/>The Lord is my shepherd.<ve/><v id="2"/>He makes me lie down.<ve/></p></book></usfx>"#,
+            |raw| import_bible_xml("USFX", "Test USFX", raw),
+            19,
+        ),
+        (
+            "usfm via detect_and_import_bible",
+            "\\id PSA ",
+            "\n\\c 23\n\\v 1 The Lord is my shepherd.\n\\v 2 He makes me lie down.\n",
+            |raw| detect_and_import_bible("USFM", "Test USFM", "psalms.txt", raw),
+            19,
+        ),
+        (
+            "zefania via detect_and_import_bible",
+            r#"<XMLBIBLE biblename=""#,
+            ZEFANIA_BODY,
+            |raw| detect_and_import_bible("ZEF", "", "bible.dat", raw),
+            1,
+        ),
+    ];
+
+    for ch in ['é', '€', '🙏'] {
+        for (label, head, tail, import, book_number) in cases {
+            let raw = format!("{}{tail}", straddle_byte_600(head, ch));
+            let parsed =
+                import(&raw).unwrap_or_else(|err| panic!("{label} with {ch:?} at byte 599: {err}"));
+            assert_eq!(parsed.verses.len(), 2, "{label} with {ch:?}");
+            assert_eq!(parsed.verses[0].book_number, book_number, "{label}");
+            assert_eq!(
+                parsed.verses[1].verse,
+                parsed.verses[0].verse + 1,
+                "{label}"
+            );
+        }
+    }
 }

@@ -86,25 +86,30 @@ impl WorkspaceLayout {
         self.active_drag = Some((axis, start_coord, start_size));
     }
 
+    /// Resizes the dragged pane to follow the mouse. Like `HashSet::insert`, returns whether the
+    /// stored size actually changed, so mouse moves past a clamp limit cause no redraw.
     pub fn apply_drag(&mut self, mouse_x: f32, mouse_y: f32) -> bool {
         let Some((axis, start_coord, start_size)) = self.active_drag else {
             return false;
         };
-        match axis {
-            DragResizeAxis::LeftRail => {
-                self.left_width =
-                    (start_size + (mouse_x - start_coord)).clamp(MIN_LEFT_WIDTH, MAX_LEFT_WIDTH);
-            }
-            DragResizeAxis::RightDeck => {
-                self.right_width =
-                    (start_size - (mouse_x - start_coord)).clamp(MIN_RIGHT_WIDTH, MAX_RIGHT_WIDTH);
-            }
-            DragResizeAxis::LibrarySplit => {
-                self.library_height = (start_size - (mouse_y - start_coord))
-                    .clamp(MIN_LIBRARY_HEIGHT, MAX_LIBRARY_HEIGHT);
-            }
-        }
-        true
+        let (size, next) = match axis {
+            DragResizeAxis::LeftRail => (
+                &mut self.left_width,
+                (start_size + (mouse_x - start_coord)).clamp(MIN_LEFT_WIDTH, MAX_LEFT_WIDTH),
+            ),
+            DragResizeAxis::RightDeck => (
+                &mut self.right_width,
+                (start_size - (mouse_x - start_coord)).clamp(MIN_RIGHT_WIDTH, MAX_RIGHT_WIDTH),
+            ),
+            DragResizeAxis::LibrarySplit => (
+                &mut self.library_height,
+                (start_size - (mouse_y - start_coord))
+                    .clamp(MIN_LIBRARY_HEIGHT, MAX_LIBRARY_HEIGHT),
+            ),
+        };
+        let changed = *size != next;
+        *size = next;
+        changed
     }
 
     pub fn end_drag(&mut self) -> bool {

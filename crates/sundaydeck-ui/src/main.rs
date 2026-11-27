@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
             };
             let show_first_run = !bootstrap.settings.onboarding_completed;
             let voice_handle = VoiceEngineHandle::spawn(voice_cfg);
-            let voice_for_close = voice_handle.clone();
+            let voice_for_quit = voice_handle.clone();
             let store = cx.new(|_| {
                 let mut s = PresentationStore::from_bootstrap(bootstrap);
                 s.attach_voice_engine(voice_handle);
@@ -66,11 +66,21 @@ fn main() -> anyhow::Result<()> {
                 ..Default::default()
             };
 
-            let windows_on_close = windows.clone();
+            // Every quit path (menu, Cmd+Q from any window, Operator Cmd+W, the red close button)
+            // ends in `App::shutdown`, so voice and the output windows are torn down exactly once.
+            let windows_on_quit = windows.clone();
+            cx.on_app_quit(move |cx| {
+                // The worker also stops when the process exits, so a dropped Shutdown is harmless.
+                if let Err(err) = voice_for_quit.send(VoiceCommand::Shutdown) {
+                    eprintln!("SundayDeck voice shutdown: {err}");
+                }
+                windows_on_quit.update(cx, |wm, cx| wm.close_all_outputs(cx));
+                async {}
+            })
+            .detach();
+
             if let Err(err) = cx.open_window(options, |window, cx| {
-                window.on_window_should_close(cx, move |_, cx| {
-                    voice_for_close.send(VoiceCommand::Shutdown);
-                    windows_on_close.update(cx, |wm, cx| wm.close_all_outputs(cx));
+                window.on_window_should_close(cx, |_, cx| {
                     cx.quit();
                     true
                 });

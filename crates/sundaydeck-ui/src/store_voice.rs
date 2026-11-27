@@ -1,16 +1,21 @@
 use std::sync::Arc;
 
 use gpui::Context;
-use sundaydeck_core::{OutputOverride, PresentationCommand, Theme};
+use sundaydeck_core::{OutputOverride, PresentationCommand, ScriptureRef, Theme};
+use sundaydeck_voice::config::{AUTO_FOLLOW_PAUSED_STATUS, DEFAULT_INPUT_DEVICE_NAME};
 use sundaydeck_voice::{VoiceCommand, VoiceEngineHandle, VoiceEvent, VoiceSyncMode};
 
 use crate::store::PresentationStore;
+
+/// Spoken references kept in the Auto-Follow Scripture Queue (newest first).
+const MAX_QUEUED_SCRIPTURES: usize = 5;
 
 impl PresentationStore {
     /// Attaches a running background `sundaydeck-voice` worker and syncs the current live deck.
     pub fn attach_voice_engine(&mut self, handle: VoiceEngineHandle) {
         self.voice_devices = VoiceEngineHandle::list_devices();
         self.voice_engine = Some(handle);
+        self.last_voice_deck = None;
         self.sync_voice_engine_state();
     }
 
@@ -23,13 +28,11 @@ impl PresentationStore {
             self.voice_telemetry.meter_bars = 0;
             self.voice_telemetry.suggested_slide_index = None;
             self.voice_telemetry.rehearsal_running = false;
-            self.voice_telemetry.status_label = "Auto-Follow paused".to_owned();
+            self.voice_telemetry.status_label = AUTO_FOLLOW_PAUSED_STATUS.to_owned();
         } else {
             self.voice_telemetry.status_label = format!("Auto-Follow: {}", mode.label());
         }
-        if let Some(engine) = &self.voice_engine {
-            engine.send(VoiceCommand::SetMode(mode));
-        }
+        self.forward_to_voice(VoiceCommand::SetMode(mode));
         cx.notify();
     }
 
@@ -37,10 +40,8 @@ impl PresentationStore {
     pub fn select_voice_device(&mut self, device_name: Option<String>, cx: &mut Context<Self>) {
         self.voice_telemetry.device_name = device_name
             .clone()
-            .unwrap_or_else(|| "System Default Input".to_owned());
-        if let Some(engine) = &self.voice_engine {
-            engine.send(VoiceCommand::SelectDevice(device_name));
-        }
+            .unwrap_or_else(|| DEFAULT_INPUT_DEVICE_NAME.to_owned());
+        self.forward_to_voice(VoiceCommand::SelectDevice(device_name));
         cx.notify();
     }
 
@@ -49,25 +50,22 @@ impl PresentationStore {
         let running = self.voice_telemetry.rehearsal_running;
         if running {
             self.voice_telemetry.rehearsal_running = false;
-            if let Some(engine) = &self.voice_engine {
-                engine.send(VoiceCommand::StopRehearsalDemo);
-            }
+            self.forward_to_voice(VoiceCommand::StopRehearsalDemo);
         } else {
             if self.voice_sync_mode == VoiceSyncMode::Off {
                 self.set_voice_sync_mode(VoiceSyncMode::Suggest, cx);
             }
             self.sync_voice_engine_state();
             self.voice_telemetry.rehearsal_running = true;
-            if let Some(engine) = &self.voice_engine {
-                engine.send(VoiceCommand::StartRehearsalDemo);
-            }
+            self.forward_to_voice(VoiceCommand::StartRehearsalDemo);
         }
         cx.notify();
     }
 
     /// Synchronizes the current live deck slides, active index, and override lock state
-    /// to the background voice worker whenever live presentation state changes.
-    pub fn sync_voice_engine_state(&self) {
+    /// to the background voice worker whenever live presentation state changes. The deck itself
+    /// is only re-sent when it changed; a plain slide step sends just the new index.
+    pub fn sync_voice_engine_state(&mut self) {
         let Some(engine) = &self.voice_engine else {
             return;
         };
@@ -76,43 +74,81 @@ impl PresentationStore {
             snap.output_override,
             OutputOverride::Black | OutputOverride::Logo
         );
-        engine.send(VoiceCommand::SetOverrideLocked(locked));
-        if let Some(live) = &snap.live {
-            engine.send(VoiceCommand::UpdateLiveDeck {
-                slides: live.slides.to_vec(),
-                active_index: live.active_index,
-            });
+        self.forward_to_voice(VoiceCommand::SetOverrideLocked(locked));
+        let Some(live) = &snap.live else {
+            return;
+        };
+        let active_index = live.active_index;
+        let deck_known = self
+            .last_voice_deck
+            .as_ref()
+            .is_some_and(|deck| Arc::ptr_eq(deck, &live.slides));
+        let command = if deck_known {
+            VoiceCommand::NoteSlideChanged { active_index }
+        } else {
+            VoiceCommand::UpdateLiveDeck {
+                slides: Arc::clone(&live.slides),
+                active_index,
+            }
+        };
+        // A dropped command leaves the worker behind; forgetting the deck makes the next sync
+        // resend it whole (with the current index) instead of stepping an outdated deck.
+        self.last_voice_deck = match engine.send(command) {
+            Ok(()) => Some(Arc::clone(&live.slides)),
+            Err(err) => {
+                tracing::warn!("voice deck sync dropped: {err}");
+                None
+            }
+        };
+    }
+
+    /// Best-effort forward to the attached voice worker (none attached: nothing to do). A dropped
+    /// command is logged; the operator can repeat the action.
+    pub(crate) fn forward_to_voice(&self, command: VoiceCommand) {
+        if let Some(engine) = &self.voice_engine
+            && let Err(err) = engine.send(command)
+        {
+            tracing::warn!("voice command dropped: {err}");
         }
     }
 
     /// Drains asynchronous telemetry & auto-advance decisions from the background voice thread.
-    /// Returns `true` if UI state changed and warrants a re-render.
-    pub fn poll_voice_events(&mut self, cx: &mut Context<Self>) -> bool {
+    /// Notifies only when something the operator can see changed; a telemetry update that only
+    /// moves the (undisplayed) raw mic level is applied silently.
+    pub fn poll_voice_events(&mut self, cx: &mut Context<Self>) {
         let Some(engine) = self.voice_engine.clone() else {
-            return false;
+            return;
         };
-        let events = engine.drain_events();
-        if events.is_empty() {
-            return false;
-        }
-        for event in events {
+        let mut visible_change = false;
+        for event in engine.drain_events() {
             match event {
                 VoiceEvent::Telemetry(t) => {
+                    visible_change |= !t.same_display(&self.voice_telemetry);
                     self.voice_sync_mode = t.mode;
                     self.voice_telemetry = t;
                 }
                 VoiceEvent::AutoAdvance { target_index, .. } => {
                     let _ = self.dispatch(PresentationCommand::SelectLiveSlide(target_index), cx);
+                    visible_change = true;
                 }
                 VoiceEvent::ScriptureMentioned { reference, .. } => {
-                    if !self.queued_scriptures.contains(&reference) {
-                        self.queued_scriptures.insert(0, reference);
-                        self.queued_scriptures.truncate(5);
-                    }
+                    visible_change |= self.queue_scripture(reference);
                 }
             }
         }
-        cx.notify();
+        if visible_change {
+            cx.notify();
+        }
+    }
+
+    /// Queues a spoken reference newest-first, keeping at most [`MAX_QUEUED_SCRIPTURES`].
+    /// Like `HashSet::insert`, returns whether it was newly queued.
+    fn queue_scripture(&mut self, reference: ScriptureRef) -> bool {
+        if self.queued_scriptures.contains(&reference) {
+            return false;
+        }
+        self.queued_scriptures.insert(0, reference);
+        self.queued_scriptures.truncate(MAX_QUEUED_SCRIPTURES);
         true
     }
 
@@ -139,7 +175,7 @@ impl PresentationStore {
             VoiceSyncMode::Auto => 3,
         };
         self.voice_telemetry.status_label = match (mode, suggested_idx) {
-            (VoiceSyncMode::Off, _) => "Auto-Follow paused".to_owned(),
+            (VoiceSyncMode::Off, _) => AUTO_FOLLOW_PAUSED_STATUS.to_owned(),
             (VoiceSyncMode::Suggest, Some(idx)) => {
                 format!("Suggested slide {} ({:.0}%)", idx + 1, confidence * 100.0)
             }

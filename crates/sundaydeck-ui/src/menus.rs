@@ -19,12 +19,8 @@ const GITHUB_ISSUES_URL: &str = "https://github.com/tobhoster/sundaydeck/issues"
 /// and binds global app-level handlers (Quit, Help links, and Output Window toggles) so menu items
 /// remain responsive regardless of which window or input is currently focused.
 pub fn register_app_menus(cx: &mut App) {
-    cx.on_action(|_: &QuitApp, cx| {
-        if let Some(windows) = cx.try_global::<AppServices>().map(|s| s.windows.clone()) {
-            windows.update(cx, |wm, cx| wm.close_all_outputs(cx));
-        }
-        cx.quit();
-    });
+    // Voice shutdown and output-window teardown run in the `on_app_quit` hook (see `main.rs`).
+    cx.on_action(|_: &QuitApp, cx| cx.quit());
     cx.on_action(|_: &ToggleAudienceWindow, cx| {
         if let Some((store, windows)) = cx
             .try_global::<AppServices>()

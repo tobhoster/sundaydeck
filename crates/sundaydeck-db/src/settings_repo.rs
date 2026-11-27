@@ -95,10 +95,13 @@ pub fn load_settings(conn: &Connection) -> Result<AppSettings, DbError> {
         )
         .optional()?;
 
-    match raw {
-        Some(json) => Ok(serde_json::from_str(&json)?),
-        None => Ok(AppSettings::default()),
-    }
+    let Some(json) = raw else {
+        return Ok(AppSettings::default());
+    };
+    Ok(serde_json::from_str(&json).unwrap_or_else(|err| {
+        tracing::warn!(%err, "corrupt app settings JSON; using defaults");
+        AppSettings::default()
+    }))
 }
 
 pub fn save_settings(conn: &Connection, settings: &AppSettings) -> Result<(), DbError> {

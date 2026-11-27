@@ -65,7 +65,7 @@ impl Render for DesignGalleryView {
                 .child(divider())
                 .child(render_operator_typography())
                 .child(divider())
-                .child(render_slide_tile_showcase())
+                .child(render_slide_tile_showcase(cx))
                 .child(divider())
                 .child(render_switcher_and_voice_showcase(motion)),
             GalleryPage::ProjectionAndIcons => div()
@@ -75,7 +75,7 @@ impl Render for DesignGalleryView {
                 .flex()
                 .flex_col()
                 .gap(px(24.0))
-                .child(render_projection_font_pack())
+                .child(render_projection_font_pack(cx))
                 .child(divider())
                 .child(render_custom_layouts_and_motions())
                 .child(divider())

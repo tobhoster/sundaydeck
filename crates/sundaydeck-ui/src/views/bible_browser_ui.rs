@@ -28,7 +28,7 @@ pub(crate) fn render_bible_browser(
     let translations = store.bible_translations.clone();
     let active_code = store.active_translation_code.clone();
     let browse_mode = store.bible_browse_mode.clone();
-    let verses = store.bible_verses.clone();
+    let verses = &store.bible_verses;
     let selection = store.selected_verse_range;
     let query_text = view.query_input.read(cx).value().to_owned();
 
@@ -241,7 +241,7 @@ pub(crate) fn render_bible_browser(
         .child(build_bible_footer(selected_slice.len(), slide_count, cx))
 }
 
-fn build_quick_or_autocomplete_chips(query_text: &str, cx: &mut Context<BibleBrowserView>) -> Div {
+fn build_quick_or_autocomplete_chips(query_text: &str, cx: &Context<BibleBrowserView>) -> Div {
     let mut chips = div().flex().items_center().gap(px(5.0));
     if !query_text.trim().is_empty() && parse_scripture_ref(query_text).is_err() {
         for meta in autocomplete_books(query_text, 4) {
@@ -298,7 +298,7 @@ fn build_quick_or_autocomplete_chips(query_text: &str, cx: &mut Context<BibleBro
 fn build_bible_footer(
     selected_count: usize,
     slide_count: usize,
-    cx: &mut Context<BibleBrowserView>,
+    cx: &Context<BibleBrowserView>,
 ) -> Div {
     let summary = format!(
         "{selected_count} {} · {slide_count} {}",
@@ -334,17 +334,7 @@ fn build_bible_footer(
                     div()
                         .id("bible-extend-range")
                         .cursor_pointer()
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.store.update(cx, |s, cx| {
-                                if let Some((start, end)) = s.selected_verse_range {
-                                    let next_end =
-                                        (end + 1).min(s.bible_verses.len().saturating_sub(1));
-                                    s.selected_verse_range = Some((start, next_end));
-                                    let slice = s.bible_verses[start..=next_end].to_vec();
-                                    s.stage_scripture_verses(&slice, false, cx);
-                                }
-                            });
-                        }))
+                        .on_click(cx.listener(|this, _, _, cx| this.stage_next_verse(cx)))
                         .child(sculpted_secondary_button_body(
                             Some(DeckIcon::Plus),
                             "Add next verse",

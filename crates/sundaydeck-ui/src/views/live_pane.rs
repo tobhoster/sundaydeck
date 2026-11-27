@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use gpui::{
     Context, Div, FontWeight, InteractiveElement, ObjectFit, ParentElement,
     StatefulInteractiveElement, Styled, StyledImage, div, img, px, rgb, rgba,
@@ -12,8 +14,7 @@ use crate::design::primitives::{
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS,
 };
-use crate::media::load_background_image;
-use crate::renderer::render_audience_canvas;
+use crate::renderer::{photo_slide_thumbnail, render_audience_canvas};
 use crate::views::operator_workspace::OperatorWorkspace;
 use crate::views::override_controls::{
     render_override_buttons, render_scripture_queue_strip, render_stage_cue_strip,
@@ -30,7 +31,8 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
     let now_ms = store_ref.now_epoch_ms();
     let motion_mode = store_ref.motion_mode;
     let voice_mode = store_ref.voice_sync_mode;
-    let voice_telemetry = store_ref.voice_telemetry.clone();
+    let voice_telemetry = &store_ref.voice_telemetry;
+    // Copied (not borrowed): `render_scripture_queue_strip` needs `&mut cx` while reading it.
     let queued_scriptures = store_ref.queued_scriptures.clone();
     let live = snapshot.live.clone();
     let active_override = snapshot.output_override;
@@ -52,10 +54,15 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                 cursor.title.clone(),
                 pos,
                 cursor.active_index,
-                cursor.slides.to_vec(),
+                Arc::clone(&cursor.slides),
             )
         }
-        None => ("Nothing on screen".to_owned(), String::new(), 0, Vec::new()),
+        None => (
+            "Nothing on screen".to_owned(),
+            String::new(),
+            0,
+            Arc::from([]),
+        ),
     };
 
     let monitor_border = if active_override != OutputOverride::None {
@@ -142,10 +149,7 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
             SlideContent::Text { section_kind, .. } => *section_kind,
             _ => None,
         };
-        let slide_thumb = match &slide.content {
-            SlideContent::Image { uri, .. } => uri.as_deref().and_then(load_background_image),
-            _ => None,
-        };
+        let slide_thumb = photo_slide_thumbnail(&slide.content, cx);
         let excerpt: String = slide
             .content
             .primary_text()
@@ -282,6 +286,17 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
 
         live_list = live_list.child(card);
     }
+
+    // Built here because the helpers below take `&mut cx`, which ends the store borrow.
+    let transcript_strip = (voice_mode != VoiceSyncMode::Off
+        && !voice_telemetry.last_transcript.is_empty())
+    .then(|| {
+        render_voice_transcript_strip(
+            voice_mode,
+            &voice_telemetry.last_transcript,
+            voice_telemetry.confidence,
+        )
+    });
 
     div()
         .w(px(deck_width))
@@ -458,12 +473,8 @@ pub fn render_live_pane(workspace: &OperatorWorkspace, cx: &mut Context<Operator
                 .child(monitor)
                 .child(render_override_buttons(active_override, has_live, cx));
 
-            if voice_mode != VoiceSyncMode::Off && !voice_telemetry.last_transcript.is_empty() {
-                deck_top = deck_top.child(render_voice_transcript_strip(
-                    voice_mode,
-                    &voice_telemetry.last_transcript,
-                    voice_telemetry.confidence,
-                ));
+            if let Some(strip) = transcript_strip {
+                deck_top = deck_top.child(strip);
             }
             if !queued_scriptures.is_empty() {
                 deck_top = deck_top.child(render_scripture_queue_strip(&queued_scriptures, cx));

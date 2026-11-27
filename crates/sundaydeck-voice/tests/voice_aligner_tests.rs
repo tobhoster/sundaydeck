@@ -1,7 +1,8 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use sundaydeck_core::defaults::{sample_amazing_grace, sample_it_is_well};
-use sundaydeck_core::reflow_song;
+use sundaydeck_core::{Slide, reflow_song};
 use sundaydeck_voice::{
     DeckVoiceAligner, VoiceCommand, VoiceConfig, VoiceDecision, VoiceEngineHandle, VoiceEvent,
     VoiceSyncMode, encode_wav_pcm16,
@@ -153,18 +154,24 @@ fn wav_encoder_emits_valid_riff_header_and_worker_thread_advances_live() {
     assert_eq!(wav.len(), 44 + 8);
 
     let song = sample_amazing_grace();
-    let slides = reflow_song(&song, song.default_arrangement_id, None);
+    let slides: Arc<[Slide]> = Arc::from(reflow_song(&song, song.default_arrangement_id, None));
     let handle = VoiceEngineHandle::spawn(VoiceConfig::default());
-    handle.send(VoiceCommand::UpdateLiveDeck {
-        slides,
-        active_index: 0,
-    });
-    handle.send(VoiceCommand::SetMode(VoiceSyncMode::Auto));
+    handle
+        .send(VoiceCommand::UpdateLiveDeck {
+            slides,
+            active_index: 0,
+        })
+        .expect("worker accepts the deck");
+    handle
+        .send(VoiceCommand::SetMode(VoiceSyncMode::Auto))
+        .expect("worker accepts the mode");
     std::thread::sleep(Duration::from_millis(60));
-    handle.send(VoiceCommand::InjectTranscript {
-        text: "twas grace that taught my heart to fear and grace my fears relieved".to_owned(),
-        mic_level: 0.72,
-    });
+    handle
+        .send(VoiceCommand::InjectTranscript {
+            text: "twas grace that taught my heart to fear and grace my fears relieved".to_owned(),
+            mic_level: 0.72,
+        })
+        .expect("worker accepts the transcript");
 
     // Poll briefly for the background worker to emit live telemetry with non-zero mic bars.
     let mut events = Vec::new();
@@ -184,5 +191,7 @@ fn wav_encoder_emits_valid_riff_header_and_worker_thread_advances_live() {
             .any(|e| matches!(e, VoiceEvent::Telemetry(t) if t.meter_bars >= 2)),
         "expected live telemetry from background voice worker, got {events:?}"
     );
-    handle.send(VoiceCommand::Shutdown);
+    handle
+        .send(VoiceCommand::Shutdown)
+        .expect("worker accepts shutdown");
 }

@@ -58,15 +58,16 @@ pub const CONSOLE_FONTS: &[(&str, &str)] = &[
 ];
 
 /// Resolves a requested font family safely against loaded fonts so missing user fonts
-/// never panic on the live path.
+/// never panic on the live path. Runs once per canvas per frame, so it asks the text system
+/// about the one family instead of listing (and sorting) every installed family.
 pub fn resolve_font_family(requested: &str, cx: &App) -> SharedString {
     if requested.is_empty() || requested == ".SystemUIFont" {
         return SharedString::from(FONT_LYRIC_BOLD);
     }
-    let available = cx.text_system().all_font_names();
-    if available.iter().any(|name| name == requested) {
+    let text_system = cx.text_system();
+    if text_system.has_font_family(requested) {
         SharedString::from(requested.to_owned())
-    } else if available.iter().any(|name| name == FONT_BODY) {
+    } else if text_system.has_font_family(FONT_BODY) {
         SharedString::from(FONT_BODY)
     } else {
         SharedString::from(".SystemUIFont")

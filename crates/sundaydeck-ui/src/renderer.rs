@@ -1,20 +1,25 @@
+use std::sync::Arc;
+
 use gpui::{
-    AnyElement, App, Div, FontWeight, IntoElement, ObjectFit, ParentElement, Pixels, SharedString,
-    Styled, StyledImage, div, img, px, rgb,
+    AnyElement, App, Div, Edges, FontWeight, IntoElement, ObjectFit, ParentElement, Pixels,
+    RenderImage, Styled, StyledImage, div, img, px, rgb,
 };
 use sundaydeck_core::{
-    AudienceAlert, AudienceRenderState, HorizontalAlign, ServiceTimer, Slide, SlideContent, Theme,
-    VerticalAlign,
+    AudienceAlert, AudienceRenderState, CustomSlideLayout, HorizontalAlign, ServiceTimer, Slide,
+    SlideContent, Theme, VerticalAlign,
 };
 
 use crate::custom_slide_renderer::{
-    render_audience_alert_banner, render_audience_timer_badge, render_custom_slide_layout,
+    PHOTO_MATTE, SlideCanvas, render_audience_alert_banner, render_audience_timer_badge,
+    render_custom_slide_layout,
 };
-use crate::design::fonts::resolve_font_family as resolve_bundled_font;
+use crate::design::fonts::resolve_font_family;
 use crate::design::tokens::{
     FONT_DISPLAY, FONT_MONO, RADIUS_CONTROL, TOKENS, rgba8_to_gpui, weight_from_u16,
 };
-use crate::media::{apply_theme_background, load_background_image};
+use crate::media::{BackgroundPaint, apply_theme_background};
+use crate::media_cache::{MediaLookup, background_image, background_image_lookup};
+use crate::media_decode::{DEFAULT_CHURCH_LOGO_URI, ImageTier};
 
 /// Renders the exact Audience Output canvas at any scale (both full-resolution projector
 /// and miniature 16:9 Operator Monitor preview) for pixel-faithful WYSIWYG.
@@ -33,11 +38,14 @@ pub fn render_audience_canvas(
             audience_timer,
             ..
         } => render_logo_splash(
-            logo_uri.as_deref(),
+            render_logo_mark(logo_uri.as_deref(), scale, cx),
             fallback_title,
-            audience_timer.as_ref(),
-            now_ms,
             scale,
+        )
+        .children(
+            audience_timer
+                .as_ref()
+                .map(|timer| render_splash_timer(timer, now_ms, scale)),
         )
         .into_any_element(),
         AudienceRenderState::Slide {
@@ -63,11 +71,20 @@ pub fn render_audience_canvas(
 
 /// Renders ONLY the theme background layer (used by layer-aware Audience transitions so backgrounds
 /// stay steady while foreground lyrics/verses animate between slides of the same item).
-pub fn render_audience_background_only(theme: &Theme, now_ms: i64) -> AnyElement {
+pub fn render_audience_background_only(
+    theme: &Theme,
+    canvas_width_px: f32,
+    now_ms: i64,
+    cx: &App,
+) -> AnyElement {
     apply_theme_background(
         div().relative().size_full().overflow_hidden(),
-        &theme.background,
-        now_ms,
+        BackgroundPaint {
+            spec: &theme.background,
+            now_ms,
+            tier: ImageTier::for_canvas_width(canvas_width_px),
+        },
+        cx,
     )
     .into_any_element()
 }
@@ -93,12 +110,6 @@ pub fn render_audience_foreground_only(
         return div().size_full().into_any_element();
     };
     let font_family = resolve_font_family(&theme.font_family, cx);
-    let canvas_w = Theme::REFERENCE_WIDTH_PX * scale;
-    let canvas_h = Theme::REFERENCE_HEIGHT_PX * scale;
-    let pad_t = px(canvas_h * theme.margins.top_pct);
-    let pad_r = px(canvas_w * theme.margins.right_pct);
-    let pad_b = px(canvas_h * theme.margins.bottom_pct);
-    let pad_l = px(canvas_w * theme.margins.left_pct);
 
     let mut root = div()
         .relative()
@@ -106,106 +117,156 @@ pub fn render_audience_foreground_only(
         .overflow_hidden()
         .font_family(font_family);
     if *show_text {
-        root = root.child(render_slide_foreground(
-            slide,
+        let canvas = SlideCanvas {
             theme,
-            audience_timer.as_ref(),
+            timer: audience_timer.as_ref(),
             now_ms,
             scale,
-            pad_t,
-            pad_r,
-            pad_b,
-            pad_l,
-        ));
-        if let Some(active_timer) = audience_timer.as_ref()
-            && !matches!(
-                slide.content,
-                SlideContent::Custom {
-                    layout: sundaydeck_core::CustomSlideLayout::CountdownSlide { .. },
-                    ..
-                }
-            )
-        {
-            root = root.child(render_audience_timer_badge(active_timer, now_ms, scale));
-        }
-        if let Some(active_alert) = alert.as_ref() {
-            root = root.child(render_audience_alert_banner(active_alert, scale));
-        }
+            padding: safe_area(theme, scale),
+            image: slide_image(&slide.content, canvas_tier(scale), cx),
+        };
+        root = root.children(slide_text_layers(slide, &canvas, alert.as_ref()));
     }
     root.into_any_element()
 }
 
-/// Resolves a theme font safely against bundled and loaded fonts so missing fonts never panic.
-pub fn resolve_font_family(requested: &str, cx: &App) -> SharedString {
-    resolve_bundled_font(requested, cx)
+/// Decode tier for a canvas drawn at `scale` of the reference projector width.
+fn canvas_tier(scale: f32) -> ImageTier {
+    ImageTier::for_canvas_width(Theme::REFERENCE_WIDTH_PX * scale)
 }
 
-fn render_logo_splash(
-    logo_uri: Option<&str>,
-    church_name: &str,
-    timer: Option<&ServiceTimer>,
-    now_ms: i64,
-    scale: f32,
-) -> Div {
+/// Safe-area padding from the theme's margins on a canvas drawn at `scale`.
+fn safe_area(theme: &Theme, scale: f32) -> Edges<Pixels> {
+    let canvas_w = Theme::REFERENCE_WIDTH_PX * scale;
+    let canvas_h = Theme::REFERENCE_HEIGHT_PX * scale;
+    Edges {
+        top: px(canvas_h * theme.margins.top_pct),
+        right: px(canvas_w * theme.margins.right_pct),
+        bottom: px(canvas_h * theme.margins.bottom_pct),
+        left: px(canvas_w * theme.margins.left_pct),
+    }
+}
+
+/// The decode state of the image a slide paints (a photo slide or an image-bearing custom
+/// layout); `Failed` when the slide has no image.
+fn slide_image(content: &SlideContent, tier: ImageTier, cx: &App) -> MediaLookup<Arc<RenderImage>> {
+    let uri = match content {
+        SlideContent::Image { uri, .. }
+        | SlideContent::Custom {
+            layout:
+                CustomSlideLayout::ImageTextSplit { image_uri: uri, .. }
+                | CustomSlideLayout::FullBleedImage { image_uri: uri, .. },
+            ..
+        } => uri.as_deref(),
+        _ => None,
+    };
+    match uri {
+        Some(uri) => background_image_lookup(uri, tier, cx),
+        None => MediaLookup::Failed,
+    }
+}
+
+/// The thumbnail-tier image of a photo slide, once ready (custom layouts excluded).
+pub(crate) fn photo_slide_thumbnail(content: &SlideContent, cx: &App) -> Option<Arc<RenderImage>> {
+    match content {
+        SlideContent::Image { uri, .. } => uri
+            .as_deref()
+            .and_then(|uri| background_image(uri, ImageTier::Thumbnail, cx)),
+        _ => None,
+    }
+}
+
+/// The text-mode layers stacked over a slide canvas, in paint order: the slide foreground, the
+/// live timer badge (unless the slide is itself a countdown), then the alert banner.
+fn slide_text_layers(
+    slide: &Slide,
+    canvas: &SlideCanvas<'_>,
+    alert: Option<&AudienceAlert>,
+) -> impl Iterator<Item = Div> + use<> {
+    let foreground = render_slide_foreground(slide, canvas);
+    let is_countdown = matches!(
+        slide.content,
+        SlideContent::Custom {
+            layout: CustomSlideLayout::CountdownSlide { .. },
+            ..
+        }
+    );
+    let badge = canvas
+        .timer
+        .filter(|_| !is_countdown)
+        .map(|timer| render_audience_timer_badge(timer, canvas.now_ms, canvas.scale));
+    let banner = alert.map(|alert| render_audience_alert_banner(alert, canvas.scale));
+    [Some(foreground), badge, banner].into_iter().flatten()
+}
+
+/// The church logo framed for the splash, else the bundled emblem, else a matte placeholder.
+/// The frame stays empty while a decode is pending; fallbacks show only once a decode failed.
+fn render_logo_mark(logo_uri: Option<&str>, scale: f32, cx: &App) -> Div {
+    let tier = canvas_tier(scale);
+    let logo = logo_uri.map_or(MediaLookup::Failed, |uri| {
+        background_image_lookup(uri, tier, cx)
+    });
+    match logo {
+        MediaLookup::Ready(logo) => framed_logo(logo, scale),
+        MediaLookup::Pending => logo_mark_box(scale),
+        MediaLookup::Failed => default_logo_mark(tier, scale, cx),
+    }
+}
+
+fn framed_logo(logo: Arc<RenderImage>, scale: f32) -> Div {
+    div()
+        .w(px((360.0 * scale).max(44.0)))
+        .h(px((200.0 * scale).max(26.0)))
+        .rounded(px((12.0 * scale).max(3.0)))
+        .overflow_hidden()
+        .border(px((2.0 * scale).max(1.0)))
+        .border_color(TOKENS.gridline)
+        .bg(TOKENS.pane)
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(img(logo).size_full().object_fit(ObjectFit::Contain))
+}
+
+fn logo_mark_box(scale: f32) -> Div {
+    let mark_size = px((156.0 * scale).max(24.0));
+    div().size(mark_size).flex().items_center().justify_center()
+}
+
+/// The bundled emblem, or a matte placeholder once the emblem failed to decode.
+fn default_logo_mark(tier: ImageTier, scale: f32, cx: &App) -> Div {
+    let mark = logo_mark_box(scale);
+    match background_image_lookup(DEFAULT_CHURCH_LOGO_URI, tier, cx) {
+        MediaLookup::Ready(emblem) => {
+            mark.child(img(emblem).size_full().object_fit(ObjectFit::Contain))
+        }
+        MediaLookup::Pending => mark,
+        MediaLookup::Failed => mark
+            .rounded(px((14.0 * scale).max(3.0)))
+            .border(px((2.0 * scale).max(1.0)))
+            .border_color(TOKENS.gridline)
+            .bg(TOKENS.pane)
+            .child(
+                div()
+                    .w(px((48.0 * scale).max(8.0)))
+                    .h(px((4.0 * scale).max(1.5)))
+                    .bg(TOKENS.signal_preview),
+            ),
+    }
+}
+
+fn render_logo_splash(logo_mark: Div, church_name: &str, scale: f32) -> Div {
     let title = if church_name.trim().is_empty() {
         "SundayDeck"
     } else {
         church_name.trim()
     };
 
-    let mark_size = px((156.0 * scale).max(24.0));
-    let border_w = px((2.0 * scale).max(1.0));
     let title_px = px((62.0 * scale).max(10.0));
     let sub_px = px((20.0 * scale).max(6.0));
     let gap = px((22.0 * scale).max(4.0));
 
-    let logo_mark = if let Some(render_img) = logo_uri.and_then(load_background_image) {
-        div()
-            .w(px((360.0 * scale).max(44.0)))
-            .h(px((200.0 * scale).max(26.0)))
-            .rounded(px((12.0 * scale).max(3.0)))
-            .overflow_hidden()
-            .border(border_w)
-            .border_color(TOKENS.gridline)
-            .bg(TOKENS.pane)
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(img(render_img).size_full().object_fit(ObjectFit::Contain))
-    } else if let Some(default_emblem) =
-        load_background_image("backgrounds/default-church-logo.png")
-    {
-        div()
-            .w(mark_size)
-            .h(mark_size)
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(
-                img(default_emblem)
-                    .size_full()
-                    .object_fit(ObjectFit::Contain),
-            )
-    } else {
-        div()
-            .w(mark_size)
-            .h(mark_size)
-            .rounded(px((14.0 * scale).max(3.0)))
-            .border(border_w)
-            .border_color(TOKENS.gridline)
-            .bg(TOKENS.pane)
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(
-                div()
-                    .w(px((48.0 * scale).max(8.0)))
-                    .h(px((4.0 * scale).max(1.5)))
-                    .bg(TOKENS.signal_preview),
-            )
-    };
-
-    let mut root = div()
+    div()
         .size_full()
         .bg(TOKENS.canvas)
         .flex()
@@ -229,42 +290,39 @@ fn render_logo_splash(
                 .text_size(sub_px)
                 .font_weight(FontWeight::MEDIUM)
                 .child("SUNDAY GATHERING"),
-        );
+        )
+}
 
-    if let Some(active_timer) = timer {
-        let disp = active_timer.display(now_ms);
-        root = root.child(
+/// The service timer pill shown beneath the logo splash title.
+fn render_splash_timer(timer: &ServiceTimer, now_ms: i64, scale: f32) -> Div {
+    let disp = timer.display(now_ms);
+    div()
+        .mt(px((18.0 * scale).max(4.0)))
+        .px(px((32.0 * scale).max(8.0)))
+        .py(px((12.0 * scale).max(3.0)))
+        .rounded(px((RADIUS_CONTROL * 2.0 * scale).max(2.0)))
+        .bg(TOKENS.pane)
+        .border(px((2.0 * scale).max(1.0)))
+        .border_color(TOKENS.gridline)
+        .flex()
+        .items_center()
+        .gap(px((18.0 * scale).max(5.0)))
+        .child(
             div()
-                .mt(px((18.0 * scale).max(4.0)))
-                .px(px((32.0 * scale).max(8.0)))
-                .py(px((12.0 * scale).max(3.0)))
-                .rounded(px((RADIUS_CONTROL * 2.0 * scale).max(2.0)))
-                .bg(TOKENS.pane)
-                .border(px((2.0 * scale).max(1.0)))
-                .border_color(TOKENS.gridline)
-                .flex()
-                .items_center()
-                .gap(px((18.0 * scale).max(5.0)))
-                .child(
-                    div()
-                        .font_family(FONT_MONO)
-                        .text_color(TOKENS.ink_secondary)
-                        .text_size(px((20.0 * scale).max(5.5)))
-                        .font_weight(FontWeight::MEDIUM)
-                        .child(active_timer.label.to_ascii_uppercase()),
-                )
-                .child(
-                    div()
-                        .font_family(FONT_MONO)
-                        .text_color(TOKENS.signal_preview)
-                        .text_size(px((46.0 * scale).max(9.5)))
-                        .font_weight(FontWeight::BOLD)
-                        .child(disp.formatted),
-                ),
-        );
-    }
-
-    root
+                .font_family(FONT_MONO)
+                .text_color(TOKENS.ink_secondary)
+                .text_size(px((20.0 * scale).max(5.5)))
+                .font_weight(FontWeight::MEDIUM)
+                .child(timer.label.to_ascii_uppercase()),
+        )
+        .child(
+            div()
+                .font_family(FONT_MONO)
+                .text_color(TOKENS.signal_preview)
+                .text_size(px((46.0 * scale).max(9.5)))
+                .font_weight(FontWeight::BOLD)
+                .child(disp.formatted),
+        )
 }
 
 #[allow(clippy::too_many_arguments)] // Canvas render parameters mirror AudienceRenderState::Slide fields directly.
@@ -279,13 +337,7 @@ fn render_slide_canvas(
     cx: &App,
 ) -> Div {
     let font_family = resolve_font_family(&theme.font_family, cx);
-
-    let canvas_w = Theme::REFERENCE_WIDTH_PX * scale;
-    let canvas_h = Theme::REFERENCE_HEIGHT_PX * scale;
-    let pad_t = px(canvas_h * theme.margins.top_pct);
-    let pad_r = px(canvas_w * theme.margins.right_pct);
-    let pad_b = px(canvas_h * theme.margins.bottom_pct);
-    let pad_l = px(canvas_w * theme.margins.left_pct);
+    let tier = canvas_tier(scale);
 
     let mut root = apply_theme_background(
         div()
@@ -293,45 +345,37 @@ fn render_slide_canvas(
             .size_full()
             .overflow_hidden()
             .font_family(font_family),
-        &theme.background,
-        now_ms,
+        BackgroundPaint {
+            spec: &theme.background,
+            now_ms,
+            tier,
+        },
+        cx,
     );
 
     if show_text {
-        root = root.child(render_slide_foreground(
-            slide, theme, timer, now_ms, scale, pad_t, pad_r, pad_b, pad_l,
-        ));
-        if let Some(active_timer) = timer
-            && !matches!(
-                slide.content,
-                SlideContent::Custom {
-                    layout: sundaydeck_core::CustomSlideLayout::CountdownSlide { .. },
-                    ..
-                }
-            )
-        {
-            root = root.child(render_audience_timer_badge(active_timer, now_ms, scale));
-        }
-        if let Some(active_alert) = alert {
-            root = root.child(render_audience_alert_banner(active_alert, scale));
-        }
+        let canvas = SlideCanvas {
+            theme,
+            timer,
+            now_ms,
+            scale,
+            padding: safe_area(theme, scale),
+            image: slide_image(&slide.content, tier, cx),
+        };
+        root = root.children(slide_text_layers(slide, &canvas, alert));
     }
 
     root
 }
 
-#[allow(clippy::too_many_arguments)]
-fn render_slide_foreground(
-    slide: &Slide,
-    theme: &Theme,
-    timer: Option<&ServiceTimer>,
-    now_ms: i64,
-    scale: f32,
-    pad_t: Pixels,
-    pad_r: Pixels,
-    pad_b: Pixels,
-    pad_l: Pixels,
-) -> Div {
+fn render_slide_foreground(slide: &Slide, canvas: &SlideCanvas<'_>) -> Div {
+    let SlideCanvas { theme, scale, .. } = *canvas;
+    let Edges {
+        top: pad_t,
+        right: pad_r,
+        bottom: pad_b,
+        left: pad_l,
+    } = canvas.padding;
     let mut container = div()
         .relative()
         .size_full()
@@ -410,17 +454,18 @@ fn render_slide_foreground(
                 );
             }
         }
-        SlideContent::Image { uri, caption, .. } => {
-            if let Some(render_img) = uri.as_deref().and_then(load_background_image) {
-                return div()
-                    .absolute()
-                    .inset_0()
-                    .size_full()
-                    .bg(rgb(0x0B0C0E))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .child(img(render_img).size_full().object_fit(ObjectFit::Contain));
+        SlideContent::Image { caption, .. } => {
+            let matte = || div().absolute().inset_0().size_full().bg(rgb(PHOTO_MATTE));
+            match canvas.image.clone() {
+                MediaLookup::Ready(render_img) => {
+                    return matte()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(img(render_img).size_full().object_fit(ObjectFit::Contain));
+                }
+                MediaLookup::Pending => return matte(),
+                MediaLookup::Failed => {}
             }
             container = container.child(
                 div()
@@ -440,18 +485,7 @@ fn render_slide_foreground(
             layout,
             revealed_steps,
         } => {
-            return render_custom_slide_layout(
-                layout,
-                *revealed_steps,
-                theme,
-                timer,
-                now_ms,
-                scale,
-                pad_t,
-                pad_r,
-                pad_b,
-                pad_l,
-            );
+            return render_custom_slide_layout(layout, *revealed_steps, canvas);
         }
         SlideContent::Blank => {}
     }

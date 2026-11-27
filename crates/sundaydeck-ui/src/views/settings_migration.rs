@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
-use gpui::{Context, PathPromptOptions};
+use gpui::{AsyncApp, Context, Entity, PathPromptOptions};
 use sundaydeck_core::{Song, SongImporter, UniversalSongImporter};
+use sundaydeck_db::DbWorker;
 use sundaydeck_db::legacy_importers::{import_easyworship_sqlite, import_openlp_sqlite};
 
+use crate::store::PresentationStore;
 use crate::views::settings_modal::SettingsModal;
 
 /// Parses one or more song files or SQLite song databases exported from EasyWorship,
@@ -65,6 +67,31 @@ pub fn import_external_song_files(paths: &[PathBuf]) -> Result<(Vec<Song>, Strin
     Ok((all_songs, source_labels.join(" / ")))
 }
 
+/// Where a bulk song import lands: the in-memory library and, when present, the SQLite worker.
+pub struct ImportedSongsSink<'a> {
+    pub store: &'a Entity<PresentationStore>,
+    pub db: Option<&'a DbWorker>,
+}
+
+/// Merges bulk-imported songs into the library, then persists them on the SQLite worker. A song
+/// that fails to save stays in the in-memory library for this session; the failure is logged
+/// instead of silently dropped.
+pub async fn merge_and_save_imported_songs(
+    sink: ImportedSongsSink<'_>,
+    songs: Vec<Song>,
+    cx: &mut AsyncApp,
+) {
+    sink.store
+        .update(cx, |s, cx| s.merge_imported_songs(songs.clone(), cx));
+    if let Some(db) = sink.db {
+        for song in songs {
+            if let Err(err) = db.upsert_song(song).await {
+                tracing::warn!("could not save an imported song: {err}");
+            }
+        }
+    }
+}
+
 impl SettingsModal {
     pub(crate) fn migrate_external_songs(&mut self, cx: &mut Context<Self>) {
         let rx = cx.prompt_for_paths(PathPromptOptions {
@@ -105,13 +132,12 @@ impl SettingsModal {
 
             match res {
                 Ok((songs, source)) => {
+                    let sink = ImportedSongsSink {
+                        store: &store,
+                        db: db.as_ref(),
+                    };
                     let count = songs.len();
-                    for song in songs {
-                        store.update(cx, |s, cx| s.upsert_song_local(song.clone(), cx));
-                        if let Some(worker) = db.as_ref() {
-                            let _ = worker.upsert_song(song).await;
-                        }
-                    }
+                    merge_and_save_imported_songs(sink, songs, cx).await;
                     let _ = this.update(cx, |m, cx| {
                         m.busy = false;
                         m.status_note = Some(format!(

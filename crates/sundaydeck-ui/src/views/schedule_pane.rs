@@ -20,7 +20,7 @@ pub fn render_schedule_pane(
 ) -> Div {
     let store = workspace.store.read(cx);
     let snapshot = store.snapshot();
-    let items = store.service.items.clone();
+    let items = &store.service.items;
     let preview_item_id = snapshot.preview.as_ref().and_then(|c| c.item_id);
     let live_item_id = snapshot.live.as_ref().and_then(|c| c.item_id);
     let item_count = items.len();

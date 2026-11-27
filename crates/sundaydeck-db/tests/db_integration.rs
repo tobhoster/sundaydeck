@@ -1,14 +1,18 @@
-use sundaydeck_core::defaults::{default_themes, sample_amazing_grace};
+use sundaydeck_core::defaults::{
+    default_sample_service, default_themes, sample_amazing_grace, sample_come_thou_fount,
+};
 use sundaydeck_core::{
     Arrangement, ArrangementId, MediaAssetId, ReflowMode, SectionId, SectionKind, Song, SongId,
     SongSection, ThemeId, ThemeTarget,
 };
+use sundaydeck_db::bible_repo::search_bible_verses;
 use sundaydeck_db::media_repo::{compute_sha256_hex, upsert_media_by_hash};
 use sundaydeck_db::seed::seed_defaults_if_empty;
 use sundaydeck_db::service_repo::{get_service, list_services, reorder_service_items};
 use sundaydeck_db::settings_repo::{load_settings, save_settings};
 use sundaydeck_db::song_repo::{delete_song, get_song, search_songs, upsert_song};
 use sundaydeck_db::theme_repo::{list_themes, upsert_theme};
+use sundaydeck_db::worker::load_bootstrap_sync;
 use sundaydeck_db::{AppSettings, Database, DbWorker, MediaAsset, MediaKind};
 
 #[test]
@@ -65,6 +69,79 @@ fn fts5_search_indexes_lyrics_ccli_and_stays_synced_on_update_and_delete() {
     delete_song(db.conn(), grace.id).expect("delete grace");
     let after_delete = search_songs(db.conn(), "sentinel").expect("post-delete search");
     assert!(after_delete.is_empty());
+}
+
+/// (query, song title that must still be found, word that must appear in a WEB verse hit)
+const FTS5_HOSTILE_QUERIES: &[(&str, Option<&str>, Option<&str>)] = &[
+    (r#"" * ( ) : ^ - ' OR AND NOT NEAR( title: 🙏"#, None, None),
+    ("\"", None, None),
+    ("\"\"", None, None),
+    ("''", None, None),
+    ("*", None, None),
+    ("(", None, None),
+    (")", None, None),
+    (":", None, None),
+    ("^", None, None),
+    ("-", None, None),
+    ("OR", None, None),
+    ("AND", None, None),
+    ("NOT", None, None),
+    ("NEAR(", None, None),
+    ("title:", None, None),
+    ("🙏", None, None),
+    ("a OR", None, None),
+    ("-a", None, None),
+    ("Señor", None, None),
+    ("graça", None, None),
+    ("", Some("Amazing Grace"), None),
+    ("   \t\n ", Some("Amazing Grace"), None),
+    ("\"grace", Some("Amazing Grace"), None),
+    ("grace\"", Some("Amazing Grace"), None),
+    ("(grace)", Some("Amazing Grace"), None),
+    ("^grace*", Some("Amazing Grace"), None),
+    ("-grace", Some("Amazing Grace"), None),
+    ("grace:", Some("Amazing Grace"), None),
+    ("grace 🙏", Some("Amazing Grace"), None),
+    ("amázing gráce", Some("Amazing Grace"), None),
+    ("\"shepherd", None, Some("shepherd")),
+    ("(shepherd) 🙏", None, Some("shepherd")),
+    ("-shepherd*", None, Some("shepherd")),
+    ("shépherd:", None, Some("shepherd")),
+];
+
+#[test]
+fn fts5_song_and_bible_search_accept_hostile_queries() {
+    let mut db = Database::open_in_memory().expect("open db");
+    seed_defaults_if_empty(db.conn_mut()).expect("seed");
+    let worker = DbWorker::spawn_in_memory().expect("spawn worker");
+
+    for &(query, song, verse_word) in FTS5_HOSTILE_QUERIES {
+        let direct = search_songs(db.conn(), query)
+            .unwrap_or_else(|err| panic!("search_songs({query:?}): {err}"));
+        let via_worker = futures_lite_block_on(worker.search_songs(query))
+            .unwrap_or_else(|err| panic!("DbWorker::search_songs({query:?}): {err}"));
+        let verses = search_bible_verses(db.conn(), "WEB", query, 20)
+            .unwrap_or_else(|err| panic!("search_bible_verses({query:?}): {err}"));
+        let verses_via_worker = futures_lite_block_on(worker.search_bible_verses("WEB", query, 20))
+            .unwrap_or_else(|err| panic!("DbWorker::search_bible_verses({query:?}): {err}"));
+
+        if let Some(title) = song {
+            for (path, hits) in [("direct", &direct), ("worker", &via_worker)] {
+                assert!(
+                    hits.iter().any(|s| s.title == title),
+                    "{path} song search {query:?} must still find {title:?}"
+                );
+            }
+        }
+        if let Some(word) = verse_word {
+            for (path, hits) in [("direct", &verses), ("worker", &verses_via_worker)] {
+                assert!(
+                    hits.iter().any(|v| v.text.to_lowercase().contains(word)),
+                    "{path} verse search {query:?} must still find {word:?}"
+                );
+            }
+        }
+    }
 }
 
 #[test]
@@ -212,6 +289,128 @@ fn async_db_worker_loads_bootstrap_and_searches_off_thread() {
     let hits = futures_lite_block_on(worker.search_songs("river")).expect("fts search");
     assert_eq!(hits.len(), 1);
     assert!(hits[0].title.contains("It Is Well"));
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Corruption {
+    SongSectionKind,
+    ServiceItemPayload,
+    SettingsJson,
+}
+
+/// Damages one row behind the repo's back, the way a crashed write or a hand-edited DB would.
+fn corrupt(db: &Database, corruption: Corruption) {
+    let conn = db.conn();
+    let changed = match corruption {
+        Corruption::SongSectionKind => {
+            conn.execute_batch("PRAGMA ignore_check_constraints = ON;")
+                .expect("disable CHECK");
+            let changed = conn
+                .execute(
+                    "UPDATE song_sections SET kind = 'not_a_kind' WHERE song_id = ?1",
+                    [sample_come_thou_fount().id.to_string()],
+                )
+                .expect("corrupt song section");
+            conn.execute_batch("PRAGMA ignore_check_constraints = OFF;")
+                .expect("re-enable CHECK");
+            changed
+        }
+        Corruption::ServiceItemPayload => conn
+            .execute(
+                "UPDATE service_items SET payload_json = '{\"not\":\"a payload\"}' WHERE id = ?1",
+                [default_sample_service().items[2].id.to_string()],
+            )
+            .expect("corrupt service item"),
+        Corruption::SettingsJson => conn
+            .execute(
+                "UPDATE app_settings SET value_json = '{\"church_name\": '",
+                [],
+            )
+            .expect("corrupt settings"),
+    };
+    assert!(changed > 0, "{corruption:?} must hit a seeded row");
+}
+
+#[test]
+fn bootstrap_skips_a_corrupt_song_service_item_or_settings_row() {
+    use Corruption::{ServiceItemPayload, SettingsJson, SongSectionKind};
+    let cases: [&[Corruption]; 4] = [
+        &[SongSectionKind],
+        &[ServiceItemPayload],
+        &[SettingsJson],
+        &[SongSectionKind, ServiceItemPayload, SettingsJson],
+    ];
+    let saved = AppSettings {
+        church_name: "St. Bootstrap".to_owned(),
+        onboarding_completed: true,
+        ..AppSettings::default()
+    };
+    let bad_song = sample_come_thou_fount().id;
+    let bad_item = default_sample_service().items[2].id;
+    let mut failures = Vec::new();
+
+    for corruptions in cases {
+        let mut db = Database::open_in_memory().expect("open db");
+        seed_defaults_if_empty(db.conn_mut()).expect("seed");
+        save_settings(db.conn(), &saved).expect("save settings");
+        for &corruption in corruptions {
+            corrupt(&db, corruption);
+        }
+        let has = |c: fn(&Corruption) -> bool| corruptions.iter().any(c);
+
+        let boot = match load_bootstrap_sync(&db) {
+            Ok(boot) => boot,
+            Err(err) => {
+                failures.push(format!("{corruptions:?}: {err}"));
+                continue;
+            }
+        };
+
+        let song_ids: Vec<SongId> = boot.loaded_songs.iter().map(|s| s.id).collect();
+        let song_corrupt = has(|c| matches!(c, SongSectionKind));
+        assert_eq!(
+            song_ids.len(),
+            if song_corrupt { 2 } else { 3 },
+            "{corruptions:?}"
+        );
+        assert_eq!(
+            !song_ids.contains(&bad_song),
+            song_corrupt,
+            "{corruptions:?}"
+        );
+        assert!(
+            song_ids.contains(&sample_amazing_grace().id),
+            "{corruptions:?}"
+        );
+
+        assert_eq!(boot.services.len(), 1, "{corruptions:?}");
+        let items = &boot.services[0].items;
+        let item_corrupt = has(|c| matches!(c, ServiceItemPayload));
+        assert_eq!(
+            items.len(),
+            if item_corrupt { 4 } else { 5 },
+            "{corruptions:?}"
+        );
+        assert_eq!(
+            !items.iter().any(|i| i.id == bad_item),
+            item_corrupt,
+            "{corruptions:?}"
+        );
+
+        let expected_settings = if has(|c| matches!(c, SettingsJson)) {
+            AppSettings::default()
+        } else {
+            saved.clone()
+        };
+        assert_eq!(boot.settings, expected_settings, "{corruptions:?}");
+        assert_eq!(boot.themes.len(), 8, "{corruptions:?}");
+    }
+
+    assert!(
+        failures.is_empty(),
+        "one corrupt row must not abort startup:\n{}",
+        failures.join("\n")
+    );
 }
 
 fn futures_lite_block_on<F: std::future::Future>(fut: F) -> F::Output {

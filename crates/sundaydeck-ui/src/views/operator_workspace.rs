@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, MouseButton, MouseMoveEvent, ParentElement, Render, Styled, Subscription, Window,
-    div, rgba,
+    IntoElement, MouseButton, MouseMoveEvent, ParentElement, Render, Styled, Subscription, Task,
+    WeakEntity, Window, div, rgba,
 };
 use sundaydeck_core::{GeneratedServicePlan, PresentationCommand, SlideContent, Song};
 use sundaydeck_db::DbWorker;
@@ -12,6 +12,7 @@ use crate::components::TextInput;
 use crate::design::icons::DeckIcon;
 use crate::design::motion::modal_enter;
 use crate::design::tokens::{FONT_BODY, TOKENS};
+use crate::heartbeat::{HEARTBEAT_INTERVAL_MS, HeartbeatKey};
 use crate::store::PresentationStore;
 use crate::views::alerts_timers_modal::AlertsTimersModal;
 use crate::views::background_picker_modal::BackgroundPickerModal;
@@ -72,6 +73,8 @@ pub struct OperatorWorkspace {
     pub layout: WorkspaceLayout,
     pub available_update: Option<(String, String)>,
     pub(crate) modal_sub: Option<Subscription>,
+    /// Pending debounced song search; replacing it cancels the older query.
+    pub(crate) song_search_task: Option<Task<()>>,
     focus_handle: FocusHandle,
     _store_sub: Subscription,
     _windows_sub: Subscription,
@@ -102,39 +105,8 @@ impl OperatorWorkspace {
         let bible_db = db.clone();
         let bible_browser = cx.new(|cx| BibleBrowserView::new(bible_store, bible_db, cx));
 
-        // Background heartbeat for live timers, voice telemetry, expiring alerts, and motion video.
-        let tick_store = store.downgrade();
-        cx.spawn(async move |_, cx| {
-            loop {
-                cx.background_executor().timer(Duration::from_millis(160)).await;
-                let keep_going = tick_store
-                    .update(cx, |s, cx| {
-                        let _ = s.poll_voice_events(cx);
-                        let now = s.now_epoch_ms();
-                        let _ = s.tick_announcement_loop(now, cx);
-                        let snap = s.snapshot();
-                        let video_active = s.motion_mode != crate::design::motion::MotionMode::Instant
-                            && matches!(
-                                &snap.audience,
-                                sundaydeck_core::AudienceRenderState::Slide { theme, .. }
-                                    if matches!(theme.background, sundaydeck_core::BackgroundSpec::VideoLoop { .. })
-                            );
-                        if snap.active_alert.as_ref().is_some_and(|a| a.is_expired(now)) {
-                            let _ = s.dispatch(PresentationCommand::ExpireAlertIfDue { now_ms: now }, cx);
-                        } else if video_active
-                            || snap.active_timer.as_ref().is_some_and(|t| t.running)
-                            || snap.active_alert.as_ref().and_then(|a| a.expires_at_ms).is_some()
-                        {
-                            cx.notify();
-                        }
-                    })
-                    .is_ok();
-                if !keep_going {
-                    break;
-                }
-            }
-        })
-        .detach();
+        let first_key = store.read(cx).current_heartbeat_key();
+        Self::spawn_heartbeat(store.downgrade(), first_key, cx);
 
         Self {
             store,
@@ -148,11 +120,34 @@ impl OperatorWorkspace {
             layout: WorkspaceLayout::default(),
             available_update: None,
             modal_sub: None,
+            song_search_task: None,
             focus_handle: cx.focus_handle(),
             _store_sub: store_sub,
             _windows_sub: windows_sub,
             _song_search_sub: song_search_sub,
         }
+    }
+
+    /// Background heartbeat for live timers, voice telemetry, expiring alerts, and motion video.
+    /// It notifies the store (and with it every window) only when the visible time-dependent
+    /// state changed, e.g. once per second for a running timer instead of on every tick.
+    fn spawn_heartbeat(
+        store: WeakEntity<PresentationStore>,
+        mut last_key: HeartbeatKey,
+        cx: &mut Context<Self>,
+    ) {
+        cx.spawn(async move |_, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(HEARTBEAT_INTERVAL_MS))
+                    .await;
+                let ticked = store.update(cx, |s, cx| s.tick_heartbeat(&mut last_key, cx));
+                if ticked.is_err() {
+                    break;
+                }
+            }
+        })
+        .detach();
     }
 
     pub fn open_song_editor(&mut self, song: Option<Song>, tab: EditorTab, cx: &mut Context<Self>) {

@@ -132,57 +132,59 @@ where
     let total_start = Instant::now();
     let rss_before_mb = read_process_rss_mb();
 
-    if config.engine == PlannerEngineKind::Deterministic {
-        let plan = build_service_plan(doc, songs, themes, translation_code, &mut lookup_verses);
-        let total_ms = total_start.elapsed().as_millis() as u64;
-        let rss_after_mb = read_process_rss_mb();
-        return Ok(PlanRunOutcome {
-            plan,
-            metrics: PlanRunMetrics {
-                engine: PlannerEngineKind::Deterministic,
-                model_label: "pure-rust-rules".to_owned(),
-                cold_load_ms: 0,
-                inference_ms: total_ms,
-                total_ms,
-                rss_before_mb,
-                rss_after_mb,
-                rss_delta_mb: (rss_after_mb - rss_before_mb).max(0.0),
-                used_fallback: false,
-                fallback_reason: None,
-                raw_json_valid: true,
-                prompt_chars: 0,
-                output_chars: 0,
-            },
-        });
-    }
-
-    let user_prompt = prompt::build_user_prompt(doc, songs, themes, translation_code);
-    let prompt_chars = prompt::SYSTEM_PROMPT.len() + user_prompt.len();
-    let model_label = match config.engine {
-        PlannerEngineKind::Deterministic => "pure-rust-rules".to_owned(),
-        PlannerEngineKind::LocalLlm => config.local_llm.model.clone(),
-        PlannerEngineKind::Embedded => config
-            .embedded_llm
-            .model_path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("embedded.gguf")
-            .to_owned(),
-    };
-
-    let call_result: Result<(String, u64, u64), PlannerError> = match config.engine {
-        PlannerEngineKind::LocalLlm => {
-            let t0 = Instant::now();
-            local_llm::call_local_llm(&config.local_llm, prompt::SYSTEM_PROMPT, &user_prompt)
-                .map(|raw| (raw, 0, t0.elapsed().as_millis() as u64))
+    let (model_label, prompt_chars, call_result) = match config.engine {
+        PlannerEngineKind::Deterministic => {
+            let plan = build_service_plan(doc, songs, themes, translation_code, &mut lookup_verses);
+            let total_ms = total_start.elapsed().as_millis() as u64;
+            let rss_after_mb = read_process_rss_mb();
+            return Ok(PlanRunOutcome {
+                plan,
+                metrics: PlanRunMetrics {
+                    engine: PlannerEngineKind::Deterministic,
+                    model_label: "pure-rust-rules".to_owned(),
+                    cold_load_ms: 0,
+                    inference_ms: total_ms,
+                    total_ms,
+                    rss_before_mb,
+                    rss_after_mb,
+                    rss_delta_mb: (rss_after_mb - rss_before_mb).max(0.0),
+                    used_fallback: false,
+                    fallback_reason: None,
+                    raw_json_valid: true,
+                    prompt_chars: 0,
+                    output_chars: 0,
+                },
+            });
         }
-        PlannerEngineKind::Embedded => embedded_llm::call_embedded_llm(
-            &config.embedded_llm,
-            prompt::SYSTEM_PROMPT,
-            &user_prompt,
-        )
-        .map(|out| (out.raw_text, out.cold_load_ms, out.inference_ms)),
-        PlannerEngineKind::Deterministic => unreachable!(),
+        PlannerEngineKind::LocalLlm => {
+            let user_prompt = prompt::build_user_prompt(doc, songs, themes, translation_code);
+            let t0 = Instant::now();
+            let result =
+                local_llm::call_local_llm(&config.local_llm, prompt::SYSTEM_PROMPT, &user_prompt)
+                    .map(|raw| (raw, 0, t0.elapsed().as_millis() as u64));
+            (
+                config.local_llm.model.clone(),
+                prompt_chars_of(&user_prompt),
+                result,
+            )
+        }
+        PlannerEngineKind::Embedded => {
+            let user_prompt = prompt::build_user_prompt(doc, songs, themes, translation_code);
+            let result = embedded_llm::call_embedded_llm(
+                &config.embedded_llm,
+                prompt::SYSTEM_PROMPT,
+                &user_prompt,
+            )
+            .map(|out| (out.raw_text, out.cold_load_ms, out.inference_ms));
+            let model_label = config
+                .embedded_llm
+                .model_path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("embedded.gguf")
+                .to_owned();
+            (model_label, prompt_chars_of(&user_prompt), result)
+        }
     };
 
     match call_result {
@@ -255,6 +257,10 @@ where
         )),
         Err(err) => Err(err),
     }
+}
+
+fn prompt_chars_of(user_prompt: &str) -> usize {
+    prompt::SYSTEM_PROMPT.len() + user_prompt.len()
 }
 
 #[allow(clippy::too_many_arguments)]

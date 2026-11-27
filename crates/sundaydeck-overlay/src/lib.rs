@@ -1,3 +1,4 @@
+mod broadcast;
 mod html;
 mod ws;
 
@@ -13,10 +14,16 @@ use sundaydeck_core::{
     AudienceRenderState, CustomSlideLayout, PresentationSnapshot, SlideContent, TransitionDirection,
 };
 
+use crate::broadcast::{CLIENT_WRITE_TIMEOUT, FrameBroadcaster};
 use crate::html::OVERLAY_HTML;
 use crate::ws::{encode_ws_text_frame, websocket_accept_key};
 
 pub const DEFAULT_OVERLAY_BIND_ADDR: &str = "127.0.0.1:8787";
+
+/// Read budget for a client's HTTP request line and headers.
+const REQUEST_READ_TIMEOUT: Duration = Duration::from_secs(2);
+/// Fixed request buffer; no client-controlled length is ever read.
+const REQUEST_BUFFER_BYTES: usize = 4096;
 
 /// Real-time lower-third state synced to OBS Browser Source WebSocket clients.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -189,7 +196,7 @@ fn extract_slide_copy(
 
 struct SharedOverlayState {
     latest_json: Mutex<String>,
-    clients: Mutex<Vec<TcpStream>>,
+    broadcaster: Arc<FrameBroadcaster>,
     running: AtomicBool,
 }
 
@@ -211,7 +218,7 @@ impl OverlayServerHandle {
             .unwrap_or_else(|_| r#"{"mode":"clear","body":""}"#.to_owned());
         let shared = Arc::new(SharedOverlayState {
             latest_json: Mutex::new(initial_json),
-            clients: Mutex::new(Vec::new()),
+            broadcaster: FrameBroadcaster::start()?,
             running: AtomicBool::new(true),
         });
 
@@ -232,26 +239,25 @@ impl OverlayServerHandle {
         self.addr
     }
 
-    /// Publishes the latest [`OverlayPayload`] immediately to all connected OBS WebSocket clients.
+    /// Publishes the latest [`OverlayPayload`] to all connected OBS WebSocket clients without
+    /// waiting on any of them: the frame is handed to the broadcaster's writer thread.
     pub fn publish(&self, payload: &OverlayPayload) {
+        // `OverlayPayload` is plain strings and numbers; a failed serialize has nothing to send.
         let Ok(json) = serde_json::to_string(payload) else {
             return;
         };
-        if let Ok(mut guard) = self.shared.latest_json.lock() {
-            *guard = json.clone();
-        }
         let frame = encode_ws_text_frame(&json);
-        if let Ok(mut clients) = self.shared.clients.lock() {
-            clients.retain_mut(|stream| stream.write_all(&frame).is_ok());
+        // Offered under the `latest_json` lock so the pending frame always matches the newest state.
+        if let Ok(mut latest) = self.shared.latest_json.lock() {
+            *latest = json;
+            self.shared.broadcaster.offer_frame(frame);
         }
     }
 
-    /// Stops accepting new connections and drops connected overlay clients cleanly.
+    /// Stops accepting new connections, stops the frame writer and drops connected overlay clients.
     pub fn shutdown(&self) {
         self.shared.running.store(false, Ordering::SeqCst);
-        if let Ok(mut clients) = self.shared.clients.lock() {
-            clients.clear();
-        }
+        self.shared.broadcaster.shutdown();
     }
 }
 
@@ -273,11 +279,12 @@ fn accept_loop(listener: TcpListener, shared: Arc<SharedOverlayState>) {
 }
 
 fn handle_connection(mut stream: TcpStream, shared: Arc<SharedOverlayState>) {
+    // Best-effort socket options: on failure the OS defaults apply and the request is still served.
     let _ = stream.set_nonblocking(false);
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
-    let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
+    let _ = stream.set_read_timeout(Some(REQUEST_READ_TIMEOUT));
+    let _ = stream.set_write_timeout(Some(CLIENT_WRITE_TIMEOUT));
 
-    let mut buf = [0u8; 4096];
+    let mut buf = [0u8; REQUEST_BUFFER_BYTES];
     let Ok(n) = stream.read(&mut buf) else {
         return;
     };
@@ -291,42 +298,66 @@ fn handle_connection(mut stream: TcpStream, shared: Arc<SharedOverlayState>) {
     if path == "/ws"
         && let Some(key) = find_header(&req, "sec-websocket-key")
     {
-        let accept = websocket_accept_key(key);
-        let handshake = format!(
-            "HTTP/1.1 101 Switching Protocols\r\n\
-             Upgrade: websocket\r\n\
-             Connection: Upgrade\r\n\
-             Sec-WebSocket-Accept: {accept}\r\n\r\n"
-        );
-        if stream.write_all(handshake.as_bytes()).is_ok()
-            && let Ok(mut clients) = shared.clients.lock()
-        {
-            let latest = shared
-                .latest_json
-                .lock()
-                .map(|g| g.clone())
-                .unwrap_or_default();
-            if stream.write_all(&encode_ws_text_frame(&latest)).is_ok() {
-                clients.push(stream);
-            }
-        }
+        accept_websocket_client(stream, key, &shared);
         return;
     }
+    serve_http(&mut stream, path, &shared);
+}
 
+/// Completes the RFC 6455 upgrade and sends the current state *before* registering the client,
+/// so a slow handshake never holds the client list the writer thread fans out over.
+fn accept_websocket_client(mut stream: TcpStream, key: &str, shared: &SharedOverlayState) {
+    let accept = websocket_accept_key(key);
+    let handshake = format!(
+        "HTTP/1.1 101 Switching Protocols\r\n\
+         Upgrade: websocket\r\n\
+         Connection: Upgrade\r\n\
+         Sec-WebSocket-Accept: {accept}\r\n\r\n"
+    );
+    // A client that cannot take the handshake or first frame is dropped: OBS reconnects on its own.
+    if stream.write_all(handshake.as_bytes()).is_err() {
+        return;
+    }
+    let sent_json = shared
+        .latest_json
+        .lock()
+        .map(|g| g.clone())
+        .unwrap_or_default();
+    if stream.write_all(&encode_ws_text_frame(&sent_json)).is_err() {
+        return;
+    }
+    shared.broadcaster.add_client(stream);
+    offer_latest_if_published_since(shared, &sent_json);
+}
+
+/// A `publish` that landed between this client's first frame and its registration fanned out
+/// without it; re-offer the newest state so the writer delivers it (others get an idempotent
+/// repeat). Offered under the `latest_json` lock, like `publish`, so the pending frame never
+/// regresses to an older state.
+fn offer_latest_if_published_since(shared: &SharedOverlayState, sent_json: &str) {
+    if let Ok(latest) = shared.latest_json.lock()
+        && latest.as_str() != sent_json
+    {
+        shared
+            .broadcaster
+            .offer_frame(encode_ws_text_frame(&latest));
+    }
+}
+
+fn serve_http(stream: &mut TcpStream, path: &str, shared: &SharedOverlayState) {
     match path {
-        "/" | "/overlay" => {
-            write_http_response(&mut stream, "text/html; charset=utf-8", OVERLAY_HTML)
-        }
+        "/" | "/overlay" => write_http_response(stream, "text/html; charset=utf-8", OVERLAY_HTML),
         "/state.json" => {
             let body = shared
                 .latest_json
                 .lock()
                 .map(|g| g.clone())
                 .unwrap_or_else(|_| "{}".to_owned());
-            write_http_response(&mut stream, "application/json; charset=utf-8", &body);
+            write_http_response(stream, "application/json; charset=utf-8", &body);
         }
-        "/health" => write_http_response(&mut stream, "text/plain; charset=utf-8", "ok"),
+        "/health" => write_http_response(stream, "text/plain; charset=utf-8", "ok"),
         _ => {
+            // Best-effort: the connection closes right after, so a failed write needs no handling.
             let _ = stream.write_all(
                 b"HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\nConnection: close\r\n\r\nNot Found",
             );

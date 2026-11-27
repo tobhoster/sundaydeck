@@ -4,7 +4,7 @@ use gpui::{
     AppContext as _, Context, Entity, EventEmitter, IntoElement, PathPromptOptions, Render, Window,
 };
 use sundaydeck_core::{
-    ExtractedDocument, GeneratedServicePlan, PlanApplyMode, extract_office_file,
+    ExtractedDocument, GeneratedServicePlan, ImportError, PlanApplyMode, extract_office_file,
     extract_plain_outline, sample_pastor_sermon_outline,
 };
 use sundaydeck_db::DbWorker;
@@ -166,13 +166,36 @@ impl PlanImportModal {
         self.parse_file_path(PathBuf::from(raw), cx);
     }
 
+    /// Unzips and parses a `.pptx`/`.docx` on the background executor: a large deck takes long
+    /// enough to freeze the Operator window if parsed on the UI thread.
     pub(crate) fn parse_file_path(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        match extract_office_file(&path) {
+        self.loading = true;
+        self.error_message = None;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let extracted = cx
+                .background_executor()
+                .spawn(async move { extract_office_file(&path) })
+                .await;
+            // `Err` only means the importer was closed while the file was parsing.
+            let _ = this.update(cx, |modal, cx| modal.finish_extraction(extracted, cx));
+        })
+        .detach();
+    }
+
+    /// Runs the planner on a freshly extracted document, or shows why extraction failed.
+    fn finish_extraction(
+        &mut self,
+        extracted: Result<ExtractedDocument, ImportError>,
+        cx: &mut Context<Self>,
+    ) {
+        match extracted {
             Ok(doc) => {
                 self.last_doc = Some(doc.clone());
                 self.run_engine_on_doc(doc, cx);
             }
             Err(err) => {
+                self.loading = false;
                 self.error_message = Some(err.to_string());
                 cx.notify();
             }
@@ -283,13 +306,18 @@ impl PlanImportModal {
             .store
             .update(cx, |s, cx| s.apply_generated_plan(&plan, mode, cx));
 
-        if let (Some(schedule), Some(db)) = (saved, self.db.clone()) {
+        let Some(schedule) = saved else {
+            return;
+        };
+        if let Some(db) = self.db.clone() {
             cx.spawn(async move |_, _| {
-                let _ = db.save_service(schedule).await;
+                if let Err(err) = db.save_service(schedule).await {
+                    tracing::warn!("could not save the imported service plan: {err}");
+                }
             })
             .detach();
-            cx.emit(ModalClosed);
         }
+        cx.emit(ModalClosed);
     }
 }
 

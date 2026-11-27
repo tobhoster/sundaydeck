@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use gpui::Context;
 use sundaydeck_core::{
     BibleTranslation, CustomSlideSpec, DeckCursor, OutputOverride, PresentationCommand,
     ScriptureRef, SdeckBundle, ServiceId, ServiceItem, ServiceItemId, ServiceItemPayload,
-    ServiceSchedule, Slide, SlideContent, SlideId, Song, Theme, ThemeTarget,
+    ServiceSchedule, Slide, SlideContent, SlideId, Song, SongId, Theme, ThemeTarget,
 };
 use sundaydeck_db::AppSettings;
 use sundaydeck_overlay::{DEFAULT_OVERLAY_BIND_ADDR, OverlayPayload, OverlayServerHandle};
@@ -34,14 +35,11 @@ impl PresentationStore {
             PresentationCommand::SetDirectClickLive(settings.direct_click_live),
             cx,
         );
-        if let Some(engine) = &self.voice_engine {
-            engine.send(VoiceCommand::UpdateConfig {
-                asr_endpoint_url: settings.whisper_url.clone(),
-                advance_confidence_threshold: f32::from(settings.voice_advance_threshold_pct)
-                    / 100.0,
-                lock_during_override: settings.voice_lock_during_override,
-            });
-        }
+        self.forward_to_voice(VoiceCommand::UpdateConfig {
+            asr_endpoint_url: settings.whisper_url.clone(),
+            advance_confidence_threshold: f32::from(settings.voice_advance_threshold_pct) / 100.0,
+            lock_during_override: settings.voice_lock_during_override,
+        });
         self.settings = settings.clone();
         self.set_status("Saved SundayDeck settings", cx);
         settings
@@ -163,17 +161,10 @@ impl PresentationStore {
         bundle: SdeckBundle,
         cx: &mut Context<Self>,
     ) -> (Vec<Song>, Vec<Theme>, ServiceSchedule) {
-        let imported_songs = bundle.songs.clone();
-        let imported_themes = bundle.themes.clone();
+        let imported_songs = bundle.songs;
+        let imported_themes = bundle.themes;
 
-        for song in &imported_songs {
-            if let Some(existing) = self.songs.iter_mut().find(|s| s.id == song.id) {
-                *existing = song.clone();
-            } else {
-                self.songs.push(song.clone());
-            }
-        }
-        self.songs.sort_by_key(|s| s.title.to_lowercase());
+        self.upsert_songs_sorted(imported_songs.iter().cloned());
 
         for theme in &imported_themes {
             let arc_t = Arc::new(theme.clone());
@@ -201,6 +192,101 @@ impl PresentationStore {
             cx,
         );
         (imported_songs, imported_themes, service)
+    }
+
+    /// Merges a bulk song import (migration, Service Pack, welcome setup) into the library with a
+    /// single re-sort and a single notify. Unlike [`Self::upsert_song_local`] it never stages a
+    /// song, so a bulk import can never replace what is on the projector.
+    pub fn merge_imported_songs(&mut self, songs: Vec<Song>, cx: &mut Context<Self>) {
+        self.upsert_songs_sorted(songs);
+        self.clear_song_filter();
+        cx.notify();
+    }
+
+    /// The current song search hits (in rank order), or `None` when no search is active.
+    pub fn filtered_song_ids(&self) -> Option<&[SongId]> {
+        self.filtered_song_ids.as_deref()
+    }
+
+    /// Drops any song search so the library shows every song again.
+    pub(crate) fn clear_song_filter(&mut self) {
+        self.filtered_song_ids = None;
+        self.filtered_song_indices = None;
+        self.song_search_query.clear();
+    }
+
+    /// Shows `hit_ids` (in rank order) as the song library, or every song for `None`. Hits for
+    /// songs that are not in memory (e.g. rows skipped at startup) are dropped.
+    pub fn set_song_filter(
+        &mut self,
+        query: String,
+        hit_ids: Option<Vec<SongId>>,
+        cx: &mut Context<Self>,
+    ) {
+        self.filtered_song_ids = hit_ids;
+        self.reindex_song_filter();
+        self.song_search_query = query;
+        cx.notify();
+    }
+
+    /// Resolves the search hits to positions in `songs`, dropping hits no longer in memory, so
+    /// the virtualized list reads each visible row in O(1). Call after `songs` is reordered.
+    fn reindex_song_filter(&mut self) {
+        let Some(ids) = self.filtered_song_ids.as_mut() else {
+            self.filtered_song_indices = None;
+            return;
+        };
+        let index_by_id: HashMap<SongId, usize> = self
+            .songs
+            .iter()
+            .enumerate()
+            .map(|(ix, s)| (s.id, ix))
+            .collect();
+        ids.retain(|id| index_by_id.contains_key(id));
+        self.filtered_song_indices = Some(
+            ids.iter()
+                .filter_map(|id| index_by_id.get(id).copied())
+                .collect(),
+        );
+    }
+
+    /// Inserts or replaces one song. An edit that keeps the title replaces it in place (no map,
+    /// no re-sort); anything else goes through [`Self::upsert_songs_sorted`].
+    pub(crate) fn upsert_song_sorted(&mut self, song: Song) {
+        let same_title_slot = self
+            .songs
+            .iter_mut()
+            .find(|s| s.id == song.id)
+            .filter(|s| s.title == song.title);
+        match same_title_slot {
+            Some(existing) => *existing = song,
+            None => self.upsert_songs_sorted([song]),
+        }
+    }
+
+    /// Replaces songs with the same id, appends new ones, then sorts the library by title once
+    /// (an edited title moves to its new place too).
+    pub(crate) fn upsert_songs_sorted(&mut self, songs: impl IntoIterator<Item = Song>) {
+        let mut index_by_id: HashMap<SongId, usize> = self
+            .songs
+            .iter()
+            .enumerate()
+            .map(|(ix, s)| (s.id, ix))
+            .collect();
+        for song in songs {
+            match index_by_id
+                .get(&song.id)
+                .and_then(|&ix| self.songs.get_mut(ix))
+            {
+                Some(existing) => *existing = song,
+                None => {
+                    index_by_id.insert(song.id, self.songs.len());
+                    self.songs.push(song);
+                }
+            }
+        }
+        self.songs.sort_by_cached_key(|s| s.title.to_lowercase());
+        self.reindex_song_filter();
     }
 
     /// Registers a newly imported 66-book Bible translation (`.xml` or `.sqlite`) in memory
@@ -276,14 +362,14 @@ impl PresentationStore {
         None
     }
 
+    /// The library's custom slide with `id`, if any.
+    pub fn custom_slide_by_id(&self, id: SlideId) -> Option<&CustomSlideSpec> {
+        self.custom_slides.iter().find(|s| s.id == id)
+    }
+
     /// Stages a reusable structured Custom Slide directly into Preview (or Live if direct-click is on).
     pub fn stage_custom_slide(&mut self, slide_id: SlideId, cx: &mut Context<Self>) {
-        let Some(spec) = self
-            .custom_slides
-            .iter()
-            .find(|s| s.id == slide_id)
-            .cloned()
-        else {
+        let Some(spec) = self.custom_slide_by_id(slide_id).cloned() else {
             return;
         };
         let theme = self

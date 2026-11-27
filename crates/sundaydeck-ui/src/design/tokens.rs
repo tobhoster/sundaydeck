@@ -237,6 +237,8 @@ pub const SCHEDULE_RAIL_WIDTH: f32 = 256.0;
 pub const LIVE_DECK_WIDTH: f32 = 360.0;
 pub const MONITOR_WIDTH_PX: f32 = 332.0;
 pub const MONITOR_HEIGHT_PX: f32 = 187.0; // exact 16:9
+pub const TILE_W_PX: f32 = 256.0;
+pub const TILE_H_PX: f32 = 144.0; // exact 16:9
 
 // Bundled SIL OFL font families — Plus Jakarta Sans primary in Sentence case;
 // JetBrains Mono strictly reserved for ticking clocks/timers and subtle shortcut hints.

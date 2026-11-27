@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use gpui::{AppContext as _, Context, Div, Entity, InteractiveElement as _};
 use sundaydeck_core::bible_defaults::starter_bibles;
 use sundaydeck_core::{
@@ -22,6 +24,9 @@ use crate::views::quick_edit_modal::ModalClosed;
 use crate::views::settings_modal::{SettingsModal, SettingsTab};
 use crate::views::song_editor_modal::EditorTab;
 use crate::views::welcome_modal::WelcomeModal;
+
+/// Quiet period after the last keystroke before the song search hits SQLite FTS.
+const SONG_SEARCH_DEBOUNCE_MS: u64 = 120;
 
 impl OperatorWorkspace {
     /// Opens the structured Custom Slide Builder modal (6 curated layouts + live 16:9 preview).
@@ -176,50 +181,57 @@ impl OperatorWorkspace {
         let query = match event {
             TextInputEvent::Changed(q) | TextInputEvent::Submitted(q) => q.trim().to_owned(),
         };
+        // A newer keystroke always cancels the pending search, so a stale query never lands.
+        self.song_search_task = None;
         if query.is_empty() {
-            self.store.update(cx, |s, cx| {
-                s.song_search_query.clear();
-                s.filtered_song_ids = None;
-                cx.notify();
-            });
+            self.store
+                .update(cx, |s, cx| s.set_song_filter(String::new(), None, cx));
+        } else if let Some(db) = self.db.clone() {
+            self.song_search_task = Some(cx.spawn(async move |this, cx| {
+                cx.background_executor()
+                    .timer(Duration::from_millis(SONG_SEARCH_DEBOUNCE_MS))
+                    .await;
+                let Ok(hits) = db.search_songs(&query).await else {
+                    return;
+                };
+                let ids: Vec<SongId> = hits.into_iter().map(|h| h.id).collect();
+                // `Err` only means the workspace closed while the query ran.
+                let _ = this.update(cx, |ws, cx| ws.apply_song_search_hits(query, ids, cx));
+            }));
+        } else {
+            self.filter_songs_in_memory(query, cx);
+        }
+    }
+
+    /// Applies search hits only if they still answer what the search box shows.
+    fn apply_song_search_hits(&self, query: String, ids: Vec<SongId>, cx: &mut Context<Self>) {
+        if self.song_search_input.read(cx).value().trim() != query {
             return;
         }
+        self.store
+            .update(cx, |s, cx| s.set_song_filter(query, Some(ids), cx));
+    }
 
-        if let Some(db) = self.db.clone() {
-            let store = self.store.clone();
-            cx.spawn(async move |_, cx| {
-                if let Ok(hits) = db.search_songs(&query).await {
-                    let ids: Vec<SongId> = hits.into_iter().map(|h| h.id).collect();
-                    store.update(cx, |s, cx| {
-                        s.song_search_query = query;
-                        s.filtered_song_ids = Some(ids);
-                        cx.notify();
-                    });
-                }
-            })
-            .detach();
-        } else {
-            let needle = query.to_ascii_lowercase();
-            self.store.update(cx, |s, cx| {
-                let ids: Vec<SongId> = s
-                    .songs
-                    .iter()
-                    .filter(|song| {
-                        song.title.to_ascii_lowercase().contains(&needle)
-                            || song.author.to_ascii_lowercase().contains(&needle)
-                            || song.ccli_number.contains(&needle)
-                            || song
-                                .lyrics_search_text()
-                                .to_ascii_lowercase()
-                                .contains(&needle)
-                    })
-                    .map(|song| song.id)
-                    .collect();
-                s.song_search_query = query;
-                s.filtered_song_ids = Some(ids);
-                cx.notify();
-            });
-        }
+    /// Offline fallback without a database: substring match over title, author, CCLI and lyrics.
+    fn filter_songs_in_memory(&self, query: String, cx: &mut Context<Self>) {
+        let needle = query.to_ascii_lowercase();
+        self.store.update(cx, |s, cx| {
+            let ids: Vec<SongId> = s
+                .songs
+                .iter()
+                .filter(|song| {
+                    song.title.to_ascii_lowercase().contains(&needle)
+                        || song.author.to_ascii_lowercase().contains(&needle)
+                        || song.ccli_number.contains(&needle)
+                        || song
+                            .lyrics_search_text()
+                            .to_ascii_lowercase()
+                            .contains(&needle)
+                })
+                .map(|song| song.id)
+                .collect();
+            s.set_song_filter(query, Some(ids), cx);
+        });
     }
 
     pub fn create_new_service_blank(&mut self, cx: &mut Context<Self>) {
@@ -396,8 +408,10 @@ impl OperatorWorkspace {
             } else if t.active_popover.is_some() {
                 t.close_popover(cx);
             } else {
-                t.windows.update(cx, |wm, cx| wm.close_all_outputs(cx));
-                window.remove_window();
+                // The Operator is the app's only main window: closing it quits, through the
+                // same global `QuitApp` path as the menu; voice shutdown runs in the
+                // `on_app_quit` hook registered in `main.rs`.
+                window.dispatch_action(Box::new(QuitApp), cx);
             }
         }))
         .on_action(
@@ -414,9 +428,5 @@ impl OperatorWorkspace {
                 t.switch_library_tab(LibraryTab::Themes, cx)
             }),
         )
-        .on_action(cx.listener(|t, _: &QuitApp, _, cx| {
-            t.windows.update(cx, |wm, cx| wm.close_all_outputs(cx));
-            cx.quit();
-        }))
     }
 }

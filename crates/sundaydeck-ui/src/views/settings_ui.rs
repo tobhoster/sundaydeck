@@ -12,7 +12,8 @@ use crate::design::primitives::{
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, RADIUS_CONTROL, RADIUS_MODAL, RADIUS_TILE, TOKENS,
 };
-use crate::media::load_background_image;
+use crate::media_cache::background_image;
+use crate::media_decode::{DEFAULT_CHURCH_LOGO_URI, ImageTier};
 use crate::views::quick_edit_modal::ModalClosed;
 use crate::views::settings_modal::{MOTION_CHOICES, SettingsModal, SettingsTab};
 use crate::views::settings_tabs_ui::{render_ai_voice_tab, render_bibles_bundles_tab};
@@ -254,8 +255,8 @@ fn render_church_display_tab(modal: &SettingsModal, cx: &mut Context<SettingsMod
     let logo_preview = if let Some(img_handle) = modal
         .logo_uri
         .as_deref()
-        .and_then(load_background_image)
-        .or_else(|| load_background_image("backgrounds/default-church-logo.png"))
+        .and_then(|uri| background_image(uri, ImageTier::Thumbnail, cx))
+        .or_else(|| background_image(DEFAULT_CHURCH_LOGO_URI, ImageTier::Thumbnail, cx))
     {
         div()
             .w(px(112.0))

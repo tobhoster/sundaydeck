@@ -96,6 +96,20 @@ impl BibleBrowserView {
         }
     }
 
+    /// "Add next verse": grows the selection by one verse and stages it into Preview/Live.
+    pub(crate) fn stage_next_verse(&mut self, cx: &mut Context<Self>) {
+        let extended = self.store.update(cx, |s, _| {
+            let next = s
+                .selected_verse_range
+                .and_then(|current| extend_verse_selection(s.bible_verses.len(), current))?;
+            s.selected_verse_range = Some(next);
+            Some(())
+        });
+        if extended.is_some() {
+            self.stage_selected(false, cx);
+        }
+    }
+
     pub(crate) fn selected_verses(&self, cx: &Context<Self>) -> Vec<BibleVerse> {
         let store = self.store.read(cx);
         let Some((start, end)) = store.selected_verse_range else {
@@ -200,5 +214,45 @@ fn compute_selection(
         Some((first_idx, last_idx))
     } else {
         Some((0, 0))
+    }
+}
+
+/// "Add next verse": grows `current` by one verse, clamped to the last verse. `None` when there
+/// is nothing to extend (no verses, or a stale selection past the end of the list).
+fn extend_verse_selection(verse_count: usize, current: (usize, usize)) -> Option<(usize, usize)> {
+    let (start, end) = current;
+    let last = verse_count.checked_sub(1)?;
+    if start > last {
+        return None;
+    }
+    Some((start, end.saturating_add(1).clamp(start, last)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extend_verse_selection;
+
+    #[test]
+    fn extending_with_no_verses_does_nothing() {
+        assert_eq!(extend_verse_selection(0, (0, 0)), None);
+    }
+
+    #[test]
+    fn extending_at_the_last_verse_stays_on_it() {
+        assert_eq!(extend_verse_selection(6, (5, 5)), Some((5, 5)));
+        assert_eq!(extend_verse_selection(6, (2, 5)), Some((2, 5)));
+    }
+
+    #[test]
+    fn extending_adds_the_next_verse() {
+        assert_eq!(extend_verse_selection(6, (0, 0)), Some((0, 1)));
+        assert_eq!(extend_verse_selection(6, (1, 3)), Some((1, 4)));
+    }
+
+    #[test]
+    fn a_stale_selection_past_a_shorter_chapter_is_dropped_or_clamped() {
+        // The verse list was replaced by a shorter chapter or search result.
+        assert_eq!(extend_verse_selection(3, (4, 4)), None);
+        assert_eq!(extend_verse_selection(3, (1, 9)), Some((1, 2)));
     }
 }

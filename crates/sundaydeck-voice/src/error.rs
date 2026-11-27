@@ -12,4 +12,6 @@ pub enum VoiceError {
     AsrUnavailable { endpoint: String, detail: String },
     #[error("local speech server returned invalid response: {detail}")]
     AsrInvalidResponse { detail: String },
+    #[error("voice worker dropped the command: {detail}")]
+    CommandRejected { detail: String },
 }

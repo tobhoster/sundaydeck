@@ -147,9 +147,7 @@ impl SettingsModal {
                         m.busy = false;
                         match res {
                             Ok(report) => {
-                                for song in songs_clone {
-                                    store.update(cx, |s, cx| s.upsert_song_local(song, cx));
-                                }
+                                store.update(cx, |s, cx| s.merge_imported_songs(songs_clone, cx));
                                 m.status_note = Some(format!(
                                     "Installed \"{pack_name}\" ({} Bibles, {} songs, {} liturgies).",
                                     report.bibles_installed,

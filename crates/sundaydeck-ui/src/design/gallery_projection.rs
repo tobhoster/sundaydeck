@@ -1,4 +1,6 @@
-use gpui::{Div, FontWeight, ObjectFit, ParentElement, Styled, StyledImage, div, img, px, rgba};
+use gpui::{
+    App, Div, FontWeight, ObjectFit, ParentElement, Styled, StyledImage, div, img, px, rgba,
+};
 
 use sundaydeck_core::{SlideTransition, default_custom_slide_templates};
 
@@ -13,7 +15,11 @@ use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, FONT_DISPLAY_PROJ, FONT_LYRIC_BOLD, FONT_SCRIPTURE_SERIF,
     RADIUS_CONTROL, RADIUS_TILE, TOKENS,
 };
-use crate::media::load_background_image;
+use crate::media_cache::background_image;
+use crate::media_decode::ImageTier;
+
+/// Width of a theme-gallery card (16:9 at 186px tall).
+const THEME_CARD_W_PX: f32 = 330.0;
 
 pub(crate) fn render_switcher_and_voice_showcase(motion_mode: MotionMode) -> Div {
     let controls_col = div()
@@ -144,7 +150,7 @@ struct ProjectionCard<'a> {
     bg_uri: Option<&'a str>,
 }
 
-pub(crate) fn render_projection_font_pack() -> Div {
+pub(crate) fn render_projection_font_pack(cx: &App) -> Div {
     let cards: &[ProjectionCard<'_>] = &[
         ProjectionCard {
             family: FONT_LYRIC_BOLD,
@@ -184,7 +190,7 @@ pub(crate) fn render_projection_font_pack() -> Div {
     for card_spec in cards {
         let mut card = div()
             .relative()
-            .w(px(330.0))
+            .w(px(THEME_CARD_W_PX))
             .h(px(186.0)) // exact 16:9
             .bg(TOKENS.slide_card)
             .border_1()
@@ -197,7 +203,8 @@ pub(crate) fn render_projection_font_pack() -> Div {
             .justify_between();
 
         if let Some(uri) = card_spec.bg_uri
-            && let Some(render_img) = load_background_image(uri)
+            && let Some(render_img) =
+                background_image(uri, ImageTier::for_canvas_width(THEME_CARD_W_PX), cx)
         {
             card = card
                 .child(

@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{BufReader, Write};
 use std::path::{Path, PathBuf};
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
@@ -12,6 +13,12 @@ use crate::ids::{SongId, ThemeId};
 use crate::service::{ServiceItemPayload, ServiceSchedule};
 use crate::song::Song;
 use crate::theme::{BackgroundSpec, Theme};
+use crate::zip_limits::{
+    MAX_ARCHIVE_JSON_ENTRY_BYTES, MediaExtractBudget, open_archive_checked, parse_json_entry,
+    read_entry_capped,
+};
+
+type BundleArchive = ZipArchive<BufReader<File>>;
 
 pub const SDECK_SCHEMA_VERSION: u32 = 1;
 const BUNDLE_MEDIA_PREFIX: &str = "bundle://media/";
@@ -225,11 +232,9 @@ pub fn import_sdeck_bundle(
     let file = File::open(src_path).map_err(|err| ImportError::InvalidArchive {
         detail: format!("could not open '{}': {err}", src_path.display()),
     })?;
-    let mut archive = ZipArchive::new(file).map_err(|err| ImportError::InvalidArchive {
-        detail: format!("invalid .sdeck zip archive: {err}"),
-    })?;
+    let mut archive = open_archive_checked(BufReader::new(file), "invalid .sdeck zip archive")?;
 
-    let manifest: SdeckManifest = read_json_entry(&mut archive, "manifest.json")?;
+    let manifest: SdeckManifest = read_bundle_json(&mut archive, "manifest.json")?;
     if manifest.schema_version != SDECK_SCHEMA_VERSION {
         return Err(ImportError::UnsupportedFormat {
             detail: format!(
@@ -239,13 +244,77 @@ pub fn import_sdeck_bundle(
         });
     }
 
-    let mut service: ServiceSchedule = read_json_entry(&mut archive, "service.json")?;
-    let songs: Vec<Song> = read_json_entry(&mut archive, "songs.json")?;
-    let mut themes: Vec<Theme> = read_json_entry(&mut archive, "themes.json")?;
+    let mut bundle = SdeckBundle {
+        manifest,
+        service: read_bundle_json(&mut archive, "service.json")?,
+        songs: read_bundle_json(&mut archive, "songs.json")?,
+        themes: read_bundle_json(&mut archive, "themes.json")?,
+        extracted_media_files: Vec::new(),
+    };
+    let dir_existed = media_extract_dir.exists();
+    let linked = link_bundle_media(&mut archive, media_extract_dir, &mut bundle);
+    if linked.is_err() {
+        discard_extracted_media(
+            &bundle.extracted_media_files,
+            media_extract_dir,
+            dir_existed,
+        );
+    }
+    linked.map(|()| bundle)
+}
 
+/// Best effort: removes only the files this import extracted (never pre-existing ones), then
+/// the directory itself if this import created it and it is now empty.
+fn discard_extracted_media(files: &[PathBuf], media_extract_dir: &Path, dir_existed: bool) {
+    for path in files {
+        let _ = std::fs::remove_file(path);
+    }
+    if !dir_existed {
+        let _ = std::fs::remove_dir(media_extract_dir);
+    }
+}
+
+fn read_bundle_json<T: DeserializeOwned>(
+    archive: &mut BundleArchive,
+    name: &str,
+) -> Result<T, ImportError> {
+    let bytes =
+        read_entry_capped(archive, name, MAX_ARCHIVE_JSON_ENTRY_BYTES)?.ok_or_else(|| {
+            ImportError::InvalidArchive {
+                detail: format!("missing required entry '{name}' in .sdeck bundle"),
+            }
+        })?;
+    parse_json_entry(name, &bytes)
+}
+
+/// Extracts `media/*` entries, rewrites `bundle://media/...` URIs, and validates the service.
+fn link_bundle_media(
+    archive: &mut BundleArchive,
+    media_extract_dir: &Path,
+    bundle: &mut SdeckBundle,
+) -> Result<(), ImportError> {
+    let extracted_map = extract_media_entries(
+        archive,
+        media_extract_dir,
+        &mut bundle.extracted_media_files,
+    )?;
+    rewrite_theme_uris(&mut bundle.themes, &extracted_map);
+    rewrite_service_uris(&mut bundle.service, &extracted_map);
+    bundle
+        .service
+        .validate()
+        .map_err(|err| ImportError::InvalidArchive {
+            detail: err.to_string(),
+        })
+}
+
+fn extract_media_entries(
+    archive: &mut BundleArchive,
+    media_extract_dir: &Path,
+    extracted_files: &mut Vec<PathBuf>,
+) -> Result<HashMap<String, PathBuf>, ImportError> {
     let mut extracted_map: HashMap<String, PathBuf> = HashMap::new();
-    let mut extracted_media_files: Vec<PathBuf> = Vec::new();
-
+    let mut budget = MediaExtractBudget::default();
     for idx in 0..archive.len() {
         let mut entry = archive
             .by_index(idx)
@@ -269,47 +338,41 @@ pub fn import_sdeck_bundle(
             detail: format!("failed to prepare media directory: {err}"),
         })?;
         let dest = media_extract_dir.join(&safe_name);
-        let mut buf = Vec::new();
-        entry
-            .read_to_end(&mut buf)
-            .map_err(|err| ImportError::InvalidArchive {
-                detail: err.to_string(),
-            })?;
-        std::fs::write(&dest, &buf).map_err(|err| ImportError::InvalidArchive {
-            detail: format!(
-                "failed to write extracted media '{}': {err}",
-                dest.display()
-            ),
-        })?;
+        budget.extract(&mut entry, &dest, &raw_name)?;
         extracted_map.insert(safe_name, dest.clone());
-        extracted_media_files.push(dest);
+        extracted_files.push(dest);
     }
+    Ok(extracted_map)
+}
 
-    for theme in &mut themes {
+fn rewrite_theme_uris(themes: &mut [Theme], extracted_map: &HashMap<String, PathBuf>) {
+    for theme in themes {
         match &mut theme.background {
             BackgroundSpec::Image { uri, .. } => {
                 if let Some(u) = uri.as_mut() {
-                    rewrite_import_uri(u, &extracted_map);
+                    rewrite_import_uri(u, extracted_map);
                 }
             }
             BackgroundSpec::VideoLoop {
                 uri, poster_uri, ..
             } => {
-                rewrite_import_uri(uri, &extracted_map);
-                rewrite_import_uri(poster_uri, &extracted_map);
+                rewrite_import_uri(uri, extracted_map);
+                rewrite_import_uri(poster_uri, extracted_map);
             }
             BackgroundSpec::Solid { .. }
             | BackgroundSpec::LinearGradient { .. }
             | BackgroundSpec::LiveCamera { .. } => {}
         }
     }
+}
 
+fn rewrite_service_uris(service: &mut ServiceSchedule, extracted_map: &HashMap<String, PathBuf>) {
     for item in &mut service.items {
         match &mut item.payload {
             ServiceItemPayload::Presentation { slide_uris, .. }
             | ServiceItemPayload::AnnouncementLoop { slide_uris, .. } => {
                 for uri in slide_uris.iter_mut() {
-                    rewrite_import_uri(uri, &extracted_map);
+                    rewrite_import_uri(uri, extracted_map);
                 }
             }
             ServiceItemPayload::CustomDeck { slides, .. } => {
@@ -322,7 +385,7 @@ pub fn import_sdeck_bundle(
                         | crate::custom_slide::CustomSlideLayout::FullBleedImage {
                             image_uri: Some(u),
                             ..
-                        } => rewrite_import_uri(u, &extracted_map),
+                        } => rewrite_import_uri(u, extracted_map),
                         _ => {}
                     }
                 }
@@ -333,20 +396,6 @@ pub fn import_sdeck_bundle(
             | ServiceItemPayload::CustomSlide { .. } => {}
         }
     }
-
-    service
-        .validate()
-        .map_err(|err| ImportError::InvalidArchive {
-            detail: err.to_string(),
-        })?;
-
-    Ok(SdeckBundle {
-        manifest,
-        service,
-        songs,
-        themes,
-        extracted_media_files,
-    })
 }
 
 fn rewrite_export_uri(
@@ -436,24 +485,4 @@ fn write_json_entry<T: Serialize>(
         .map_err(|err| ImportError::InvalidArchive {
             detail: err.to_string(),
         })
-}
-
-fn read_json_entry<T: for<'de> Deserialize<'de>>(
-    archive: &mut ZipArchive<File>,
-    name: &str,
-) -> Result<T, ImportError> {
-    let mut entry = archive
-        .by_name(name)
-        .map_err(|_| ImportError::InvalidArchive {
-            detail: format!("missing required entry '{name}' in .sdeck bundle"),
-        })?;
-    let mut text = String::new();
-    entry
-        .read_to_string(&mut text)
-        .map_err(|err| ImportError::InvalidArchive {
-            detail: format!("could not read '{name}': {err}"),
-        })?;
-    serde_json::from_str(&text).map_err(|err| ImportError::InvalidArchive {
-        detail: format!("malformed '{name}': {err}"),
-    })
 }

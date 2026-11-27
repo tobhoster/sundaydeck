@@ -48,6 +48,10 @@ actions!(
     ]
 );
 
+/// Context for live slide stepping: the Operator workspace, but never while a text field inside it
+/// has focus (bindings dispatch before the field's own key handler, so Space/arrows would step).
+const SLIDE_STEP_CONTEXT: &str = "OperatorWorkspace && !TextInput";
+
 /// Registers global recovery hotkeys, desktop menu shortcuts, layout toggles, and navigation.
 /// Recovery overrides (`F1`-`F3`) stay active globally (`Shift+F1`-`F3` perform instant hard cuts);
 /// slide stepping is scoped to `OperatorWorkspace` so typing into text fields never advances slides.
@@ -62,13 +66,13 @@ pub fn register_keybindings(cx: &mut App) {
         KeyBinding::new("f5", GoLive, None),
         KeyBinding::new("cmd-enter", GoLive, None),
         KeyBinding::new("ctrl-enter", GoLive, None),
-        KeyBinding::new("right", NextLiveSlide, Some("OperatorWorkspace")),
-        KeyBinding::new("down", NextLiveSlide, Some("OperatorWorkspace")),
-        KeyBinding::new("pagedown", NextLiveSlide, Some("OperatorWorkspace")),
-        KeyBinding::new("space", NextLiveSlide, Some("OperatorWorkspace")),
-        KeyBinding::new("left", PrevLiveSlide, Some("OperatorWorkspace")),
-        KeyBinding::new("up", PrevLiveSlide, Some("OperatorWorkspace")),
-        KeyBinding::new("pageup", PrevLiveSlide, Some("OperatorWorkspace")),
+        KeyBinding::new("right", NextLiveSlide, Some(SLIDE_STEP_CONTEXT)),
+        KeyBinding::new("down", NextLiveSlide, Some(SLIDE_STEP_CONTEXT)),
+        KeyBinding::new("pagedown", NextLiveSlide, Some(SLIDE_STEP_CONTEXT)),
+        KeyBinding::new("space", NextLiveSlide, Some(SLIDE_STEP_CONTEXT)),
+        KeyBinding::new("left", PrevLiveSlide, Some(SLIDE_STEP_CONTEXT)),
+        KeyBinding::new("up", PrevLiveSlide, Some(SLIDE_STEP_CONTEXT)),
+        KeyBinding::new("pageup", PrevLiveSlide, Some(SLIDE_STEP_CONTEXT)),
         KeyBinding::new("cmd-e", ToggleQuickEdit, Some("OperatorWorkspace")),
         KeyBinding::new("ctrl-e", ToggleQuickEdit, Some("OperatorWorkspace")),
         KeyBinding::new("cmd-n", NewService, Some("OperatorWorkspace")),
