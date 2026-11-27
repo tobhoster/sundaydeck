@@ -1272,6 +1272,20 @@ footer {
   .backdrop-grid {
     grid-template-columns: 1fr;
   }
+  .nav {
+    gap: 10px;
+  }
+  .nav-right {
+    gap: 6px;
+  }
+  .btn-nav {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+  .btn-nav span:not(.ic) {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
