@@ -296,13 +296,17 @@ impl CustomSlideModal {
 
     pub(crate) fn save(&mut self, add_to_service: bool, cx: &mut Context<Self>) {
         let spec = self.build_spec(cx);
+        let spec_for_db = spec.clone();
         let auto_secs = self.auto_advance_secs;
         let updated_sched = self.store.update(cx, |s, cx| {
             s.upsert_custom_slide(spec, add_to_service, auto_secs, cx)
         });
-        if let (Some(schedule), Some(db)) = (updated_sched, self.db.clone()) {
+        if let Some(db) = self.db.clone() {
             cx.spawn(async move |_, _| {
-                let _ = db.save_service(schedule).await;
+                let _ = db.upsert_custom_slide(spec_for_db).await;
+                if let Some(schedule) = updated_sched {
+                    let _ = db.save_service(schedule).await;
+                }
             })
             .detach();
         }

@@ -1,26 +1,24 @@
 use std::path::PathBuf;
 use std::thread;
 
-use async_channel::{Receiver, Sender, bounded};
+use async_channel::{Sender, bounded};
 use sundaydeck_core::song::SongSummary;
 use sundaydeck_core::{
-    BibleTranslation, BibleVerse, GeneratedServicePlan, ParsedBible, ScriptureRef, SdeckPack,
-    ServiceId, ServiceItemId, ServiceSchedule, Song, SongId, Theme,
+    BibleTranslation, BibleVerse, CustomSlideSpec, GeneratedServicePlan, ParsedBible, ScriptureRef,
+    SdeckPack, ServiceId, ServiceItemId, ServiceSchedule, SlideId, Song, SongId, Theme,
 };
 
-use crate::bible_repo::{
-    get_chapter_verses, get_passage, import_parsed_bible, import_sqlite_bible, list_translations,
-    search_bible_verses,
-};
+use crate::bible_repo::{get_chapter_verses, list_translations};
 use crate::connection::Database;
-use crate::content_pack_repo::{PackInstallReport, install_sdeck_pack};
+use crate::content_pack_repo::PackInstallReport;
 use crate::error::DbError;
-use crate::plan_service::{build_plan_from_file_sync, build_plan_from_text_sync};
+use crate::production_repo::{CcliProjectionInput, count_ccli_projections, list_custom_slides};
 use crate::seed::seed_defaults_if_empty;
-use crate::service_repo::{list_services, reorder_service_items, upsert_service};
-use crate::settings_repo::{AppSettings, load_settings, save_settings};
-use crate::song_repo::{delete_song, get_song, list_songs, search_songs, upsert_song};
-use crate::theme_repo::{list_themes, upsert_theme};
+use crate::service_repo::list_services;
+use crate::settings_repo::{AppSettings, load_settings};
+use crate::song_repo::{get_song, list_songs};
+use crate::theme_repo::list_themes;
+use crate::worker_loop::run_worker_loop;
 
 const WORKER_QUEUE_CAPACITY: usize = 128;
 
@@ -31,12 +29,14 @@ pub struct BootstrapData {
     pub themes: Vec<Theme>,
     pub songs: Vec<SongSummary>,
     pub loaded_songs: Vec<Song>,
+    pub custom_slides: Vec<CustomSlideSpec>,
+    pub ccli_log_count: usize,
     pub services: Vec<ServiceSchedule>,
     pub bible_translations: Vec<BibleTranslation>,
     pub initial_chapter_verses: Vec<BibleVerse>,
 }
 
-enum DbRequest {
+pub(crate) enum DbRequest {
     LoadBootstrap {
         reply: Sender<Result<BootstrapData, DbError>>,
     },
@@ -115,6 +115,26 @@ enum DbRequest {
         pack: Box<SdeckPack>,
         reply: Sender<Result<PackInstallReport, DbError>>,
     },
+    UpsertCustomSlide {
+        spec: Box<CustomSlideSpec>,
+        reply: Sender<Result<(), DbError>>,
+    },
+    DeleteCustomSlide {
+        id: SlideId,
+        reply: Sender<Result<(), DbError>>,
+    },
+    RecordCcliProjection {
+        entry: CcliProjectionInput,
+        reply: Sender<Result<bool, DbError>>,
+    },
+    ExportCcliCsv {
+        dest: PathBuf,
+        reply: Sender<Result<usize, DbError>>,
+    },
+    BackupDatabase {
+        dest: PathBuf,
+        reply: Sender<Result<u64, DbError>>,
+    },
 }
 
 /// Dedicated background SQLite thread communicating with GPUI via bounded async channels
@@ -141,7 +161,7 @@ impl DbWorker {
         let (tx, rx) = bounded::<DbRequest>(WORKER_QUEUE_CAPACITY);
         let _ = thread::Builder::new()
             .name("sundaydeck-db".to_owned())
-            .spawn(move || worker_loop(db, rx));
+            .spawn(move || run_worker_loop(db, rx));
         Self { tx }
     }
 
@@ -320,6 +340,37 @@ impl DbWorker {
         .await
     }
 
+    pub async fn upsert_custom_slide(&self, spec: CustomSlideSpec) -> Result<(), DbError> {
+        self.call(|reply| DbRequest::UpsertCustomSlide {
+            spec: Box::new(spec),
+            reply,
+        })
+        .await
+    }
+
+    pub async fn delete_custom_slide(&self, id: SlideId) -> Result<(), DbError> {
+        self.call(|reply| DbRequest::DeleteCustomSlide { id, reply })
+            .await
+    }
+
+    pub async fn record_ccli_projection(
+        &self,
+        entry: CcliProjectionInput,
+    ) -> Result<bool, DbError> {
+        self.call(|reply| DbRequest::RecordCcliProjection { entry, reply })
+            .await
+    }
+
+    pub async fn export_ccli_csv(&self, dest: PathBuf) -> Result<usize, DbError> {
+        self.call(|reply| DbRequest::ExportCcliCsv { dest, reply })
+            .await
+    }
+
+    pub async fn backup_database(&self, dest: PathBuf) -> Result<u64, DbError> {
+        self.call(|reply| DbRequest::BackupDatabase { dest, reply })
+            .await
+    }
+
     async fn call<T>(
         &self,
         build: impl FnOnce(Sender<Result<T, DbError>>) -> DbRequest,
@@ -347,6 +398,8 @@ pub fn load_bootstrap_sync(db: &Database) -> Result<BootstrapData, DbError> {
             Err(err) => tracing::warn!(song_id = %summary.id, %err, "skipping unreadable song"),
         }
     }
+    let custom_slides = list_custom_slides(conn)?;
+    let ccli_log_count = count_ccli_projections(conn)?;
     let services = list_services(conn)?;
     let bible_translations = list_translations(conn)?;
     let default_code = bible_translations
@@ -362,122 +415,10 @@ pub fn load_bootstrap_sync(db: &Database) -> Result<BootstrapData, DbError> {
         themes,
         songs,
         loaded_songs,
+        custom_slides,
+        ccli_log_count,
         services,
         bible_translations,
         initial_chapter_verses,
     })
-}
-
-fn worker_loop(mut db: Database, rx: Receiver<DbRequest>) {
-    while let Ok(request) = rx.recv_blocking() {
-        match request {
-            DbRequest::LoadBootstrap { reply } => {
-                let _ = reply.send_blocking(load_bootstrap_sync(&db));
-            }
-            DbRequest::SearchSongs { query, reply } => {
-                let _ = reply.send_blocking(search_songs(db.conn(), &query));
-            }
-            DbRequest::GetSong { id, reply } => {
-                let _ = reply.send_blocking(get_song(db.conn(), id));
-            }
-            DbRequest::UpsertSong { song, reply } => {
-                let _ = reply.send_blocking(upsert_song(db.conn_mut(), &song));
-            }
-            DbRequest::DeleteSong { id, reply } => {
-                let _ = reply.send_blocking(delete_song(db.conn(), id));
-            }
-            DbRequest::UpsertTheme { theme, reply } => {
-                let _ = reply.send_blocking(upsert_theme(db.conn_mut(), &theme));
-            }
-            DbRequest::SaveService { schedule, reply } => {
-                let _ = reply.send_blocking(upsert_service(db.conn_mut(), &schedule));
-            }
-            DbRequest::ReorderServiceItems {
-                service_id,
-                ordered_ids,
-                reply,
-            } => {
-                let _ = reply.send_blocking(reorder_service_items(
-                    db.conn_mut(),
-                    service_id,
-                    &ordered_ids,
-                ));
-            }
-            DbRequest::SaveSettings { settings, reply } => {
-                let _ = reply.send_blocking(save_settings(db.conn(), &settings));
-            }
-            DbRequest::GetChapterVerses {
-                translation_code,
-                book_number,
-                chapter,
-                reply,
-            } => {
-                let _ = reply.send_blocking(get_chapter_verses(
-                    db.conn(),
-                    &translation_code,
-                    book_number,
-                    chapter,
-                ));
-            }
-            DbRequest::GetPassage {
-                translation_code,
-                reference,
-                reply,
-            } => {
-                let _ = reply.send_blocking(get_passage(db.conn(), &translation_code, &reference));
-            }
-            DbRequest::SearchBibleVerses {
-                translation_code,
-                query,
-                limit,
-                reply,
-            } => {
-                let _ = reply.send_blocking(search_bible_verses(
-                    db.conn(),
-                    &translation_code,
-                    &query,
-                    limit,
-                ));
-            }
-            DbRequest::ImportParsedBible { bible, reply } => {
-                let _ = reply.send_blocking(import_parsed_bible(db.conn_mut(), &bible));
-            }
-            DbRequest::ImportSqliteBible {
-                path,
-                code,
-                name,
-                reply,
-            } => {
-                let _ =
-                    reply.send_blocking(import_sqlite_bible(db.conn_mut(), &path, &code, &name));
-            }
-            DbRequest::GeneratePlanFromFile {
-                path,
-                translation_code,
-                reply,
-            } => {
-                let _ = reply.send_blocking(build_plan_from_file_sync(
-                    db.conn(),
-                    &path,
-                    &translation_code,
-                ));
-            }
-            DbRequest::GeneratePlanFromText {
-                source_name,
-                text,
-                translation_code,
-                reply,
-            } => {
-                let _ = reply.send_blocking(build_plan_from_text_sync(
-                    db.conn(),
-                    &source_name,
-                    &text,
-                    &translation_code,
-                ));
-            }
-            DbRequest::InstallSdeckPack { pack, reply } => {
-                let _ = reply.send_blocking(install_sdeck_pack(db.conn_mut(), &pack));
-            }
-        }
-    }
 }

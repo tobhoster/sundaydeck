@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+async-channel.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sundaydeck-core.workspace = true

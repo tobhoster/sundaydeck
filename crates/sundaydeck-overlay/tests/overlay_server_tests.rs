@@ -4,7 +4,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use sundaydeck_overlay::{OverlayPayload, OverlayServerHandle};
+use sundaydeck_overlay::{OverlayPayload, OverlayServerHandle, RemoteControlCommand};
 
 #[test]
 fn obs_overlay_serves_transparent_html_state_json_and_pushes_websocket_frames() {
@@ -202,4 +202,58 @@ fn publish_never_blocks_on_a_stalled_ws_client_and_healthy_client_gets_final_fra
     server.shutdown();
     drop(stalled);
     healthy_reader.join().expect("healthy reader thread");
+}
+
+#[test]
+fn companion_remote_and_trigger_api_dispatch_commands_and_guard_methods() {
+    let server = OverlayServerHandle::start("127.0.0.1:0").expect("start overlay server");
+    let addr = server.local_addr();
+    assert!(server.remote_url().ends_with("/remote"));
+    let rx = server.control_receiver();
+
+    let send_http = |req: &str| -> String {
+        let mut s = TcpStream::connect(addr).expect("connect");
+        s.set_read_timeout(Some(Duration::from_secs(2)))
+            .expect("timeout");
+        s.write_all(req.as_bytes()).expect("write");
+        let mut resp = String::new();
+        s.read_to_string(&mut resp).expect("read");
+        resp
+    };
+
+    // 1. Touch booth remote HTML page is served cleanly.
+    let remote = send_http("GET /remote HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    assert!(remote.contains("200 OK"));
+    assert!(remote.contains("SundayDeck Booth Remote"));
+
+    // 2. Status JSON exposes triggers for Bitfocus Companion / Stream Deck.
+    let status = send_http("GET /api/status HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    assert!(status.contains("200 OK"));
+    assert!(status.contains("\"parent-page\""));
+
+    // 3. GET against trigger endpoints must be rejected with 405 Method Not Allowed.
+    let bad_method = send_http("GET /api/trigger/next HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    assert!(bad_method.contains("405 Method Not Allowed"));
+
+    // 4. POST triggers enqueue typed RemoteControlCommands in order.
+    let next_resp = send_http(
+        "POST /api/trigger/next HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n",
+    );
+    assert!(next_resp.contains("200 OK"));
+    assert_eq!(rx.try_recv().ok(), Some(RemoteControlCommand::NextSlide));
+
+    let body = r#"{"code":"142"}"#;
+    let pager_req = format!(
+        "POST /api/trigger/parent-page HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        body
+    );
+    let pager_resp = send_http(&pager_req);
+    assert!(pager_resp.contains("200 OK"));
+    assert_eq!(
+        rx.try_recv().ok(),
+        Some(RemoteControlCommand::PageParent("142".to_owned()))
+    );
+
+    server.shutdown();
 }

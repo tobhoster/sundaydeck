@@ -11,6 +11,7 @@ use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, FONT_LYRIC_BOLD, FONT_MONO, RADIUS_CONTROL, RADIUS_PILL, TOKENS,
 };
+use crate::remote_control::bind_output_clicker_actions;
 use crate::store::PresentationStore;
 
 /// Stage Confidence Monitor (Output Window 2):
@@ -69,23 +70,26 @@ impl Render for StageMonitorView {
         let scale = (width_px / 1280.0).clamp(0.55, 2.0);
 
         let has_banner = stage.stage_message.is_some();
-        let mut root = div()
-            .relative()
-            .size_full()
-            .bg(rgb(0x000000))
-            .font_family(FONT_BODY)
-            .flex()
-            .flex_col()
-            .overflow_hidden()
-            .track_focus(&self.focus_handle)
-            .on_key_down(|ev: &KeyDownEvent, window, _| {
-                if ev.keystroke.key == "escape" {
+        let mut root = bind_output_clicker_actions(
+            div()
+                .relative()
+                .size_full()
+                .bg(rgb(0x000000))
+                .font_family(FONT_BODY)
+                .flex()
+                .flex_col()
+                .overflow_hidden()
+                .track_focus(&self.focus_handle)
+                .on_key_down(|ev: &KeyDownEvent, window, _| {
+                    if ev.keystroke.key == "escape" {
+                        window.remove_window();
+                    }
+                })
+                .on_action(|_: &CloseActiveWindow, window, _| {
                     window.remove_window();
-                }
-            })
-            .on_action(|_: &CloseActiveWindow, window, _| {
-                window.remove_window();
-            });
+                }),
+            self.store.clone(),
+        );
 
         root = root.child(render_stage_top_bar(
             stage,

@@ -47,6 +47,7 @@ pub struct PresentationStore {
     pub themes: Vec<Arc<Theme>>,
     pub songs: Vec<Song>,
     pub custom_slides: Vec<CustomSlideSpec>,
+    pub ccli_log_count: usize,
     pub(crate) filtered_song_ids: Option<Vec<SongId>>,
     /// Positions in `songs` of `filtered_song_ids`; both written only by the filter helpers.
     pub(crate) filtered_song_indices: Option<Vec<usize>>,
@@ -111,12 +112,18 @@ impl PresentationStore {
         // Never pre-select a verse in an empty chapter ("Add next verse" indexes this range).
         let selected_verse_range = (!data.initial_chapter_verses.is_empty()).then_some((0, 0));
 
+        let custom_slides = if data.custom_slides.is_empty() {
+            default_custom_slide_templates()
+        } else {
+            data.custom_slides
+        };
         let mut store = Self {
             engine,
             settings: data.settings,
             themes,
             songs: data.loaded_songs,
-            custom_slides: default_custom_slide_templates(),
+            custom_slides,
+            ccli_log_count: data.ccli_log_count,
             filtered_song_ids: None,
             filtered_song_indices: None,
             song_search_query: String::new(),
@@ -170,22 +177,6 @@ impl PresentationStore {
 
     pub fn snapshot(&self) -> Arc<PresentationSnapshot> {
         self.engine.snapshot()
-    }
-
-    pub fn service_filename(&self) -> String {
-        let slug: String = self
-            .service
-            .title
-            .to_ascii_lowercase()
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
-        let trimmed = slug.trim_matches('-');
-        if trimmed.is_empty() {
-            "service.sdeck".to_owned()
-        } else {
-            format!("{trimmed}.sdeck")
-        }
     }
 
     pub fn dispatch(

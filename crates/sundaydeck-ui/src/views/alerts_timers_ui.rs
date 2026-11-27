@@ -142,6 +142,29 @@ fn render_alert_column(
         "Nursery & Parent Alert",
         TOKENS.signal_preview,
     )
+    .child(field_label(
+        "Quick Parent Security Code (discreet corner badge · 45s)",
+    ))
+    .child(
+        div()
+            .w_full()
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .child(div().flex_1().child(modal.parent_code_input.clone()))
+            .child(
+                div()
+                    .id("btn-page-parent-code")
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| this.send_parent_page(cx)))
+                    .child(primary_ivory_button_body(
+                        Some(DeckIcon::BellRingingFill),
+                        "Page Parent",
+                        true,
+                    )),
+            ),
+    )
+    .child(field_label("Or send a full custom alert message"))
     .child(modal.alert_input.clone())
     .child(field_label("Screen position"))
     .child(pos_row)

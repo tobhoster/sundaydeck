@@ -5,7 +5,9 @@ use gpui::{
     IntoElement, MouseButton, MouseMoveEvent, ParentElement, Render, Styled, Subscription, Task,
     WeakEntity, Window, div, rgba,
 };
-use sundaydeck_core::{GeneratedServicePlan, PresentationCommand, SlideContent, Song};
+use sundaydeck_core::{
+    GeneratedServicePlan, PresentationCommand, SlideContent, Song, TransitionKind,
+};
 use sundaydeck_db::DbWorker;
 
 use crate::components::TextInput;
@@ -13,7 +15,7 @@ use crate::design::icons::DeckIcon;
 use crate::design::motion::modal_enter;
 use crate::design::tokens::{FONT_BODY, TOKENS};
 use crate::heartbeat::{HEARTBEAT_INTERVAL_MS, HeartbeatKey};
-use crate::store::PresentationStore;
+use crate::store::{PresentationStore, StoreEvent};
 use crate::views::alerts_timers_modal::AlertsTimersModal;
 use crate::views::background_picker_modal::BackgroundPickerModal;
 use crate::views::bible_browser::{BibleBrowserView, BibleVerseContextRequested};
@@ -81,6 +83,7 @@ pub struct OperatorWorkspace {
     pub(crate) song_search_task: Option<Task<()>>,
     focus_handle: FocusHandle,
     _store_sub: Subscription,
+    _ccli_sub: Subscription,
     _windows_sub: Subscription,
     _song_search_sub: Subscription,
     _bible_ctx_sub: Subscription,
@@ -94,6 +97,23 @@ impl OperatorWorkspace {
         cx: &mut Context<Self>,
     ) -> Self {
         let store_sub = cx.observe(&store, |_, _, cx| cx.notify());
+        let ccli_sub = cx.subscribe(&store, |this, store, ev: &StoreEvent, cx| {
+            if ev.kind == TransitionKind::LiveCrossfade
+                && let Some(db) = this.db.clone()
+                && let Some(entry) = store.read(cx).live_song_ccli_entry()
+            {
+                let store_weak = store.downgrade();
+                cx.spawn(async move |_, cx| {
+                    if let Ok(true) = db.record_ccli_projection(entry).await {
+                        let _ = store_weak.update(cx, |s, cx| {
+                            s.ccli_log_count = s.ccli_log_count.saturating_add(1);
+                            cx.notify();
+                        });
+                    }
+                })
+                .detach();
+            }
+        });
         let windows_sub = cx.observe(&windows, |_, _, cx| cx.notify());
 
         let song_search_input = cx.new(|cx| {
@@ -139,6 +159,7 @@ impl OperatorWorkspace {
             song_search_task: None,
             focus_handle: cx.focus_handle(),
             _store_sub: store_sub,
+            _ccli_sub: ccli_sub,
             _windows_sub: windows_sub,
             _song_search_sub: song_search_sub,
             _bible_ctx_sub: bible_ctx_sub,

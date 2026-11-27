@@ -5,6 +5,7 @@ use sundaydeck_core::starter_hymns::starter_songs;
 
 use crate::bible_repo::import_parsed_bible;
 use crate::error::DbError;
+use crate::production_repo::seed_default_custom_slides_if_empty;
 use crate::service_repo::upsert_service;
 use crate::settings_repo::{AppSettings, save_settings};
 use crate::song_repo::upsert_song;
@@ -39,6 +40,10 @@ pub fn seed_defaults_if_empty(conn: &mut Connection) -> Result<bool, DbError> {
         for bible in starter_bibles() {
             import_parsed_bible(conn, &bible)?;
         }
+        seeded = true;
+    }
+
+    if seed_default_custom_slides_if_empty(conn)? {
         seeded = true;
     }
 

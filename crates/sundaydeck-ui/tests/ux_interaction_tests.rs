@@ -15,12 +15,13 @@ use gpui::{
 };
 use gpui_screenshot::ScreenshotApp;
 use sundaydeck_core::{
-    CustomSlideLayout, PresentationCommand, ServiceItemPayload, parse_scripture_ref,
+    AlertPosition, CustomSlideLayout, PresentationCommand, ServiceItemPayload, parse_scripture_ref,
 };
 use sundaydeck_db::{Database, DbWorker};
 use sundaydeck_ui::content_downloader::FREE_BIBLE_CATALOG;
 use sundaydeck_ui::design::fonts::PROJECTION_FONTS;
 use sundaydeck_ui::design::{DeckAssetSource, register_fonts};
+use sundaydeck_ui::remote_control::build_parent_pager_alert;
 use sundaydeck_ui::store::{BibleBrowseMode, PresentationStore};
 use sundaydeck_ui::views::context_menu::ContextMenuTarget;
 use sundaydeck_ui::views::operator_workspace::{ActiveModal, HeaderPopover, LibraryTab};
@@ -280,6 +281,34 @@ fn day_one_library_ships_rich_hymns_bibles_themes_and_fonts() {
         FREE_BIBLE_CATALOG.len() >= 9,
         "free offline Bible catalog must offer >= 9 verified PD/CC0 translations"
     );
+    let pager = build_parent_pager_alert("#142", 1_000).expect("parent pager alert");
+    assert_eq!(pager.message, "Parent #142");
+    assert_eq!(pager.position, AlertPosition::TopRight);
+}
+
+fn save_shot<V: 'static>(
+    app: &mut ScreenshotApp,
+    win: gpui::WindowHandle<V>,
+    dir: &std::path::Path,
+    name: &str,
+) {
+    app.capture(win)
+        .expect(name)
+        .image
+        .save(dir.join(name))
+        .expect(name);
+}
+
+fn update_ws(
+    app: &mut ScreenshotApp,
+    win: gpui::WindowHandle<OperatorWorkspace>,
+    f: impl FnOnce(&mut OperatorWorkspace, &mut gpui::Context<OperatorWorkspace>),
+) {
+    let _ = app.update_window(win.into(), |view, _, cx| {
+        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
+            op.update(cx, f);
+        }
+    });
 }
 
 #[test]
@@ -333,76 +362,59 @@ fn capture_v003_review_screens_when_requested() {
         id
     });
 
-    // 1. Populated Day-1 Workspace (19 hymns, 12 studio themes, + Quote / Birthday footer)
-    app.capture(op_win)
-        .expect("cap 01")
-        .image
-        .save(out_dir.join("01-day1-populated-hymnal-and-quick-footer.png"))
-        .expect("save 01");
+    save_shot(
+        &mut app,
+        op_win,
+        &out_dir,
+        "01-day1-populated-hymnal-and-quick-footer.png",
+    );
 
-    // 2. Right-click Context Menu on Hymn
-    let _ = app.update_window(op_win.into(), |view, _, cx| {
-        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
-            op.update(cx, |ws, cx| {
-                ws.open_context_menu(
-                    Point::new(px(470.0), px(640.0)),
-                    ContextMenuTarget::Song(first_song_id),
-                    cx,
-                );
-            });
-        }
+    update_ws(&mut app, op_win, |ws, cx| {
+        ws.open_context_menu(
+            Point::new(px(470.0), px(640.0)),
+            ContextMenuTarget::Song(first_song_id),
+            cx,
+        );
     });
-    app.capture(op_win)
-        .expect("cap 02")
-        .image
-        .save(out_dir.join("02-right-click-context-menu-song.png"))
-        .expect("save 02");
+    save_shot(
+        &mut app,
+        op_win,
+        &out_dir,
+        "02-right-click-context-menu-song.png",
+    );
 
-    // 3. Custom Slides Tab with Quick Slide Bar + Pastor Quote & Member Birthday Cards
-    let _ = app.update_window(op_win.into(), |view, _, cx| {
-        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
-            op.update(cx, |ws, cx| {
-                ws.switch_library_tab(LibraryTab::CustomSlides, cx);
-            });
-        }
+    update_ws(&mut app, op_win, |ws, cx| {
+        ws.switch_library_tab(LibraryTab::CustomSlides, cx)
     });
-    app.capture(op_win)
-        .expect("cap 03")
-        .image
-        .save(out_dir.join("03-custom-slides-quick-create-and-birthdays.png"))
-        .expect("save 03");
+    save_shot(
+        &mut app,
+        op_win,
+        &out_dir,
+        "03-custom-slides-quick-create-and-birthdays.png",
+    );
 
-    // 4. 1-Click Pastor Quote Modal (with click-outside backdrop)
-    let _ = app.update_window(op_win.into(), |view, _, cx| {
-        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
-            op.update(cx, |ws, cx| {
-                ws.open_quick_slide_preset(QuickSlidePreset::PastorQuote, cx);
-            });
-        }
+    update_ws(&mut app, op_win, |ws, cx| {
+        ws.open_quick_slide_preset(QuickSlidePreset::PastorQuote, cx)
     });
-    app.capture(op_win)
-        .expect("cap 04")
-        .image
-        .save(out_dir.join("04-quick-slide-pastor-quote-modal.png"))
-        .expect("save 04");
+    save_shot(
+        &mut app,
+        op_win,
+        &out_dir,
+        "04-quick-slide-pastor-quote-modal.png",
+    );
 
-    // 5. Media / Studio Themes Tab (12 themes, 7 fonts, 6 photos, 2 motion loops)
-    let _ = app.update_window(op_win.into(), |view, _, cx| {
-        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
-            op.update(cx, |ws, cx| {
-                ws.switch_library_tab(LibraryTab::Themes, cx);
-            });
-        }
+    update_ws(&mut app, op_win, |ws, cx| {
+        ws.switch_library_tab(LibraryTab::Themes, cx)
     });
-    app.capture(op_win)
-        .expect("cap 05")
-        .image
-        .save(out_dir.join("05-studio-themes-and-fonts-gallery.png"))
-        .expect("save 05");
+    save_shot(
+        &mut app,
+        op_win,
+        &out_dir,
+        "05-studio-themes-and-fonts-gallery.png",
+    );
 
-    // 6. Audience Output: Warm Dawn Editorial (Cormorant Garamond) + Starry Clouds Motion (Montserrat)
     app.update(|cx| {
-        let starry = store
+        let warm = store
             .read(cx)
             .themes
             .iter()
@@ -410,30 +422,26 @@ fn capture_v003_review_screens_when_requested() {
             .cloned()
             .expect("Warm Dawn Editorial theme");
         store.update(cx, |s, cx| {
-            let _ = s.dispatch(PresentationCommand::ApplyLiveTheme(Arc::clone(&starry)), cx);
+            let _ = s.dispatch(PresentationCommand::ApplyLiveTheme(Arc::clone(&warm)), cx);
         });
     });
-    app.capture(aud_win)
-        .expect("cap 06")
-        .image
-        .save(out_dir.join("06-audience-warm-dawn-cormorant.png"))
-        .expect("save 06");
+    save_shot(
+        &mut app,
+        aud_win,
+        &out_dir,
+        "06-audience-warm-dawn-cormorant.png",
+    );
 
-    // 7. Settings -> Bibles & Packs: 9 Free 1-Click Offline Bibles Catalog
-    let _ = app.update_window(op_win.into(), |view, _, cx| {
-        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
-            op.update(cx, |ws, cx| {
-                ws.open_settings_on_tab(SettingsTab::BiblesBundles, cx);
-            });
-        }
+    update_ws(&mut app, op_win, |ws, cx| {
+        ws.open_settings_on_tab(SettingsTab::BiblesBundles, cx)
     });
-    app.capture(op_win)
-        .expect("cap 07")
-        .image
-        .save(out_dir.join("07-settings-free-offline-bibles-catalog.png"))
-        .expect("save 07");
+    save_shot(
+        &mut app,
+        op_win,
+        &out_dir,
+        "07-settings-free-offline-bibles-catalog.png",
+    );
 
-    // 8. Bible Browser on BSB with Right-Click Verse Context Menu ("Create Quote Slide from Verse")
     let mut mem_db = Database::open_in_memory().expect("db");
     sundaydeck_db::seed::seed_defaults_if_empty(mem_db.conn_mut()).expect("seed");
     let jn_ref = parse_scripture_ref("jn 3:16-17").expect("parse jn");
@@ -451,21 +459,40 @@ fn capture_v003_review_screens_when_requested() {
             s.stage_scripture_verses(&bsb_verses, false, cx);
         });
     });
-    let _ = app.update_window(op_win.into(), |view, _, cx| {
-        if let Ok(op) = view.downcast::<OperatorWorkspace>() {
-            op.update(cx, |ws, cx| {
-                ws.switch_library_tab(LibraryTab::Bible, cx);
-                ws.open_context_menu(
-                    Point::new(px(490.0), px(670.0)),
-                    ContextMenuTarget::BibleVerse(0),
-                    cx,
-                );
-            });
-        }
+    update_ws(&mut app, op_win, |ws, cx| {
+        ws.switch_library_tab(LibraryTab::Bible, cx);
+        ws.open_context_menu(
+            Point::new(px(490.0), px(670.0)),
+            ContextMenuTarget::BibleVerse(0),
+            cx,
+        );
     });
-    app.capture(op_win)
-        .expect("cap 08")
-        .image
-        .save(out_dir.join("08-bible-bsb-right-click-quote-slide.png"))
-        .expect("save 08");
+    save_shot(
+        &mut app,
+        op_win,
+        &out_dir,
+        "08-bible-bsb-right-click-quote-slide.png",
+    );
+
+    update_ws(&mut app, op_win, |ws, cx| {
+        ws.close_context_menu(cx);
+        ws.open_alerts_timers(cx);
+    });
+    save_shot(
+        &mut app,
+        op_win,
+        &out_dir,
+        "09-alerts-parent-pager-and-timers.png",
+    );
+
+    update_ws(&mut app, op_win, |ws, cx| {
+        ws.close_modal(cx);
+        ws.toggle_popover(HeaderPopover::Projector, cx);
+    });
+    save_shot(
+        &mut app,
+        op_win,
+        &out_dir,
+        "10-projector-popover-obs-and-companion-remote.png",
+    );
 }

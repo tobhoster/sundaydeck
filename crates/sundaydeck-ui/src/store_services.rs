@@ -7,7 +7,7 @@ use sundaydeck_core::{
     ScriptureRef, SdeckBundle, ServiceId, ServiceItem, ServiceItemId, ServiceItemPayload,
     ServiceSchedule, Slide, SlideContent, SlideId, Song, SongId, Theme, ThemeTarget,
 };
-use sundaydeck_db::AppSettings;
+use sundaydeck_db::{AppSettings, CcliProjectionInput};
 use sundaydeck_overlay::{DEFAULT_OVERLAY_BIND_ADDR, OverlayPayload, OverlayServerHandle};
 use sundaydeck_voice::VoiceCommand;
 
@@ -340,9 +340,11 @@ impl PresentationStore {
         match OverlayServerHandle::start(DEFAULT_OVERLAY_BIND_ADDR) {
             Ok(handle) => {
                 let url = handle.overlay_url();
+                let remote = handle.remote_url();
                 handle.publish(&OverlayPayload::from_snapshot(&self.snapshot()));
+                crate::remote_control::spawn_remote_control_listener(&handle, cx);
                 self.overlay_server = Some(handle);
-                self.set_status(format!("OBS Broadcast Overlay live at {url}"), cx);
+                self.set_status(format!("OBS Overlay ({url}) & Remote ({remote}) live"), cx);
             }
             Err(err) => {
                 self.set_status(format!("Could not start OBS Overlay: {err}"), cx);
@@ -412,6 +414,56 @@ impl PresentationStore {
             };
             let _ = self.dispatch(cmd, cx);
         }
+    }
+
+    /// Removes a custom slide from memory by id and returns whether one was removed.
+    pub fn remove_custom_slide(&mut self, id: SlideId, cx: &mut Context<Self>) -> bool {
+        let before = self.custom_slides.len();
+        self.custom_slides.retain(|s| s.id != id);
+        let removed = self.custom_slides.len() != before;
+        if removed {
+            self.set_status("Removed custom slide from library", cx);
+        }
+        removed
+    }
+
+    /// Generates a safe `.sdeck` export filename for the active Sunday service.
+    pub fn service_filename(&self) -> String {
+        let slug: String = self
+            .service
+            .title
+            .to_ascii_lowercase()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let trimmed = slug.trim_matches('-');
+        if trimmed.is_empty() {
+            "service.sdeck".to_owned()
+        } else {
+            format!("{trimmed}.sdeck")
+        }
+    }
+
+    /// Builds a [`CcliProjectionInput`] if the currently live deck corresponds to a song.
+    pub fn live_song_ccli_entry(&self) -> Option<CcliProjectionInput> {
+        let live = self.snapshot().live.as_ref()?.clone();
+        let song = if let Some(item_id) = live.item_id {
+            let item = self.service.items.iter().find(|i| i.id == item_id)?;
+            match item.payload {
+                ServiceItemPayload::Song { song_id, .. } => self.song_by_id(song_id)?,
+                _ => return None,
+            }
+        } else {
+            self.songs.iter().find(|s| s.title == live.title)?
+        };
+        Some(CcliProjectionInput {
+            song_id: Some(song.id),
+            title: song.title.clone(),
+            author: song.author.clone(),
+            ccli_number: song.ccli_number.clone(),
+            copyright: song.copyright.clone(),
+            projected_at: self.now_epoch_ms(),
+        })
     }
 
     /// Removes a spoken Bible reference chip from the 1-Click Auto-Follow Scripture Queue.

@@ -6,6 +6,7 @@ use sundaydeck_core::{
 };
 
 use crate::components::TextInput;
+use crate::remote_control::build_parent_pager_alert;
 use crate::store::PresentationStore;
 use crate::views::alerts_timers_ui::render_alerts_timers_modal;
 use crate::views::quick_edit_modal::ModalClosed;
@@ -14,6 +15,7 @@ use crate::views::quick_edit_modal::ModalClosed;
 /// and Pre-Service Countdown / Speaker Elapsed Timers.
 pub struct AlertsTimersModal {
     pub(crate) store: Entity<PresentationStore>,
+    pub(crate) parent_code_input: Entity<TextInput>,
     pub(crate) alert_input: Entity<TextInput>,
     pub(crate) alert_position: AlertPosition,
     pub(crate) alert_timeout: AlertTimeout,
@@ -38,6 +40,9 @@ impl AlertsTimersModal {
             .as_ref()
             .map_or(AlertPosition::BottomBar, |a| a.position);
 
+        let parent_code_input = cx.new(|cx| {
+            TextInput::single_line("parent-pager-code-input", "Code (e.g. 142, B-08)", "", cx)
+        });
         let alert_input = cx.new(|cx| {
             TextInput::single_line(
                 "alert-message-input",
@@ -49,10 +54,29 @@ impl AlertsTimersModal {
         let store_sub = cx.observe(&store, |_, _, cx| cx.notify());
         Self {
             store,
+            parent_code_input,
             alert_input,
             alert_position: existing_pos,
             alert_timeout: AlertTimeout::Seconds { duration_secs: 30 },
             _store_sub: store_sub,
+        }
+    }
+
+    /// 1-click nursery security-code pager: flashes a discreet corner badge (`Parent #142`)
+    /// for 45 seconds without interrupting worship lyrics or sermon slides.
+    pub(crate) fn send_parent_page(&mut self, cx: &mut Context<Self>) {
+        let code = self.parent_code_input.read(cx).value().to_owned();
+        let sent = self.store.update(cx, |s, cx| {
+            let now = s.now_epoch_ms();
+            let Some(alert) = build_parent_pager_alert(&code, now) else {
+                return false;
+            };
+            let _ = s.dispatch(PresentationCommand::SetAudienceAlert(Some(alert)), cx);
+            true
+        });
+        if sent {
+            self.parent_code_input
+                .update(cx, |inp, cx| inp.set_value("", cx));
         }
     }
 

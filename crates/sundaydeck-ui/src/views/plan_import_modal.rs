@@ -55,7 +55,7 @@ impl PlanImportModal {
         let path_input = cx.new(|cx| {
             TextInput::single_line(
                 "plan-file-path",
-                "/path/to/sunday-sermon.pptx or pastor-notes.docx",
+                "/path/to/sermon.pptx, notes.docx, or planning-center.csv / .json",
                 "",
                 cx,
             )

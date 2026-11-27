@@ -5809,6 +5809,7 @@ name = "sundaydeck-db"
 version = "0.0.3"
 dependencies = [
  "async-channel",
+ "chrono",
  "rusqlite",
  "serde",
  "serde_json",
@@ -5823,6 +5824,7 @@ dependencies = [
 name = "sundaydeck-overlay"
 version = "0.0.3"
 dependencies = [
+ "async-channel",
  "serde",
  "serde_json",
  "sundaydeck-core",

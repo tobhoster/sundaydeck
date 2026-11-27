@@ -49,13 +49,15 @@ actions!(
     ]
 );
 
-/// Context for live slide stepping: the Operator workspace, but never while a text field inside it
-/// has focus (bindings dispatch before the field's own key handler, so Space/arrows would step).
-const SLIDE_STEP_CONTEXT: &str = "OperatorWorkspace && !TextInput";
+/// Context for live slide stepping and wireless PowerPoint presenter clickers: active in both
+/// the Operator workspace and Output windows (Audience Projector / Stage Screen), never while a
+/// text field has focus (bindings dispatch before the field's own key handler).
+const SLIDE_STEP_CONTEXT: &str = "(OperatorWorkspace || OutputWindow) && !TextInput";
 
-/// Registers global recovery hotkeys, desktop menu shortcuts, layout toggles, and navigation.
-/// Recovery overrides (`F1`-`F3`) stay active globally (`Shift+F1`-`F3` perform instant hard cuts);
-/// slide stepping is scoped to `OperatorWorkspace` so typing into text fields never advances slides.
+/// Registers global recovery hotkeys, wireless presenter clicker keys, desktop menu shortcuts,
+/// layout toggles, and navigation. Recovery overrides (`F1`-`F3`) stay active globally; clicker
+/// keys (`PageDown`/`PageUp`/`Right`/`Left`/`Space`/`b`/`.`/`w`/`,`) are scoped to
+/// [`SLIDE_STEP_CONTEXT`] so typing into text fields never steps slides or blanks the screen.
 pub fn register_keybindings(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("f1", ToggleClearText, None),
@@ -65,6 +67,7 @@ pub fn register_keybindings(cx: &mut App) {
         KeyBinding::new("shift-f2", HardCutBlack, None),
         KeyBinding::new("shift-f3", HardCutLogo, None),
         KeyBinding::new("f5", GoLive, None),
+        KeyBinding::new("shift-f5", GoLive, None),
         KeyBinding::new("cmd-enter", GoLive, None),
         KeyBinding::new("ctrl-enter", GoLive, None),
         KeyBinding::new("right", NextLiveSlide, Some(SLIDE_STEP_CONTEXT)),
@@ -74,6 +77,11 @@ pub fn register_keybindings(cx: &mut App) {
         KeyBinding::new("left", PrevLiveSlide, Some(SLIDE_STEP_CONTEXT)),
         KeyBinding::new("up", PrevLiveSlide, Some(SLIDE_STEP_CONTEXT)),
         KeyBinding::new("pageup", PrevLiveSlide, Some(SLIDE_STEP_CONTEXT)),
+        // Wireless PowerPoint clicker Black Screen (`b` / `.`) and Clear Words (`w` / `,`) buttons.
+        KeyBinding::new("b", ToggleBlack, Some(SLIDE_STEP_CONTEXT)),
+        KeyBinding::new(".", ToggleBlack, Some(SLIDE_STEP_CONTEXT)),
+        KeyBinding::new("w", ToggleClearText, Some(SLIDE_STEP_CONTEXT)),
+        KeyBinding::new(",", ToggleClearText, Some(SLIDE_STEP_CONTEXT)),
         KeyBinding::new("cmd-e", ToggleQuickEdit, Some("OperatorWorkspace")),
         KeyBinding::new("ctrl-e", ToggleQuickEdit, Some("OperatorWorkspace")),
         KeyBinding::new("cmd-n", NewService, Some("OperatorWorkspace")),

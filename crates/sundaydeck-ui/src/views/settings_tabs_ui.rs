@@ -11,6 +11,7 @@ use crate::views::settings_modal::{
     BILINGUAL_MODE_CHOICES, CHURCH_PROFILE_CHOICES, LLM_PRESET_CHOICES, LOOP_INTERVAL_CHOICES,
     SettingsModal, VOICE_THRESHOLD_CHOICES,
 };
+use crate::views::settings_prod_ui::render_production_tools_section;
 use crate::views::settings_ui::{field_label, section_card};
 
 pub(crate) fn render_ai_voice_tab(modal: &SettingsModal, cx: &mut Context<SettingsModal>) -> Div {
@@ -420,4 +421,5 @@ pub(crate) fn render_bibles_bundles_tab(
                         ),
                 ),
         ))
+        .child(render_production_tools_section(modal, cx))
 }

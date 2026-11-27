@@ -4,8 +4,10 @@ mod support;
 use std::time::Duration;
 
 use gpui::ClipboardItem;
+use sundaydeck_core::OutputOverride;
 use sundaydeck_ui::components::TextInput;
-use support::{Rig, rig};
+use sundaydeck_ui::views::AudienceOutputView;
+use support::{Rig, rig, windows_of};
 
 fn focus_song_search(r: &mut Rig) -> gpui::Entity<TextInput> {
     let input = r
@@ -143,4 +145,64 @@ fn song_search_applies_only_the_latest_query() {
         hits.is_some_and(|n| n >= 1),
         "`grace` must match the seeded Amazing Grace, got {hits:?}"
     );
+}
+
+#[test]
+fn wireless_powerpoint_clicker_works_across_windows_and_never_fires_in_text_inputs() {
+    let mut r = rig();
+    r.go_live_with_first_song();
+    let operator = r.operator;
+    let workspace = r.workspace.clone();
+    r.focus(operator, &workspace);
+
+    // 1. Standard Logitech / PowerPoint clicker keys work in OperatorWorkspace.
+    r.press(operator, "pagedown");
+    assert_eq!(r.live_index(), Some(1), "PageDown advances slide");
+    r.press(operator, "pageup");
+    assert_eq!(r.live_index(), Some(0), "PageUp steps back");
+    r.press(operator, ".");
+    assert_eq!(
+        r.app
+            .update(|cx| r.store.read(cx).snapshot().output_override),
+        OutputOverride::Black,
+        "`.` clicker blackout button toggles Black Screen"
+    );
+    r.press(operator, "b");
+    assert_eq!(
+        r.app
+            .update(|cx| r.store.read(cx).snapshot().output_override),
+        OutputOverride::None,
+        "`b` clicker blackout button clears Black Screen"
+    );
+
+    // 2. Typing clicker letters (`b`, `.`, `w`, `,`) inside a TextInput NEVER triggers overrides.
+    let input = focus_song_search(&mut r);
+    for key in ["b", ".", "w", ","] {
+        r.press(operator, key);
+        assert_eq!(
+            r.app
+                .update(|cx| r.store.read(cx).snapshot().output_override),
+            OutputOverride::None,
+            "`{key}` typed in a TextInput must never trigger an override"
+        );
+    }
+    assert_eq!(input_value(&mut r, &input), "b.w,");
+
+    // 3. Clicker keeps working even when the Audience Projector window has OS focus.
+    r.toggle_audience();
+    let aud_win = r.app.update(|cx| windows_of::<AudienceOutputView>(cx)[0]);
+    r.press(aud_win, "pagedown");
+    assert_eq!(
+        r.live_index(),
+        Some(1),
+        "PageDown from a focused Audience window must still advance slides"
+    );
+    r.press(aud_win, ".");
+    assert_eq!(
+        r.app
+            .update(|cx| r.store.read(cx).snapshot().output_override),
+        OutputOverride::Black,
+        "`.` blackout button from a focused Audience window must toggle Black Screen"
+    );
+    r.toggle_audience();
 }

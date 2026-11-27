@@ -29,6 +29,7 @@ pub mod settings_catalog_ui;
 pub mod settings_migration;
 pub mod settings_modal;
 pub mod settings_packs;
+pub mod settings_prod_ui;
 pub mod settings_tabs_ui;
 pub mod settings_ui;
 pub mod song_editor_body;

@@ -46,9 +46,10 @@ SundayDeck is designed around quiet, predictable Sunday morning craft:
 
 - **Calm, volunteer-first workspace** — Warm dark surfaces, plain-English controls (`Show on Screen`, `Hide Words`, `Black Screen`, `Show Logo`), strict Preview vs. Live separation, click-outside & `Esc` modal dismissal, right-click editing on hymns/verses/slides, and live **Quick Edit** to fix a typo without disturbing the sanctuary screen.
 - **Ready on Day 1 — Zero Empty State** — Ships with **19 verified Public Domain hymns** (English, Spanish, Portuguese & Catholic), **BSB, WEB & KJV** ready immediately offline, **1-click full 31k-verse Bible downloads** (English BSB/KJV/ASV/CPDV/DRC, Spanish RV1909, Portuguese Bíblia Livre, French Synodale & Crampon), **12 studio themes**, 6 sanctuary photos, 2 motion timelapse loops, and **7 bundled projection fonts**.
-- **Built-in Slide Layouts, Quick Slides & Nursery Alerts** — 1-click **Pastor Quote** and **Member Birthday** quick slides, click-to-reveal sermon points, image + text announcements, pre-service countdowns, call-and-response liturgy, and discreet **Nursery / Parent Paging Alert** overlays (`Parent #142`) that never interrupt worship lyrics.
-- **Pastor Notes to Service Order** — Drop a pastor's PowerPoint (`.pptx`), Word document (`.docx`), or plain sermon outline to build a reviewable service order in seconds — matching songs, pulling Scriptures offline, and laying out sermon points.
-- **Sanctuary, Stage & Livestream Ready** — Independent Audience Projector and **Stage Confidence Monitor** windows (with current + next slide, clock, amber warning / red overtime sermon timers, and private stage cues like *"Wrap up — Communion next"*), plus a built-in local **OBS Studio** transparent lower-third overlay and chroma-key theme.
+- **Built-in Slide Layouts, Quick Slides & Nursery Parent Pager** — 1-click **Pastor Quote** and **Member Birthday** quick slides persisted in SQLite, click-to-reveal sermon points, image + text announcements, pre-service countdowns, call-and-response liturgy, and a **1-click Nursery / Parent Security Code Pager** (`Parent #142` discreet corner badge) that never interrupts worship lyrics.
+- **Pastor Notes & Planning Center Services Import** — Drop a pastor's PowerPoint (`.pptx`), Word document (`.docx`), **Planning Center Online (`.csv` / `.json`)** export, or plain sermon outline to build a reviewable service order in seconds — matching songs, pulling Scriptures offline, and laying out sermon points.
+- **Sanctuary, Stage, OBS Livestream & Stream Deck / Companion API** — Independent Audience Projector and **Stage Confidence Monitor** windows (with current + next slide, clock, amber warning / red overtime sermon timers, and private stage cues), built-in **OBS Studio** transparent lower-thirds, plus a localhost **Booth Remote (`/remote`) & Stream Deck / Bitfocus Companion HTTP API** (`POST /api/trigger/{next,prev,go-live,black,clear-text,logo,parent-page}`).
+- **Production Safety & CCLI Compliance** — Automatic CCLI song projection logging with **1-click CCLI CSV export**, automatic rolling SQLite safety backups (`sundaydeck.db.bak`) on every clean startup, and 1-click atomic database snapshots (`VACUUM INTO`).
 - **Hands-Free Microphone Auto-Follow** — Listens locally to your room mic or soundboard to follow sung lyrics in safe Suggest/Auto modes and queues spoken sermon Bible verses for one click — completely offline.
 - **Built for Churches Across the Americas + Portable `.sdeck` Bundles** — Full **66-book Protestant & 73-book Catholic Bibles**, accent-tolerant search (English, Spanish, Portuguese, French), **parallel dual-translation Scripture**, **numbered hymnbooks** (`BH 330`, `UMH 378`, `CC 1`, `HGT 42`), **bilingual stacked lyrics**, and self-contained **`.sdeck` / `.sdeck-pack`** archives so volunteers can prep on a home laptop Saturday night and open everything cleanly in the booth Sunday morning.
 - **Easy Library Migration** — Import existing libraries from EasyWorship, OpenLP, ProPresenter, VideoPsalm, FreeShow, ChordPro, OpenLyrics, SongSelect (`.usr`/`.txt`), and standard USFM/USFX/OSIS/Zefania/SQLite/Scrollmapper Bibles.
@@ -116,16 +117,19 @@ Click **Auto-Follow** in the top bar, choose your microphone or soundboard input
 
 ---
 
-## Keyboard Shortcuts
+## Keyboard Shortcuts & Wireless PowerPoint Clickers
 
-| Action | Shortcut |
+Works out of the box with USB/Bluetooth wireless PowerPoint clickers (Logitech R400/R500/R800/Spotlight, Kensington, DinoFire, etc.) even when the Audience Projector or Stage Screen window has focus:
+
+| Action | Shortcut / Clicker Button |
 | :--- | :--- |
-| Next live slide (or reveal next bullet point) | `Space` / `Right` / `Down` |
-| Previous live slide | `Left` / `Up` |
-| Show staged preview on screen | `Cmd/Ctrl + Enter` |
-| Hide Words (keep background) | `F1` (`Shift + F1` instant cut) |
-| Black Screen | `F2` (`Shift + F2` instant cut) |
+| Next live slide (or reveal next bullet point) | `Space` / `Right` / `Down` / `PageDown` |
+| Previous live slide | `Left` / `Up` / `PageUp` |
+| Show staged preview on screen | `Cmd/Ctrl + Enter` / `F5` / `Shift + F5` |
+| Hide Words (keep background) | `F1` (`Shift + F1` instant cut) / `W` / `,` |
+| Black Screen | `F2` (`Shift + F2` instant cut) / `B` / `.` |
 | Show Church Logo | `F3` (`Shift + F3` instant cut) |
+| Dismiss menu / popover / modal | `Esc` (or click outside) |
 | Fix a typo live (Quick Edit) | `Cmd/Ctrl + E` |
 | Toggle Audience Projector window | `Cmd/Ctrl + Shift + A` |
 | Toggle Stage Confidence Monitor | `Cmd/Ctrl + Shift + S` |

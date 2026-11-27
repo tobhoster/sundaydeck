@@ -11,6 +11,7 @@ use crate::docx_outline_import::{
 };
 use crate::error::ImportError;
 use crate::office_zip::OfficeZip;
+use crate::pco_import::{extract_pco_csv, extract_pco_json};
 
 /// Most slides read from one `.pptx`; duplicate slide references are dropped before the cap.
 const MAX_PPTX_SLIDES: usize = 2_000;
@@ -78,6 +79,14 @@ pub fn extract_office_bytes(
     }
     if lower.ends_with(".docx") {
         return extract_docx_bytes(source_name, bytes);
+    }
+    if lower.ends_with(".csv") {
+        let text = String::from_utf8_lossy(bytes);
+        return extract_pco_csv(source_name, &text);
+    }
+    if lower.ends_with(".json") {
+        let text = String::from_utf8_lossy(bytes);
+        return extract_pco_json(source_name, &text);
     }
     if is_zip_magic {
         let archive = OfficeZip::open(bytes)?;

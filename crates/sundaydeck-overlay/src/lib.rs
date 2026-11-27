@@ -1,5 +1,7 @@
 mod broadcast;
+pub mod control;
 mod html;
+mod remote_html;
 mod ws;
 
 use std::io::{self, Read, Write};
@@ -9,16 +11,21 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use async_channel::{Receiver, Sender, bounded};
 use serde::{Deserialize, Serialize};
 use sundaydeck_core::{
     AudienceRenderState, CustomSlideLayout, PresentationSnapshot, SlideContent, TransitionDirection,
 };
 
 use crate::broadcast::{CLIENT_WRITE_TIMEOUT, FrameBroadcaster};
+pub use crate::control::RemoteControlCommand;
+use crate::control::{build_api_status_json, parse_trigger_request};
 use crate::html::OVERLAY_HTML;
+use crate::remote_html::REMOTE_HTML;
 use crate::ws::{encode_ws_text_frame, websocket_accept_key};
 
 pub const DEFAULT_OVERLAY_BIND_ADDR: &str = "127.0.0.1:8787";
+const CONTROL_QUEUE_CAPACITY: usize = 64;
 
 /// Read budget for a client's HTTP request line and headers.
 const REQUEST_READ_TIMEOUT: Duration = Duration::from_secs(2);
@@ -197,18 +204,20 @@ fn extract_slide_copy(
 struct SharedOverlayState {
     latest_json: Mutex<String>,
     broadcaster: Arc<FrameBroadcaster>,
+    control_tx: Sender<RemoteControlCommand>,
     running: AtomicBool,
 }
 
-/// Non-blocking handle to the local OBS Browser Source HTTP + WebSocket overlay server.
+/// Non-blocking handle to the local OBS Browser Source HTTP + WebSocket overlay & Companion API.
 #[derive(Clone)]
 pub struct OverlayServerHandle {
     addr: SocketAddr,
     shared: Arc<SharedOverlayState>,
+    control_rx: Receiver<RemoteControlCommand>,
 }
 
 impl OverlayServerHandle {
-    /// Starts the local OBS overlay server on `bind_addr` (e.g. `"127.0.0.1:8787"`).
+    /// Starts the local OBS overlay + Booth Remote / Companion API server on `bind_addr`.
     pub fn start(bind_addr: &str) -> io::Result<Self> {
         let listener = TcpListener::bind(bind_addr)?;
         listener.set_nonblocking(true)?;
@@ -216,9 +225,11 @@ impl OverlayServerHandle {
 
         let initial_json = serde_json::to_string(&OverlayPayload::default())
             .unwrap_or_else(|_| r#"{"mode":"clear","body":""}"#.to_owned());
+        let (control_tx, control_rx) = bounded(CONTROL_QUEUE_CAPACITY);
         let shared = Arc::new(SharedOverlayState {
             latest_json: Mutex::new(initial_json),
             broadcaster: FrameBroadcaster::start()?,
+            control_tx,
             running: AtomicBool::new(true),
         });
 
@@ -227,12 +238,26 @@ impl OverlayServerHandle {
             .name("sundaydeck-overlay".to_owned())
             .spawn(move || accept_loop(listener, accept_shared));
 
-        Ok(Self { addr, shared })
+        Ok(Self {
+            addr,
+            shared,
+            control_rx,
+        })
     }
 
     /// URL to paste directly into OBS Studio -> Sources -> Browser Source (`http://127.0.0.1:8787/overlay`).
     pub fn overlay_url(&self) -> String {
         format!("http://{}/overlay", self.addr)
+    }
+
+    /// URL for the built-in touch Booth Remote & Bitfocus Companion / Stream Deck API info.
+    pub fn remote_url(&self) -> String {
+        format!("http://{}/remote", self.addr)
+    }
+
+    /// Async receiver for incoming Stream Deck / Companion / Booth Remote commands.
+    pub fn control_receiver(&self) -> Receiver<RemoteControlCommand> {
+        self.control_rx.clone()
     }
 
     pub fn local_addr(&self) -> SocketAddr {
@@ -257,6 +282,7 @@ impl OverlayServerHandle {
     /// Stops accepting new connections, stops the frame writer and drops connected overlay clients.
     pub fn shutdown(&self) {
         self.shared.running.store(false, Ordering::SeqCst);
+        self.shared.control_tx.close();
         self.shared.broadcaster.shutdown();
     }
 }
@@ -289,11 +315,10 @@ fn handle_connection(mut stream: TcpStream, shared: Arc<SharedOverlayState>) {
         return;
     };
     let req = String::from_utf8_lossy(&buf[..n]);
-    let path = req
-        .lines()
-        .next()
-        .and_then(|line| line.split_whitespace().nth(1))
-        .unwrap_or("/");
+    let mut parts = req.lines().next().unwrap_or("").split_whitespace();
+    let method = parts.next().unwrap_or("GET");
+    let path = parts.next().unwrap_or("/");
+    let body = req.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
 
     if path == "/ws"
         && let Some(key) = find_header(&req, "sec-websocket-key")
@@ -301,7 +326,7 @@ fn handle_connection(mut stream: TcpStream, shared: Arc<SharedOverlayState>) {
         accept_websocket_client(stream, key, &shared);
         return;
     }
-    serve_http(&mut stream, path, &shared);
+    serve_http(&mut stream, method, path, body, &shared);
 }
 
 /// Completes the RFC 6455 upgrade and sends the current state *before* registering the client,
@@ -344,22 +369,71 @@ fn offer_latest_if_published_since(shared: &SharedOverlayState, sent_json: &str)
     }
 }
 
-fn serve_http(stream: &mut TcpStream, path: &str, shared: &SharedOverlayState) {
+fn serve_http(
+    stream: &mut TcpStream,
+    method: &str,
+    path: &str,
+    body: &str,
+    shared: &SharedOverlayState,
+) {
+    if path.starts_with("/api/trigger/") {
+        match parse_trigger_request(method, path, body) {
+            Ok(cmd) => match shared.control_tx.try_send(cmd) {
+                Ok(()) => write_http_response(
+                    stream,
+                    "200 OK",
+                    "application/json; charset=utf-8",
+                    r#"{"ok":true}"#,
+                ),
+                Err(_) => write_http_response(
+                    stream,
+                    "503 Service Unavailable",
+                    "application/json; charset=utf-8",
+                    r#"{"ok":false,"error":"control queue full or closed"}"#,
+                ),
+            },
+            Err((status, msg)) => {
+                let err_json = format!(r#"{{"ok":false,"error":"{msg}"}}"#);
+                write_http_response(stream, status, "application/json; charset=utf-8", &err_json);
+            }
+        }
+        return;
+    }
+
     match path {
-        "/" | "/overlay" => write_http_response(stream, "text/html; charset=utf-8", OVERLAY_HTML),
+        "/" | "/overlay" => {
+            write_http_response(stream, "200 OK", "text/html; charset=utf-8", OVERLAY_HTML)
+        }
+        "/remote" => write_http_response(stream, "200 OK", "text/html; charset=utf-8", REMOTE_HTML),
         "/state.json" => {
             let body = shared
                 .latest_json
                 .lock()
                 .map(|g| g.clone())
                 .unwrap_or_else(|_| "{}".to_owned());
-            write_http_response(stream, "application/json; charset=utf-8", &body);
+            write_http_response(stream, "200 OK", "application/json; charset=utf-8", &body);
         }
-        "/health" => write_http_response(stream, "text/plain; charset=utf-8", "ok"),
+        "/api/status" => {
+            let latest = shared
+                .latest_json
+                .lock()
+                .map(|g| g.clone())
+                .unwrap_or_else(|_| "{}".to_owned());
+            let payload = build_api_status_json(&latest);
+            write_http_response(
+                stream,
+                "200 OK",
+                "application/json; charset=utf-8",
+                &payload,
+            );
+        }
+        "/health" => write_http_response(stream, "200 OK", "text/plain; charset=utf-8", "ok"),
         _ => {
-            // Best-effort: the connection closes right after, so a failed write needs no handling.
-            let _ = stream.write_all(
-                b"HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\nConnection: close\r\n\r\nNot Found",
+            write_http_response(
+                stream,
+                "404 Not Found",
+                "text/plain; charset=utf-8",
+                "Not Found",
             );
         }
     }
@@ -376,9 +450,9 @@ fn find_header<'a>(req: &'a str, needle_lower: &str) -> Option<&'a str> {
     None
 }
 
-fn write_http_response(stream: &mut TcpStream, content_type: &str, body: &str) {
+fn write_http_response(stream: &mut TcpStream, status: &str, content_type: &str, body: &str) {
     let header = format!(
-        "HTTP/1.1 200 OK\r\n\
+        "HTTP/1.1 {status}\r\n\
          Content-Type: {content_type}\r\n\
          Content-Length: {}\r\n\
          Cache-Control: no-store\r\n\

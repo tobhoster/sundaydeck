@@ -13,6 +13,7 @@ pub mod media_keyframe_cache;
 pub mod menus;
 pub mod overlay_badges;
 pub mod palette;
+pub mod remote_control;
 pub mod renderer;
 pub mod store;
 pub mod store_plan;

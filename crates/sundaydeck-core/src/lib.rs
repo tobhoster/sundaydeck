@@ -16,6 +16,7 @@ pub mod live_state;
 mod office_zip;
 pub mod ooxml_import;
 pub mod openlyrics;
+pub mod pco_import;
 pub mod plan_builder;
 pub mod plan_matchers;
 pub mod reflow;
@@ -71,6 +72,7 @@ pub use ooxml_import::{
     extract_pptx_bytes,
 };
 pub use openlyrics::import_openlyrics_xml;
+pub use pco_import::{extract_pco_csv, extract_pco_json};
 pub use plan_builder::{
     GeneratedServicePlan, PlanApplyMode, PlanItemKind, PlanStats, PlannedServiceItem,
     build_service_plan,

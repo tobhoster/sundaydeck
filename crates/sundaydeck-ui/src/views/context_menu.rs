@@ -413,6 +413,24 @@ fn build_custom_slide_menu(slide_id: SlideId, cx: &mut Context<OperatorWorkspace
                 }
             },
         ))
+        .child(menu_item(
+            "ctx-custom-delete",
+            DeckIcon::Trash,
+            "Delete Custom Slide",
+            TOKENS.signal_live_dot,
+            cx,
+            move |this, cx| {
+                let removed = this
+                    .store
+                    .update(cx, |s, cx| s.remove_custom_slide(slide_id, cx));
+                if removed && let Some(db) = this.db.clone() {
+                    cx.spawn(async move |_, _| {
+                        let _ = db.delete_custom_slide(slide_id).await;
+                    })
+                    .detach();
+                }
+            },
+        ))
 }
 
 fn menu_item(

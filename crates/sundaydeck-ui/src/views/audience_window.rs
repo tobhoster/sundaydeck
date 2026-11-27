@@ -12,6 +12,7 @@ use crate::design::motion::{
     BACKGROUND_SWAP_MS, CrossfadeLayer, MotionMode, OVERRIDE_FADE_MS, SLIDE_CROSSFADE_MS,
 };
 use crate::design::tokens::{FONT_BODY, RADIUS_PILL, TOKENS};
+use crate::remote_control::bind_output_clicker_actions;
 use crate::renderer::{
     render_audience_background_only, render_audience_canvas, render_audience_foreground_only,
 };
@@ -174,20 +175,23 @@ impl Render for AudienceOutputView {
                 .render(previous, current)
         };
 
-        let mut root = div()
-            .relative()
-            .size_full()
-            .overflow_hidden()
-            .track_focus(&self.focus_handle)
-            .on_key_down(|ev: &KeyDownEvent, window, _| {
-                if ev.keystroke.key == "escape" {
+        let mut root = bind_output_clicker_actions(
+            div()
+                .relative()
+                .size_full()
+                .overflow_hidden()
+                .track_focus(&self.focus_handle)
+                .on_key_down(|ev: &KeyDownEvent, window, _| {
+                    if ev.keystroke.key == "escape" {
+                        window.remove_window();
+                    }
+                })
+                .on_action(|_: &CloseActiveWindow, window, _| {
                     window.remove_window();
-                }
-            })
-            .on_action(|_: &CloseActiveWindow, window, _| {
-                window.remove_window();
-            })
-            .child(inner);
+                })
+                .child(inner),
+            self.store.clone(),
+        );
 
         if self.show_escape_badge {
             root = root.child(

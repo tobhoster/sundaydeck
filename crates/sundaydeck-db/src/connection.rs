@@ -14,6 +14,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
         include_str!("../migrations/0004_camera_and_transitions.sql"),
     ),
     (5, include_str!("../migrations/0005_global_content.sql")),
+    (6, include_str!("../migrations/0006_production_ready.sql")),
 ];
 
 /// Managed SQLite database handle configured in WAL mode with foreign keys enabled.

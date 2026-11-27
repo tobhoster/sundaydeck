@@ -160,5 +160,13 @@ fn load_initial_bootstrap(path: &Path) -> anyhow::Result<BootstrapData> {
     let mut db = Database::open(path).context("failed to open SundayDeck SQLite database")?;
     sundaydeck_db::seed::seed_defaults_if_empty(db.conn_mut())
         .context("failed to seed initial SundayDeck library")?;
+    // Rolling atomic safety backup (`sundaydeck.db.bak`) on every clean startup so churches
+    // can recover immediately if their primary library file is ever damaged or overwritten.
+    if let Err(err) = sundaydeck_db::production_repo::create_safe_backup(
+        db.conn(),
+        &path.with_extension("db.bak"),
+    ) {
+        eprintln!("SundayDeck rolling backup warning: {err}");
+    }
     sundaydeck_db::worker::load_bootstrap_sync(&db).context("failed to load initial library")
 }
