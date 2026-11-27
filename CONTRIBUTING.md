@@ -26,8 +26,15 @@ We strictly respect copyright and **never** accept copyrighted contemporary wors
    ```bash
    cargo fmt --check
    cargo clippy --workspace --all-targets -- -D warnings
-   cargo test --workspace
+   ./scripts/verify-gates.sh --all
    ```
+
+---
+
+## Maintainer Notes: Releases & Custom Domain
+
+- **Publishing a release:** Push a semantic tag (`git tag v0.0.3 && git push origin v0.0.3`) to run `.github/workflows/release.yml`, which gates on static + release perf/stress checks and builds macOS (`.dmg`), Windows (`.exe` + `.zip`), and Linux (`.deb` + `.tar.gz`) installers, `.sdeck-pack` starter packs, `SHA256SUMS.txt`, SLSA provenance, and an updated Homebrew Cask (`packaging/homebrew/Casks/sundaydeck.rb`).
+- **Custom Domain on GitHub Pages:** Enable **Settings → Pages → Source: GitHub Actions**, add your domain in `docs/CNAME` (see `docs/CNAME.example`), and configure DNS `A` / `CNAME` records.
 
 ---
 

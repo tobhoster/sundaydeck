@@ -1,13 +1,15 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    SharedString, StatefulInteractiveElement, Styled, div, px, rgb, rgba, uniform_list,
+    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, MouseButton,
+    MouseDownEvent, ParentElement, SharedString, StatefulInteractiveElement, Styled, div, px, rgb,
+    rgba, uniform_list,
 };
 use sundaydeck_core::{Song, SongId};
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::tokens::{FONT_BODY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, TOKENS};
+use crate::views::context_menu::ContextMenuTarget;
 use crate::views::library_custom_slides::{render_custom_slides_library, render_themes_library};
 use crate::views::operator_workspace::{LibraryTab, OperatorWorkspace};
 use crate::views::song_editor_modal::EditorTab;
@@ -275,6 +277,12 @@ fn render_song_row(song: &Song, cx: &Context<OperatorWorkspace>) -> Div {
             this.store
                 .update(cx, |s, cx| s.stage_library_song(song_id, cx));
         }))
+        .on_mouse_down(
+            MouseButton::Right,
+            cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                this.open_context_menu(ev.position, ContextMenuTarget::Song(song_id), cx);
+            }),
+        )
         .child(render_song_title_block(&song.title, meta))
         .child(render_song_row_actions(song_id, section_summary, cx));
     div().w_full().pb(px(SONG_ROW_GAP_PX)).child(row)

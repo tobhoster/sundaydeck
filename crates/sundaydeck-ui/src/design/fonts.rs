@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use gpui::{App, SharedString};
 
 use crate::design::tokens::{
-    FONT_BODY, FONT_DISPLAY, FONT_DISPLAY_PROJ, FONT_LYRIC_BOLD, FONT_MONO, FONT_SCRIPTURE_SERIF,
+    FONT_BODY, FONT_CONDENSED_DISPLAY, FONT_DISPLAY, FONT_DISPLAY_PROJ, FONT_EDITORIAL_SERIF,
+    FONT_LYRIC_BOLD, FONT_MONO, FONT_SCRIPTURE_SERIF, FONT_WORSHIP_SANS,
 };
 
 const BUNDLED_FONT_BYTES: &[&[u8]] = &[
@@ -22,13 +23,19 @@ const BUNDLED_FONT_BYTES: &[&[u8]] = &[
     include_bytes!("../../assets/fonts/JetBrainsMono-Medium.ttf"),
     include_bytes!("../../assets/fonts/JetBrainsMono-SemiBold.ttf"),
     include_bytes!("../../assets/fonts/JetBrainsMono-Bold.ttf"),
-    // Sanctuary Projection Pack: Manrope, Syne, Newsreader (SIL OFL)
+    // Sanctuary Projection Pack: Manrope, Syne, Newsreader, Montserrat, Cormorant Garamond, Oswald (SIL OFL)
     include_bytes!("../../assets/fonts/Manrope-Bold.ttf"),
     include_bytes!("../../assets/fonts/Manrope-ExtraBold.ttf"),
     include_bytes!("../../assets/fonts/Syne-Bold.ttf"),
     include_bytes!("../../assets/fonts/Syne-ExtraBold.ttf"),
     include_bytes!("../../assets/fonts/Newsreader-Regular.ttf"),
     include_bytes!("../../assets/fonts/Newsreader-SemiBold.ttf"),
+    include_bytes!("../../assets/fonts/Montserrat-Bold.ttf"),
+    include_bytes!("../../assets/fonts/Montserrat-ExtraBold.ttf"),
+    include_bytes!("../../assets/fonts/CormorantGaramond-SemiBold.ttf"),
+    include_bytes!("../../assets/fonts/CormorantGaramond-Bold.ttf"),
+    include_bytes!("../../assets/fonts/Oswald-SemiBold.ttf"),
+    include_bytes!("../../assets/fonts/Oswald-Bold.ttf"),
 ];
 
 /// Registers all bundled SIL OFL typefaces into GPUI's text system at startup before any
@@ -45,7 +52,10 @@ pub fn register_fonts(cx: &App) -> anyhow::Result<()> {
 /// Curated projection font pack exposed in Themes and the Design Gallery.
 pub const PROJECTION_FONTS: &[(&str, &str)] = &[
     (FONT_LYRIC_BOLD, "Modern Bold Sans (Lyrics)"),
+    (FONT_WORSHIP_SANS, "Contemporary Worship Sans"),
     (FONT_SCRIPTURE_SERIF, "Editorial Scripture Serif"),
+    (FONT_EDITORIAL_SERIF, "Classic Display Serif (Quotes)"),
+    (FONT_CONDENSED_DISPLAY, "Bold Condensed Worship"),
     (FONT_DISPLAY, "Minimal Grotesk"),
     (FONT_DISPLAY_PROJ, "Contemporary Display"),
 ];

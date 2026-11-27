@@ -166,6 +166,138 @@ def build_all_packs(out_dir: Path) -> list[Path]:
                 ),
             ],
         ),
+        make_song(
+            "it-is-well-with-my-soul",
+            "It Is Well with My Soul",
+            "Horatio G. Spafford (1873)",
+            "en",
+            None,
+            [
+                {"hymnal_code": "UMH", "hymnal_name": "United Methodist Hymnal", "hymn_number": 377},
+                {"hymnal_code": "BH", "hymnal_name": "Baptist Hymnal", "hymn_number": 410},
+            ],
+            ["Baptist", "Methodist", "Traditional Hymns"],
+            [
+                (
+                    "verse",
+                    "Verse 1",
+                    "When peace, like a river, attendeth my way,\nWhen sorrows like sea billows roll;\nWhatever my lot, Thou hast taught me to say,\nIt is well, it is well with my soul.",
+                    None,
+                ),
+                (
+                    "chorus",
+                    "Chorus",
+                    "It is well with my soul,\nIt is well, it is well with my soul.",
+                    None,
+                ),
+            ],
+        ),
+        make_song(
+            "blessed-assurance",
+            "Blessed Assurance",
+            "Fanny J. Crosby (1873)",
+            "en",
+            None,
+            [
+                {"hymnal_code": "UMH", "hymnal_name": "United Methodist Hymnal", "hymn_number": 369},
+                {"hymnal_code": "BH", "hymnal_name": "Baptist Hymnal", "hymn_number": 334},
+            ],
+            ["Baptist", "Methodist", "Traditional Hymns"],
+            [
+                (
+                    "verse",
+                    "Verse 1",
+                    "Blessed assurance, Jesus is mine!\nO what a foretaste of glory divine!\nHeir of salvation, purchase of God,\nBorn of His Spirit, washed in His blood.",
+                    None,
+                ),
+                (
+                    "chorus",
+                    "Chorus",
+                    "This is my story, this is my song,\nPraising my Savior all the day long;\nThis is my story, this is my song,\nPraising my Savior all the day long.",
+                    None,
+                ),
+            ],
+        ),
+        make_song(
+            "what-a-friend-we-have-in-jesus",
+            "What a Friend We Have in Jesus",
+            "Joseph M. Scriven (1855)",
+            "en",
+            None,
+            [
+                {"hymnal_code": "UMH", "hymnal_name": "United Methodist Hymnal", "hymn_number": 526},
+                {"hymnal_code": "BH", "hymnal_name": "Baptist Hymnal", "hymn_number": 182},
+            ],
+            ["Baptist", "Methodist", "Traditional Hymns"],
+            [
+                (
+                    "verse",
+                    "Verse 1",
+                    "What a Friend we have in Jesus,\nAll our sins and griefs to bear!\nWhat a privilege to carry\nEverything to God in prayer!",
+                    None,
+                ),
+            ],
+        ),
+        make_song(
+            "crown-him-with-many-crowns",
+            "Crown Him with Many Crowns",
+            "Matthew Bridges (1851) & Godfrey Thring (1874)",
+            "en",
+            None,
+            [
+                {"hymnal_code": "UMH", "hymnal_name": "United Methodist Hymnal", "hymn_number": 327},
+                {"hymnal_code": "BH", "hymnal_name": "Baptist Hymnal", "hymn_number": 161},
+            ],
+            ["Mainline", "Baptist", "Methodist"],
+            [
+                (
+                    "verse",
+                    "Verse 1",
+                    "Crown Him with many crowns,\nThe Lamb upon His throne;\nHark! how the heavenly anthem drowns\nAll music but its own!",
+                    None,
+                ),
+            ],
+        ),
+        make_song(
+            "a-mighty-fortress-is-our-god",
+            "A Mighty Fortress Is Our God",
+            "Martin Luther (1529) · tr. Frederick H. Hedge (1853)",
+            "en",
+            None,
+            [
+                {"hymnal_code": "UMH", "hymnal_name": "United Methodist Hymnal", "hymn_number": 110},
+                {"hymnal_code": "BH", "hymnal_name": "Baptist Hymnal", "hymn_number": 8},
+            ],
+            ["Lutheran", "Reformed", "Mainline"],
+            [
+                (
+                    "verse",
+                    "Verse 1",
+                    "A mighty fortress is our God,\nA bulwark never failing;\nOur helper He, amid the flood\nOf mortal ills prevailing.",
+                    None,
+                ),
+            ],
+        ),
+        make_song(
+            "doxology-old-hundredth",
+            "Praise God, from Whom All Blessings Flow (Doxology)",
+            "Thomas Ken (1674)",
+            "en",
+            None,
+            [
+                {"hymnal_code": "UMH", "hymnal_name": "United Methodist Hymnal", "hymn_number": 95},
+                {"hymnal_code": "BH", "hymnal_name": "Baptist Hymnal", "hymn_number": 253},
+            ],
+            ["Mainline", "Baptist", "Methodist", "Reformed"],
+            [
+                (
+                    "verse",
+                    "Doxology",
+                    "Praise God, from whom all blessings flow;\nPraise Him, all creatures here below;\nPraise Him above, ye heavenly host;\nPraise Father, Son, and Holy Ghost. Amen.",
+                    None,
+                ),
+            ],
+        ),
     ]
     p1 = out_dir / "north-america-classic-hymns.sdeck-pack"
     write_pack(

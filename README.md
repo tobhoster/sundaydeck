@@ -44,13 +44,14 @@ Most church presentation apps are either expensive subscriptions, sluggish on ol
 
 SundayDeck is designed around quiet, predictable Sunday morning craft:
 
-- **Calm, volunteer-first workspace** — Warm dark surfaces, plain-English controls (`Show on Screen`, `Hide Words`, `Black Screen`, `Show Logo`), strict Preview vs. Live separation, and live **Quick Edit** to fix a typo without disturbing the sanctuary screen.
-- **Built-in Custom Slide Layouts & Gentle Transitions** — Create welcome cards, key sermon quotes, click-to-reveal bullet points, image + text announcements, pre-service countdowns, and call-and-response liturgy right inside the app.
+- **Calm, volunteer-first workspace** — Warm dark surfaces, plain-English controls (`Show on Screen`, `Hide Words`, `Black Screen`, `Show Logo`), strict Preview vs. Live separation, click-outside & `Esc` modal dismissal, right-click editing on hymns/verses/slides, and live **Quick Edit** to fix a typo without disturbing the sanctuary screen.
+- **Ready on Day 1 — Zero Empty State** — Ships with **19 verified Public Domain hymns** (English, Spanish, Portuguese & Catholic), **BSB, WEB & KJV** ready immediately offline, **1-click full 31k-verse Bible downloads** (English BSB/KJV/ASV/CPDV/DRC, Spanish RV1909, Portuguese Bíblia Livre, French Synodale & Crampon), **12 studio themes**, 6 sanctuary photos, 2 motion timelapse loops, and **7 bundled projection fonts**.
+- **Built-in Slide Layouts, Quick Slides & Nursery Alerts** — 1-click **Pastor Quote** and **Member Birthday** quick slides, click-to-reveal sermon points, image + text announcements, pre-service countdowns, call-and-response liturgy, and discreet **Nursery / Parent Paging Alert** overlays (`Parent #142`) that never interrupt worship lyrics.
 - **Pastor Notes to Service Order** — Drop a pastor's PowerPoint (`.pptx`), Word document (`.docx`), or plain sermon outline to build a reviewable service order in seconds — matching songs, pulling Scriptures offline, and laying out sermon points.
-- **Sanctuary, Stage & Livestream Ready** — Independent Audience Projector and Stage Confidence Monitor windows (with current + next slide, clock, speaker timers, and private stage cues), plus a built-in local **OBS Studio** transparent lower-third overlay and chroma-key theme.
+- **Sanctuary, Stage & Livestream Ready** — Independent Audience Projector and **Stage Confidence Monitor** windows (with current + next slide, clock, amber warning / red overtime sermon timers, and private stage cues like *"Wrap up — Communion next"*), plus a built-in local **OBS Studio** transparent lower-third overlay and chroma-key theme.
 - **Hands-Free Microphone Auto-Follow** — Listens locally to your room mic or soundboard to follow sung lyrics in safe Suggest/Auto modes and queues spoken sermon Bible verses for one click — completely offline.
-- **Built for Churches Across the Americas** — Full **66-book Protestant & 73-book Catholic Bibles**, accent-tolerant search (English, Spanish, Portuguese, French), **parallel dual-translation Scripture**, **numbered hymnbooks** (`BH 330`, `UMH 378`, `HC 15`, `#42`), **bilingual stacked lyrics**, and portable **`.sdeck` / `.sdeck-pack`** offline bundles.
-- **Easy Library Migration** — Import existing libraries from EasyWorship, OpenLP, ProPresenter, VideoPsalm, FreeShow, ChordPro, OpenLyrics, SongSelect, and standard USFM/USFX/OSIS/Zefania/SQLite Bibles.
+- **Built for Churches Across the Americas + Portable `.sdeck` Bundles** — Full **66-book Protestant & 73-book Catholic Bibles**, accent-tolerant search (English, Spanish, Portuguese, French), **parallel dual-translation Scripture**, **numbered hymnbooks** (`BH 330`, `UMH 378`, `CC 1`, `HGT 42`), **bilingual stacked lyrics**, and self-contained **`.sdeck` / `.sdeck-pack`** archives so volunteers can prep on a home laptop Saturday night and open everything cleanly in the booth Sunday morning.
+- **Easy Library Migration** — Import existing libraries from EasyWorship, OpenLP, ProPresenter, VideoPsalm, FreeShow, ChordPro, OpenLyrics, SongSelect (`.usr`/`.txt`), and standard USFM/USFX/OSIS/Zefania/SQLite/Scrollmapper Bibles.
 
 ---
 
@@ -149,27 +150,19 @@ SundayDeck will always remain 100% free with zero locked features. If it blesses
 
 ---
 
-## Publishing Releases, Homebrew & Custom Domain
-
-SundayDeck includes automated release and website publishing workflows:
-
-- **Tag a release (`git tag v0.1.0 && git push origin main --tags`)** to build macOS (`.dmg`), Windows (`.exe` + `.zip`), and Linux (`.deb` + `.tar.gz`) installers along with `SHA256SUMS.txt` and an updated Homebrew Cask formula (`packaging/homebrew/Casks/sundaydeck.rb`).
-- **Custom Domain on GitHub Pages:** Enable **Settings → Pages → Source: GitHub Actions**, add your domain in `docs/CNAME` (see [`docs/CNAME.example`](docs/CNAME.example)), and point your DNS `A` / `CNAME` records to GitHub Pages.
-
 <details>
-<summary><strong>For Contributors: Building from Source</strong></summary>
+<summary><strong>For Developers: Building from Source</strong></summary>
 
 ```bash
 git clone https://github.com/tobhoster/sundaydeck.git
 cd sundaydeck
 cargo run --release -p sundaydeck-ui --bin sundaydeck
 
-# Build a local macOS .dmg installer on macOS:
-./scripts/build-macos-dmg.sh
-
 # Build verified Public Domain starter packs (.sdeck-pack):
 python3 scripts/build-starter-packs.py
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local quality/perf gates and maintainer release notes.
 
 </details>
 

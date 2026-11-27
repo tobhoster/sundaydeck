@@ -6,6 +6,7 @@ use gpui::{
 };
 use sundaydeck_db::{BootstrapData, Database, DbWorker};
 use sundaydeck_ui::actions::register_keybindings;
+use sundaydeck_ui::content_downloader::spawn_first_run_bible_sync;
 use sundaydeck_ui::design::{DeckAssetSource, DesignGalleryView, register_fonts};
 use sundaydeck_ui::menus::register_app_menus;
 use sundaydeck_ui::store::{AppServices, PresentationStore};
@@ -79,6 +80,8 @@ fn main() -> anyhow::Result<()> {
             })
             .detach();
 
+            let store_for_sync = store.clone();
+            let db_for_sync = db_worker.clone();
             if let Err(err) = cx.open_window(options, |window, cx| {
                 window.on_window_should_close(cx, |_, cx| {
                     cx.quit();
@@ -97,6 +100,8 @@ fn main() -> anyhow::Result<()> {
             }) {
                 eprintln!("SundayDeck failed to open operator window: {err}");
                 cx.quit();
+            } else {
+                spawn_first_run_bible_sync(store_for_sync, db_for_sync, cx);
             }
             cx.activate(true);
         });

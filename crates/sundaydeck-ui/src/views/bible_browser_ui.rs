@@ -1,6 +1,6 @@
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgba,
+    Context, Div, FontWeight, InteractiveElement, MouseButton, MouseDownEvent, ParentElement,
+    StatefulInteractiveElement, Styled, div, px, rgba,
 };
 use sundaydeck_core::{
     PaginationBudget, autocomplete_books, book_by_number, paginate_scripture, parse_scripture_ref,
@@ -10,7 +10,7 @@ use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::primitives::{primary_ivory_button_body, sculpted_secondary_button_body};
 use crate::design::tokens::{FONT_BODY, RADIUS_CONTROL, RADIUS_PILL, RADIUS_TILE, TOKENS};
 use crate::store::BibleBrowseMode;
-use crate::views::bible_browser::BibleBrowserView;
+use crate::views::bible_browser::{BibleBrowserView, BibleVerseContextRequested};
 
 const QUICK_REFS: &[(&str, &str)] = &[
     ("ps 23", "Psalm 23"),
@@ -136,6 +136,15 @@ pub(crate) fn render_bible_browser(
                         }
                     });
                 }))
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(move |_, ev: &MouseDownEvent, _, cx| {
+                        cx.emit(BibleVerseContextRequested {
+                            verse_idx: idx,
+                            position: ev.position,
+                        });
+                    }),
+                )
                 .child(
                     div()
                         .pt(px(2.0))

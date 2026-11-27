@@ -311,6 +311,25 @@ impl PresentationStore {
         self.set_status(format!("Imported offline Bible: {label}"), cx);
     }
 
+    /// Updates or adds a Bible translation installed by background auto-sync without switching
+    /// away from the operator's currently selected translation.
+    pub fn register_synced_bible(&mut self, translation: BibleTranslation, cx: &mut Context<Self>) {
+        let code = translation.code.clone();
+        if let Some(existing) = self
+            .bible_translations
+            .iter_mut()
+            .find(|t| t.code.eq_ignore_ascii_case(&code))
+        {
+            *existing = translation;
+        } else {
+            self.bible_translations.push(translation);
+        }
+        if self.active_translation_code.is_empty() {
+            self.active_translation_code = code;
+        }
+        cx.notify();
+    }
+
     /// Starts or stops the lightweight local OBS Browser Source HTTP + WebSocket overlay server.
     pub fn toggle_obs_overlay(&mut self, cx: &mut Context<Self>) {
         if let Some(handle) = self.overlay_server.take() {

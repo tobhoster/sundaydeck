@@ -6,6 +6,7 @@ use gpui::{
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
 use crate::design::primitives::{neutral_option_chip, sculpted_secondary_button_body};
 use crate::design::tokens::{FONT_BODY, FONT_MONO, RADIUS_CONTROL, TOKENS};
+use crate::views::settings_catalog_ui::render_free_bible_catalog_section;
 use crate::views::settings_modal::{
     BILINGUAL_MODE_CHOICES, CHURCH_PROFILE_CHOICES, LLM_PRESET_CHOICES, LOOP_INTERVAL_CHOICES,
     SettingsModal, VOICE_THRESHOLD_CHOICES,
@@ -211,6 +212,7 @@ pub(crate) fn render_bibles_bundles_tab(
                 .child(profile_chips)
                 .child(bilingual_chips),
         ))
+        .child(render_free_bible_catalog_section(modal, cx))
         .child(section_card(
             "Offline Bibles (66 & 73 Books) & Content Packs",
             div()

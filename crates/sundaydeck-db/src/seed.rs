@@ -1,9 +1,7 @@
 use rusqlite::Connection;
 use sundaydeck_core::bible_defaults::starter_bibles;
-use sundaydeck_core::defaults::{
-    default_sample_service, default_themes, sample_amazing_grace, sample_come_thou_fount,
-    sample_it_is_well,
-};
+use sundaydeck_core::defaults::{default_sample_service, default_themes};
+use sundaydeck_core::starter_hymns::starter_songs;
 
 use crate::bible_repo::import_parsed_bible;
 use crate::error::DbError;
@@ -12,8 +10,8 @@ use crate::settings_repo::{AppSettings, save_settings};
 use crate::song_repo::upsert_song;
 use crate::theme_repo::upsert_theme;
 
-/// Seeds built-in themes, public-domain hymns, starter offline Bibles, and a sample service.
-/// Returns `true` if any initial seed rows were written.
+/// Seeds built-in themes, verified public-domain starter hymns, starter offline Bibles,
+/// and a sample service. Returns `true` if any initial seed rows were written.
 pub fn seed_defaults_if_empty(conn: &mut Connection) -> Result<bool, DbError> {
     let mut seeded = false;
 
@@ -24,11 +22,7 @@ pub fn seed_defaults_if_empty(conn: &mut Connection) -> Result<bool, DbError> {
             upsert_theme(conn, &theme)?;
         }
 
-        for song in [
-            sample_amazing_grace(),
-            sample_come_thou_fount(),
-            sample_it_is_well(),
-        ] {
+        for song in starter_songs() {
             upsert_song(conn, &song)?;
         }
 

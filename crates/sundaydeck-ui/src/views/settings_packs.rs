@@ -5,12 +5,76 @@ use sundaydeck_core::{
     detect_and_import_bible, export_sdeck_bundle, import_sdeck_bundle, import_sdeck_pack,
 };
 
+use crate::content_downloader::{catalog_entry_by_code, download_free_bible_blocking};
 use crate::deck_import::{
     build_sample_announcement_loop, import_presentation_or_loop_files, local_media_root,
 };
 use crate::views::settings_modal::SettingsModal;
 
 impl SettingsModal {
+    pub(crate) fn download_catalog_bible(&mut self, code: &'static str, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        let Some(db) = self.db.clone() else {
+            self.error_message = Some("Database worker unavailable for Bible download.".to_owned());
+            cx.notify();
+            return;
+        };
+        let Some(entry) = catalog_entry_by_code(code) else {
+            self.error_message = Some(format!("Unknown Bible catalog code '{code}'."));
+            cx.notify();
+            return;
+        };
+
+        self.busy = true;
+        self.error_message = None;
+        self.status_note = Some(format!(
+            "Downloading full {} ({}) for permanent offline use…",
+            entry.name, entry.code
+        ));
+        cx.notify();
+
+        let store = self.store.clone();
+        cx.spawn(async move |this, cx| {
+            let parsed_res = cx
+                .background_executor()
+                .spawn(async move { download_free_bible_blocking(entry) })
+                .await;
+
+            let outcome = match parsed_res {
+                Ok(parsed) => {
+                    let verse_count = parsed.verses.len();
+                    db.import_parsed_bible(parsed)
+                        .await
+                        .map(|tr| (tr, verse_count))
+                        .map_err(|e| e.to_string())
+                }
+                Err(err) => Err(err),
+            };
+
+            let _ = this.update(cx, |m, cx| {
+                m.busy = false;
+                match outcome {
+                    Ok((translation, verse_count)) => {
+                        let msg = format!(
+                            "Installed full {} ({}) — {} verses ready offline.",
+                            translation.name, translation.code, verse_count
+                        );
+                        store.update(cx, |s, cx| s.register_imported_bible(translation, cx));
+                        m.status_note = Some(msg);
+                        m.error_message = None;
+                    }
+                    Err(err) => {
+                        m.error_message = Some(err);
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     pub(crate) fn import_bible_pack(&mut self, cx: &mut Context<Self>) {
         let Some(db) = self.db.clone() else {
             self.error_message = Some("Database worker unavailable for Bible import.".to_owned());

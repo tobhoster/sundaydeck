@@ -2,7 +2,7 @@
   "use strict";
 
   const REPO = "tobhoster/sundaydeck";
-  const FALLBACK_VERSION = "0.0.2";
+  const FALLBACK_VERSION = "0.0.3";
   const CACHE_KEY = "sundaydeck_latest_release_v1";
   const CACHE_TTL_MS = 10 * 60 * 1000;
 

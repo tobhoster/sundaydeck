@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, px, rgb,
+    AnyElement, Context, Div, FontWeight, InteractiveElement, IntoElement, MouseButton,
+    MouseDownEvent, ParentElement, StatefulInteractiveElement, Styled, div, px, rgb,
 };
 use sundaydeck_core::{
     AudienceRenderState, BackgroundSpec, PresentationCommand, Slide, SlideContent, SlideTransition,
@@ -17,7 +17,9 @@ use crate::design::tokens::{
 use crate::media::{BackgroundPaint, apply_theme_background};
 use crate::media_decode::ImageTier;
 use crate::renderer::render_audience_canvas;
+use crate::views::context_menu::ContextMenuTarget;
 use crate::views::operator_workspace::OperatorWorkspace;
+use crate::views::quick_slides::QuickSlidePreset;
 
 /// Renders the **Custom Slides** tab inside the Center Library Drawer — showing all reusable
 /// structured slides (Title, Big Statement, Progressive Bullets, Image+Text, Full-Bleed, Countdown)
@@ -85,6 +87,16 @@ pub(crate) fn render_custom_slides_library(
                 this.store
                     .update(cx, |s, cx| s.stage_custom_slide(slide_id, cx));
             }))
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                    this.open_context_menu(
+                        ev.position,
+                        ContextMenuTarget::CustomSlide(slide_id),
+                        cx,
+                    );
+                }),
+            )
             .child(
                 div()
                     .w(px(194.0))
@@ -178,7 +190,99 @@ pub(crate) fn render_custom_slides_library(
         grid = grid.child(card);
     }
 
-    grid.into_any_element()
+    let quick_bar = div()
+        .px(px(12.0))
+        .py(px(7.0))
+        .border_b_1()
+        .border_color(TOKENS.hairline)
+        .flex()
+        .items_center()
+        .gap(px(6.0))
+        .child(
+            div()
+                .font_family(FONT_BODY)
+                .text_color(TOKENS.ink_muted)
+                .text_size(px(11.0))
+                .font_weight(FontWeight::MEDIUM)
+                .child("Quick Slide:"),
+        )
+        .child(quick_preset_chip(
+            "quick-slide-pastor-quote",
+            DeckIcon::ChatCenteredText,
+            "Pastor Quote",
+            TOKENS.signal_preview,
+            QuickSlidePreset::PastorQuote,
+            cx,
+        ))
+        .child(quick_preset_chip(
+            "quick-slide-birthday",
+            DeckIcon::BellRinging,
+            "Member Birthday",
+            TOKENS.signal_voice,
+            QuickSlidePreset::MemberBirthday,
+            cx,
+        ))
+        .child(quick_preset_chip(
+            "quick-slide-sermon-points",
+            DeckIcon::ListNumbers,
+            "Sermon Points",
+            TOKENS.ink_primary,
+            QuickSlidePreset::SermonPoint,
+            cx,
+        ))
+        .child(quick_preset_chip(
+            "quick-slide-announcement",
+            DeckIcon::Megaphone,
+            "Announcement",
+            rgb(0x6B9BF2),
+            QuickSlidePreset::Announcement,
+            cx,
+        ));
+
+    div()
+        .flex_1()
+        .w_full()
+        .flex()
+        .flex_col()
+        .overflow_hidden()
+        .child(quick_bar)
+        .child(grid)
+        .into_any_element()
+}
+
+fn quick_preset_chip(
+    id: &'static str,
+    icon: DeckIcon,
+    label: &'static str,
+    tint: gpui::Rgba,
+    preset: QuickSlidePreset,
+    cx: &mut Context<OperatorWorkspace>,
+) -> gpui::Stateful<Div> {
+    div()
+        .id(id)
+        .h(px(26.0))
+        .px(px(9.0))
+        .rounded(px(RADIUS_CONTROL))
+        .cursor_pointer()
+        .bg(TOKENS.status_surface)
+        .hover(|s| s.bg(TOKENS.elevated_hover))
+        .border_1()
+        .border_color(TOKENS.key_border)
+        .flex()
+        .items_center()
+        .gap(px(5.0))
+        .on_click(cx.listener(move |this, _, _, cx| {
+            this.open_quick_slide_preset(preset, cx);
+        }))
+        .child(deck_icon(icon, IconSize::Sm, tint))
+        .child(
+            div()
+                .font_family(FONT_BODY)
+                .text_color(TOKENS.ink_primary)
+                .text_size(px(11.0))
+                .font_weight(FontWeight::MEDIUM)
+                .child(label),
+        )
 }
 
 pub(crate) fn render_themes_library(

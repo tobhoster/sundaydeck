@@ -16,7 +16,10 @@ use crate::heartbeat::{HEARTBEAT_INTERVAL_MS, HeartbeatKey};
 use crate::store::PresentationStore;
 use crate::views::alerts_timers_modal::AlertsTimersModal;
 use crate::views::background_picker_modal::BackgroundPickerModal;
-use crate::views::bible_browser::BibleBrowserView;
+use crate::views::bible_browser::{BibleBrowserView, BibleVerseContextRequested};
+use crate::views::context_menu::{
+    ContextMenuTarget, WorkspaceContextMenu, render_workspace_context_menu,
+};
 use crate::views::custom_slide_modal::CustomSlideModal;
 use crate::views::header_popovers::render_header_popover;
 use crate::views::layout_handles::{
@@ -70,6 +73,7 @@ pub struct OperatorWorkspace {
     pub bible_browser: Entity<BibleBrowserView>,
     pub active_modal: Option<ActiveModal>,
     pub active_popover: Option<HeaderPopover>,
+    pub active_context_menu: Option<WorkspaceContextMenu>,
     pub layout: WorkspaceLayout,
     pub available_update: Option<(String, String)>,
     pub(crate) modal_sub: Option<Subscription>,
@@ -79,6 +83,7 @@ pub struct OperatorWorkspace {
     _store_sub: Subscription,
     _windows_sub: Subscription,
     _song_search_sub: Subscription,
+    _bible_ctx_sub: Subscription,
 }
 
 impl OperatorWorkspace {
@@ -104,6 +109,16 @@ impl OperatorWorkspace {
         let bible_store = store.clone();
         let bible_db = db.clone();
         let bible_browser = cx.new(|cx| BibleBrowserView::new(bible_store, bible_db, cx));
+        let bible_ctx_sub = cx.subscribe(
+            &bible_browser,
+            |this, _, ev: &BibleVerseContextRequested, cx| {
+                this.open_context_menu(
+                    ev.position,
+                    ContextMenuTarget::BibleVerse(ev.verse_idx),
+                    cx,
+                );
+            },
+        );
 
         let first_key = store.read(cx).current_heartbeat_key();
         Self::spawn_heartbeat(store.downgrade(), first_key, cx);
@@ -117,6 +132,7 @@ impl OperatorWorkspace {
             bible_browser,
             active_modal: None,
             active_popover: None,
+            active_context_menu: None,
             layout: WorkspaceLayout::default(),
             available_update: None,
             modal_sub: None,
@@ -125,6 +141,7 @@ impl OperatorWorkspace {
             _store_sub: store_sub,
             _windows_sub: windows_sub,
             _song_search_sub: song_search_sub,
+            _bible_ctx_sub: bible_ctx_sub,
         }
     }
 
@@ -158,6 +175,8 @@ impl OperatorWorkspace {
             this.close_modal(cx);
         }));
         self.active_modal = Some(ActiveModal::SongEditor(modal));
+        self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -194,6 +213,8 @@ impl OperatorWorkspace {
             this.close_modal(cx);
         }));
         self.active_modal = Some(ActiveModal::QuickEdit(modal));
+        self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -204,6 +225,8 @@ impl OperatorWorkspace {
             this.close_modal(cx);
         }));
         self.active_modal = Some(ActiveModal::AlertsTimers(modal));
+        self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -230,6 +253,8 @@ impl OperatorWorkspace {
             this.close_modal(cx);
         }));
         self.active_modal = Some(ActiveModal::PlanImporter(modal));
+        self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -241,6 +266,8 @@ impl OperatorWorkspace {
             this.close_modal(cx);
         }));
         self.active_modal = Some(ActiveModal::BackgroundPicker(modal));
+        self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -251,6 +278,7 @@ impl OperatorWorkspace {
     }
 
     pub fn toggle_popover(&mut self, target: HeaderPopover, cx: &mut Context<Self>) {
+        self.active_context_menu = None;
         self.active_popover = if self.active_popover == Some(target) {
             None
         } else {
@@ -289,7 +317,7 @@ impl Focusable for OperatorWorkspace {
 }
 
 impl Render for OperatorWorkspace {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let motion_mode = self.store.read(cx).motion_mode;
         let active_axis = self.layout.active_drag.map(|(a, _, _)| a);
         let left_collapsed = self.layout.left_collapsed;
@@ -385,7 +413,25 @@ impl Render for OperatorWorkspace {
                 HeaderPopover::AutoFollow => slot.left_0().right_0().flex().justify_center(),
                 HeaderPopover::Projector => slot.right(gpui::px(18.0)),
             };
-            root = root.child(slot.child(render_header_popover(self, popover, cx)));
+            root = root.child(
+                div()
+                    .id("popover-backdrop")
+                    .absolute()
+                    .inset_0()
+                    .bg(rgba(0x0000_0000))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| this.close_popover(cx)),
+                    )
+                    .child(
+                        slot.child(
+                            div()
+                                .id("popover-surface")
+                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                                .child(render_header_popover(self, popover, cx)),
+                        ),
+                    ),
+            );
         }
 
         if let Some(modal) = &self.active_modal {
@@ -403,14 +449,28 @@ impl Render for OperatorWorkspace {
             };
             root = root.child(
                 div()
+                    .id("modal-backdrop")
                     .absolute()
                     .inset_0()
                     .bg(rgba(0x0506_08D6))
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(modal_enter(id, el, motion_mode)),
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| this.close_modal(cx)),
+                    )
+                    .child(
+                        div()
+                            .id("modal-surface")
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .child(modal_enter(id, el, motion_mode)),
+                    ),
             );
+        }
+
+        if let Some(menu) = self.active_context_menu {
+            root = root.child(render_workspace_context_menu(self, &menu, window, cx));
         }
 
         root

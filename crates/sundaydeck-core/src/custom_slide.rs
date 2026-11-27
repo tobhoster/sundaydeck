@@ -254,13 +254,24 @@ pub fn default_custom_slide_templates() -> Vec<CustomSlideSpec> {
         },
         CustomSlideSpec {
             id: sid("big-quote"),
-            label: "Key Takeaway Quote".to_owned(),
+            label: "Pastor Quote".to_owned(),
             layout: CustomSlideLayout::BigStatement {
                 statement: "Grace is not opposed to effort; it is opposed to earning.".to_owned(),
-                attribution: Some("Dallas Willard".to_owned()),
+                attribution: Some("Pastor's Sermon Quote · Dallas Willard".to_owned()),
                 align: HorizontalAlign::Center,
             },
             transition_override: Some(SlideTransition::DEFAULT_ZOOM_DISSOLVE),
+        },
+        CustomSlideSpec {
+            id: sid("member-birthdays"),
+            label: "Member Birthdays & Celebrations".to_owned(),
+            layout: CustomSlideLayout::ImageTextSplit {
+                heading: "Happy Birthday, Church Family!".to_owned(),
+                body: "Celebrating this week's birthdays and anniversaries together — we are so grateful for you!".to_owned(),
+                image_uri: Some("backgrounds/golden-light.jpg".to_owned()),
+                image_on_left: false,
+            },
+            transition_override: Some(SlideTransition::DEFAULT_SOFT_RISE),
         },
         CustomSlideSpec {
             id: sid("announcement-split"),

@@ -1,6 +1,6 @@
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, ParentElement, StatefulInteractiveElement,
-    Styled, div, px, rgba,
+    Context, Div, FontWeight, InteractiveElement, MouseButton, MouseDownEvent, ParentElement,
+    StatefulInteractiveElement, Styled, div, px, rgba,
 };
 
 use crate::design::icons::{DeckIcon, IconSize, deck_icon};
@@ -8,7 +8,9 @@ use crate::design::primitives::{live_meta_indicator, status_dot_label};
 use crate::design::tokens::{
     FONT_BODY, FONT_DISPLAY, PANE_HEADER_HEIGHT, RADIUS_CONTROL, RADIUS_TILE, TOKENS, payload_icon,
 };
+use crate::views::context_menu::ContextMenuTarget;
 use crate::views::operator_workspace::OperatorWorkspace;
+use crate::views::quick_slides::QuickSlidePreset;
 use crate::views::settings_modal::SettingsTab;
 
 /// Left Pane (Service Order):
@@ -208,6 +210,16 @@ pub fn render_schedule_pane(
                 this.store
                     .update(cx, |s, cx| s.activate_service_item(item_id, cx));
             }))
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                    this.open_context_menu(
+                        ev.position,
+                        ContextMenuTarget::ServiceItem(item_id),
+                        cx,
+                    );
+                }),
+            )
             .child(row_top);
 
         if is_live || is_preview {
@@ -339,13 +351,77 @@ pub fn render_schedule_pane(
         .child(list)
         .child(
             div()
-                .px(px(14.0))
-                .py(px(10.0))
+                .px(px(10.0))
+                .py(px(8.0))
                 .border_t_1()
                 .border_color(TOKENS.hairline)
+                .flex()
+                .flex_col()
+                .gap(px(6.0))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(6.0))
+                        .child(quick_footer_pill(
+                            "btn-quick-pastor-quote",
+                            DeckIcon::ChatCenteredText,
+                            "Pastor Quote",
+                            TOKENS.signal_preview,
+                            cx,
+                            |t, cx| t.open_quick_slide_preset(QuickSlidePreset::PastorQuote, cx),
+                        ))
+                        .child(quick_footer_pill(
+                            "btn-quick-member-birthday",
+                            DeckIcon::BellRinging,
+                            "Birthday",
+                            TOKENS.signal_voice,
+                            cx,
+                            |t, cx| t.open_quick_slide_preset(QuickSlidePreset::MemberBirthday, cx),
+                        )),
+                )
+                .child(
+                    div()
+                        .px(px(2.0))
+                        .font_family(FONT_BODY)
+                        .text_color(TOKENS.ink_muted)
+                        .text_size(px(10.5))
+                        .child("Right-click to edit · Space next"),
+                ),
+        )
+}
+
+fn quick_footer_pill(
+    id: &'static str,
+    icon: DeckIcon,
+    label: &'static str,
+    tint: gpui::Rgba,
+    cx: &mut Context<OperatorWorkspace>,
+    on_click: impl Fn(&mut OperatorWorkspace, &mut Context<OperatorWorkspace>) + 'static,
+) -> gpui::Stateful<Div> {
+    div()
+        .id(id)
+        .flex_1()
+        .h(px(26.0))
+        .px(px(7.0))
+        .rounded(px(RADIUS_CONTROL))
+        .cursor_pointer()
+        .bg(TOKENS.status_surface)
+        .hover(|s| s.bg(TOKENS.elevated_hover))
+        .border_1()
+        .border_color(TOKENS.gridline)
+        .flex()
+        .items_center()
+        .justify_center()
+        .gap(px(5.0))
+        .on_click(cx.listener(move |this, _, _, cx| on_click(this, cx)))
+        .child(deck_icon(icon, IconSize::Sm, tint))
+        .child(
+            div()
                 .font_family(FONT_BODY)
-                .text_color(TOKENS.ink_muted)
+                .text_color(TOKENS.ink_primary)
                 .text_size(px(11.0))
-                .child("Press Space for next slide"),
+                .font_weight(FontWeight::MEDIUM)
+                .child(label),
         )
 }

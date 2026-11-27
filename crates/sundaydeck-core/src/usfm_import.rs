@@ -1,6 +1,7 @@
 use crate::bible_books::book_by_usfx;
 use crate::bible_import::{FORMAT_SNIFF_BYTES, ParsedBible, ParsedVerse, import_bible_xml};
 use crate::error::ImportError;
+use crate::scrollmapper_import::ScrollmapperJsonBibleImporter;
 
 /// Trait-based Bible importer pipeline enabling pluggable support for USFM, USFX, OSIS,
 /// Zefania XML, SQLite, and `.sdeck-pack` Bible sources.
@@ -49,7 +50,7 @@ impl BibleImporter for XmlBibleImporter {
     }
 }
 
-/// Auto-detects USFM, USFX, OSIS, or Zefania text formats and parses into a [`ParsedBible`].
+/// Auto-detects Scrollmapper JSON, USFM, USFX, OSIS, or Zefania text formats and parses into a [`ParsedBible`].
 pub fn detect_and_import_bible(
     code: &str,
     name: &str,
@@ -57,7 +58,11 @@ pub fn detect_and_import_bible(
     raw: &str,
 ) -> Result<ParsedBible, ImportError> {
     let sample = &raw[..raw.floor_char_boundary(raw.len().min(FORMAT_SNIFF_BYTES))];
-    let importers: [&dyn BibleImporter; 2] = [&UsfmBibleImporter, &XmlBibleImporter];
+    let importers: [&dyn BibleImporter; 3] = [
+        &ScrollmapperJsonBibleImporter,
+        &UsfmBibleImporter,
+        &XmlBibleImporter,
+    ];
     for importer in importers {
         if importer.can_handle(filename, sample) {
             return importer.import(code, name, raw);

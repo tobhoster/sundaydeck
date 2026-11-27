@@ -8,13 +8,13 @@ use sundaydeck_core::{
 };
 
 use crate::actions::{
-    CheckForUpdates, ClearStageMessage, CloseActiveWindow, GoLive, HardCutBlack, HardCutClearText,
-    HardCutLogo, ImportPastorPlan, NewCustomSlide, NewService, NewSong, NextLiveSlide,
-    OpenAlertsTimers, OpenBackgroundStudio, OpenBiblesBundles, OpenSettings, OpenWelcomeSetup,
-    PrevLiveSlide, QuitApp, ResetWorkspaceLayout, SwitchTabBible, SwitchTabCustomSlides,
-    SwitchTabSongs, SwitchTabThemes, ToggleAudienceWindow, ToggleBlack, ToggleClearText,
-    ToggleDirectClickLive, ToggleLeftPane, ToggleLibraryDrawer, ToggleLogo, ToggleObsOverlay,
-    ToggleQuickEdit, ToggleRightPane, ToggleStageWindow,
+    CheckForUpdates, ClearStageMessage, CloseActiveWindow, DismissOverlay, GoLive, HardCutBlack,
+    HardCutClearText, HardCutLogo, ImportPastorPlan, NewCustomSlide, NewService, NewSong,
+    NextLiveSlide, OpenAlertsTimers, OpenBackgroundStudio, OpenBiblesBundles, OpenSettings,
+    OpenWelcomeSetup, PrevLiveSlide, QuitApp, ResetWorkspaceLayout, SwitchTabBible,
+    SwitchTabCustomSlides, SwitchTabSongs, SwitchTabThemes, ToggleAudienceWindow, ToggleBlack,
+    ToggleClearText, ToggleDirectClickLive, ToggleLeftPane, ToggleLibraryDrawer, ToggleLogo,
+    ToggleObsOverlay, ToggleQuickEdit, ToggleRightPane, ToggleStageWindow,
 };
 use crate::components::{TextInput, TextInputEvent};
 use crate::updater::{UpdateCheckOutcome, check_for_updates_blocking};
@@ -43,6 +43,7 @@ impl OperatorWorkspace {
         }));
         self.active_modal = Some(ActiveModal::CustomSlideBuilder(modal));
         self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -115,6 +116,7 @@ impl OperatorWorkspace {
         }));
         self.active_modal = Some(ActiveModal::Settings(modal));
         self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -128,6 +130,7 @@ impl OperatorWorkspace {
         }));
         self.active_modal = Some(ActiveModal::Welcome(modal));
         self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -246,6 +249,7 @@ impl OperatorWorkspace {
         }
         self.active_modal = None;
         self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -254,6 +258,7 @@ impl OperatorWorkspace {
         self.layout.library_collapsed = false;
         self.active_modal = None;
         self.active_popover = None;
+        self.active_context_menu = None;
         cx.notify();
     }
 
@@ -402,8 +407,19 @@ impl OperatorWorkspace {
             });
             cx.notify();
         }))
+        .on_action(cx.listener(|t, _: &DismissOverlay, _, cx| {
+            if t.active_context_menu.is_some() {
+                t.close_context_menu(cx);
+            } else if t.active_popover.is_some() {
+                t.close_popover(cx);
+            } else if t.active_modal.is_some() {
+                t.close_modal(cx);
+            }
+        }))
         .on_action(cx.listener(|t, _: &CloseActiveWindow, window, cx| {
-            if t.active_modal.is_some() {
+            if t.active_context_menu.is_some() {
+                t.close_context_menu(cx);
+            } else if t.active_modal.is_some() {
                 t.close_modal(cx);
             } else if t.active_popover.is_some() {
                 t.close_popover(cx);

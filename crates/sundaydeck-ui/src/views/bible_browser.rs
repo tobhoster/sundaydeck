@@ -1,10 +1,20 @@
-use gpui::{AppContext as _, Context, Entity, IntoElement, Render, Subscription, Window};
+use gpui::{
+    AppContext as _, Context, Entity, EventEmitter, IntoElement, Pixels, Point, Render,
+    Subscription, Window,
+};
 use sundaydeck_core::{BibleVerse, parse_scripture_ref};
 use sundaydeck_db::DbWorker;
 
 use crate::components::{TextInput, TextInputEvent};
 use crate::store::{BibleBrowseMode, PresentationStore};
 use crate::views::bible_browser_ui::render_bible_browser;
+
+/// Emitted when the user right-clicks a Bible verse row so the workspace can show a context menu.
+#[derive(Debug, Clone, Copy)]
+pub struct BibleVerseContextRequested {
+    pub verse_idx: usize,
+    pub position: Point<Pixels>,
+}
 
 /// Interactive offline Bible browser supporting multi-translation switching,
 /// smart shorthand reference parsing, FTS5 keyword search, continuous chapter scroll,
@@ -16,6 +26,8 @@ pub struct BibleBrowserView {
     _input_sub: Subscription,
     _store_sub: Subscription,
 }
+
+impl EventEmitter<BibleVerseContextRequested> for BibleBrowserView {}
 
 impl BibleBrowserView {
     pub fn new(

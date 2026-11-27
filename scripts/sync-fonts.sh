@@ -38,13 +38,19 @@ fetch "JetBrainsMono-Medium.ttf"   "https://raw.githubusercontent.com/JetBrains/
 fetch "JetBrainsMono-SemiBold.ttf" "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/fonts/ttf/JetBrainsMono-SemiBold.ttf"
 fetch "JetBrainsMono-Bold.ttf"     "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/fonts/ttf/JetBrainsMono-Bold.ttf"
 
-# Sanctuary Projection Pack: Manrope (Bold/ExtraBold), Syne (Bold/ExtraBold), Newsreader (Regular/SemiBold) (SIL OFL)
-fetch "Manrope-Bold.ttf"         "https://fonts.gstatic.com/s/manrope/v23/xn7_YHE41ni1AdIRqAuZuw1Bx9mbZk4aE-_F.ttf"
-fetch "Manrope-ExtraBold.ttf"    "https://fonts.gstatic.com/s/manrope/v23/xn7_YHE41ni1AdIRqAuZuw1Bx9mbZk59E-_F.ttf"
-fetch "Syne-Bold.ttf"            "https://fonts.gstatic.com/s/syne/v24/8vIS7w4qzmVxsWxjBZRjr0FKM_3fvj6k.ttf"
-fetch "Syne-ExtraBold.ttf"       "https://fonts.gstatic.com/s/syne/v24/8vIS7w4qzmVxsWxjBZRjr0FKM_24vj6k.ttf"
-fetch "Newsreader-Regular.ttf"   "https://fonts.gstatic.com/s/newsreader/v26/cY9qfjOCX1hbuyalUrK49dLac06G1ZGsZBtoBCzBDXXD9JVF438weI_ADA.ttf"
-fetch "Newsreader-SemiBold.ttf"  "https://fonts.gstatic.com/s/newsreader/v26/cY9qfjOCX1hbuyalUrK49dLac06G1ZGsZBtoBCzBDXXD9JVF438wpojADA.ttf"
+# Sanctuary Projection Pack: Manrope, Syne, Newsreader, Montserrat, Cormorant Garamond, Oswald (SIL OFL)
+fetch "Manrope-Bold.ttf"             "https://fonts.gstatic.com/s/manrope/v23/xn7_YHE41ni1AdIRqAuZuw1Bx9mbZk4aE-_F.ttf"
+fetch "Manrope-ExtraBold.ttf"        "https://fonts.gstatic.com/s/manrope/v23/xn7_YHE41ni1AdIRqAuZuw1Bx9mbZk59E-_F.ttf"
+fetch "Syne-Bold.ttf"                "https://fonts.gstatic.com/s/syne/v24/8vIS7w4qzmVxsWxjBZRjr0FKM_3fvj6k.ttf"
+fetch "Syne-ExtraBold.ttf"           "https://fonts.gstatic.com/s/syne/v24/8vIS7w4qzmVxsWxjBZRjr0FKM_24vj6k.ttf"
+fetch "Newsreader-Regular.ttf"       "https://fonts.gstatic.com/s/newsreader/v26/cY9qfjOCX1hbuyalUrK49dLac06G1ZGsZBtoBCzBDXXD9JVF438weI_ADA.ttf"
+fetch "Newsreader-SemiBold.ttf"      "https://fonts.gstatic.com/s/newsreader/v26/cY9qfjOCX1hbuyalUrK49dLac06G1ZGsZBtoBCzBDXXD9JVF438wpojADA.ttf"
+fetch "Montserrat-Bold.ttf"          "https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCuM70w-.ttf"
+fetch "Montserrat-ExtraBold.ttf"     "https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCvr70w-.ttf"
+fetch "CormorantGaramond-SemiBold.ttf" "https://fonts.gstatic.com/s/cormorantgaramond/v21/co3umX5slCNuHLi8bLeY9MK7whWMhyjypVO7abI26QOD_iE9GnM.ttf"
+fetch "CormorantGaramond-Bold.ttf"   "https://fonts.gstatic.com/s/cormorantgaramond/v21/co3umX5slCNuHLi8bLeY9MK7whWMhyjypVO7abI26QOD_hg9GnM.ttf"
+fetch "Oswald-SemiBold.ttf"          "https://fonts.gstatic.com/s/oswald/v57/TK3_WkUHHAIjg75cFRf3bXL8LICs1y9ogUE.ttf"
+fetch "Oswald-Bold.ttf"              "https://fonts.gstatic.com/s/oswald/v57/TK3_WkUHHAIjg75cFRf3bXL8LICs1xZogUE.ttf"
 
 du -sh "$OUT"
 ls -1 "$OUT" | wc -l | xargs -I{} echo "Done: {} font files synced."

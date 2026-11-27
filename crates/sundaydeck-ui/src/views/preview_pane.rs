@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use gpui::{
-    Context, Div, FontWeight, InteractiveElement, ObjectFit, ParentElement,
-    StatefulInteractiveElement, Styled, StyledImage, div, img, px, rgb, rgba,
+    Context, Div, FontWeight, InteractiveElement, MouseButton, MouseDownEvent, ObjectFit,
+    ParentElement, StatefulInteractiveElement, Styled, StyledImage, div, img, px, rgb, rgba,
 };
 use sundaydeck_core::{
     AudienceRenderState, BackgroundSpec, PresentationCommand, ReflowMode, SlideContent,
@@ -21,6 +21,7 @@ use crate::design::tokens::{
 use crate::media::{BackgroundPaint, apply_theme_background};
 use crate::media_decode::ImageTier;
 use crate::renderer::{photo_slide_thumbnail, render_audience_canvas};
+use crate::views::context_menu::ContextMenuTarget;
 use crate::views::operator_workspace::OperatorWorkspace;
 
 /// Top half of the Center Pane:
@@ -115,7 +116,7 @@ pub fn render_preview_section(
         .id("preview-theme-strip")
         .flex_1()
         .min_w_0()
-        .overflow_hidden()
+        .overflow_x_scroll()
         .flex()
         .items_center()
         .gap(px(5.0));
@@ -366,6 +367,16 @@ pub fn render_preview_section(
                         }
                     });
                 }))
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(move |this, ev: &MouseDownEvent, _, cx| {
+                        this.open_context_menu(
+                            ev.position,
+                            ContextMenuTarget::PreviewSlide(idx),
+                            cx,
+                        );
+                    }),
+                )
                 .child(styled_tile),
         );
     }
@@ -480,6 +491,10 @@ fn short_theme_label(name: &str) -> String {
         "Sanctuary Mountains" => "Mountains".to_owned(),
         "Golden Light Motion" => "Golden Motion".to_owned(),
         "Still Waters Scripture" => "Still Waters".to_owned(),
+        "Starry Clouds Motion" => "Starry Motion".to_owned(),
+        "Warm Dawn Editorial" => "Warm Dawn".to_owned(),
+        "Morning Forest Praise" => "Forest Praise".to_owned(),
+        "Condensed Worship Night" => "Bold Night".to_owned(),
         other => other.to_owned(),
     }
 }

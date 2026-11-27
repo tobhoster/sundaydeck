@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod components;
+pub mod content_downloader;
 pub mod custom_slide_renderer;
 pub mod deck_builder;
 pub mod deck_import;

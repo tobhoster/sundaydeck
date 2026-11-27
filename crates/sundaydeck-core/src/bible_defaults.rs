@@ -1,3 +1,4 @@
+use crate::bible_defaults_bsb::starter_bsb;
 use crate::bible_import::{ParsedBible, ParsedVerse};
 
 macro_rules! v {
@@ -11,10 +12,11 @@ macro_rules! v {
     };
 }
 
-/// Built-in offline public-domain starter passages in World English Bible (WEB) and KJV
-/// so multi-translation browsing, FTS5 search, smart references, and pagination work immediately.
+/// Built-in offline public-domain starter passages in Berean Standard Bible (BSB, CC0),
+/// World English Bible (WEB), and KJV so multi-translation browsing, FTS5 search,
+/// smart references, and pagination work immediately even offline.
 pub fn starter_bibles() -> Vec<ParsedBible> {
-    vec![starter_web(), starter_kjv()]
+    vec![starter_bsb(), starter_web(), starter_kjv()]
 }
 
 fn starter_web() -> ParsedBible {

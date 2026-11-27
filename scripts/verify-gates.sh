@@ -131,12 +131,13 @@ run_release_perf_linux() {
     --test store_import_tests \
     --test window_lifecycle_tests \
     --test text_input_tests \
+    --test ux_interaction_tests \
     -- --nocapture --test-threads=1 | tee "$tmp_log"
 
-  echo "=== Release Stress Suite (overlay, core zip/office bombs, db FTS5 & tolerance) ==="
+  echo "=== Release Stress Suite (overlay, core zip/office bombs, db FTS5 & 31k Bible search) ==="
   cargo test --release -p sundaydeck-overlay --test overlay_server_tests -- --test-threads=1
   cargo test --release -p sundaydeck-core --test office_budget_tests --test sdeck_oversize_tests --test zip_limits_tests -- --test-threads=1
-  cargo test --release -p sundaydeck-db --test db_integration --test service_tolerance_tests -- --test-threads=1
+  cargo test --release -p sundaydeck-db --test db_integration --test service_tolerance_tests --test bible_search_perf -- --nocapture --test-threads=1 | tee -a "$tmp_log"
 
   local metrics_file="${PERF_METRICS_OUT:-$(mktemp)}"
   grep -oE 'PERF [A-Za-z0-9_]+=[^[:space:]]+' "$tmp_log" | sort -u > "$metrics_file" || true

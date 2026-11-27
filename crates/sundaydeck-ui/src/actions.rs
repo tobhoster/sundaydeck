@@ -43,6 +43,7 @@ actions!(
         OpenCheatSheetHelp,
         OpenStarterPacksHelp,
         OpenGithubIssues,
+        DismissOverlay,
         CloseActiveWindow,
         QuitApp,
     ]
@@ -117,6 +118,7 @@ pub fn register_keybindings(cx: &mut App) {
         KeyBinding::new("ctrl-v", EditPaste, Some("TextInput")),
         KeyBinding::new("cmd-a", EditSelectAll, Some("TextInput")),
         KeyBinding::new("ctrl-a", EditSelectAll, Some("TextInput")),
+        KeyBinding::new("escape", DismissOverlay, Some("OperatorWorkspace")),
         KeyBinding::new("cmd-w", CloseActiveWindow, None),
         KeyBinding::new("ctrl-w", CloseActiveWindow, None),
         KeyBinding::new("cmd-q", QuitApp, None),

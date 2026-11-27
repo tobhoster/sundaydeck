@@ -1,6 +1,7 @@
 use sundaydeck_core::defaults::{
     default_sample_service, default_themes, sample_amazing_grace, sample_come_thou_fount,
 };
+use sundaydeck_core::starter_hymns::starter_songs;
 use sundaydeck_core::{
     Arrangement, ArrangementId, MediaAssetId, ReflowMode, SectionId, SectionKind, Song, SongId,
     SongSection, ThemeId, ThemeTarget,
@@ -22,10 +23,10 @@ fn seed_is_idempotent_and_populates_starter_library() {
     assert!(!seed_defaults_if_empty(db.conn_mut()).expect("second seed is noop"));
 
     let themes = list_themes(db.conn()).expect("list themes");
-    assert_eq!(themes.len(), 8);
+    assert_eq!(themes.len(), default_themes().len());
 
     let songs = search_songs(db.conn(), "").expect("list all songs");
-    assert_eq!(songs.len(), 3);
+    assert_eq!(songs.len(), starter_songs().len());
 
     let services = list_services(db.conn()).expect("list services");
     assert_eq!(services.len(), 1);
@@ -49,8 +50,7 @@ fn fts5_search_indexes_lyrics_ccli_and_stays_synced_on_update_and_delete() {
 
     // Arbitrary punctuation in volunteer query must never throw an FTS5 syntax error
     let punctuated = search_songs(db.conn(), "\"grace\" (amazing) *!").expect("punctuated search");
-    assert_eq!(punctuated.len(), 1);
-    assert_eq!(punctuated[0].title, "Amazing Grace");
+    assert!(punctuated.iter().any(|s| s.title == "Amazing Grace"));
     let _operators =
         search_songs(db.conn(), "\"grace\" OR NOT * ()))").expect("operator-safe search");
 
@@ -283,8 +283,8 @@ fn media_assets_deduplicate_by_sha256_and_settings_roundtrip() {
 fn async_db_worker_loads_bootstrap_and_searches_off_thread() {
     let worker = DbWorker::spawn_in_memory().expect("spawn worker");
     let boot = futures_lite_block_on(worker.load_bootstrap()).expect("bootstrap");
-    assert_eq!(boot.themes.len(), 8);
-    assert_eq!(boot.loaded_songs.len(), 3);
+    assert_eq!(boot.themes.len(), default_themes().len());
+    assert_eq!(boot.loaded_songs.len(), starter_songs().len());
 
     let hits = futures_lite_block_on(worker.search_songs("river")).expect("fts search");
     assert_eq!(hits.len(), 1);
@@ -368,9 +368,14 @@ fn bootstrap_skips_a_corrupt_song_service_item_or_settings_row() {
 
         let song_ids: Vec<SongId> = boot.loaded_songs.iter().map(|s| s.id).collect();
         let song_corrupt = has(|c| matches!(c, SongSectionKind));
+        let expected_songs = starter_songs().len();
         assert_eq!(
             song_ids.len(),
-            if song_corrupt { 2 } else { 3 },
+            if song_corrupt {
+                expected_songs - 1
+            } else {
+                expected_songs
+            },
             "{corruptions:?}"
         );
         assert_eq!(
@@ -403,7 +408,7 @@ fn bootstrap_skips_a_corrupt_song_service_item_or_settings_row() {
             saved.clone()
         };
         assert_eq!(boot.settings, expected_settings, "{corruptions:?}");
-        assert_eq!(boot.themes.len(), 8, "{corruptions:?}");
+        assert_eq!(boot.themes.len(), default_themes().len(), "{corruptions:?}");
     }
 
     assert!(

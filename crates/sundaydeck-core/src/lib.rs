@@ -2,6 +2,7 @@ pub mod alerts;
 pub mod bible_aliases;
 pub mod bible_books;
 pub mod bible_defaults;
+mod bible_defaults_bsb;
 pub mod bible_import;
 pub mod custom_slide;
 pub mod defaults;
@@ -19,12 +20,15 @@ pub mod plan_builder;
 pub mod plan_matchers;
 pub mod reflow;
 pub mod scripture;
+pub mod scrollmapper_import;
 pub mod sdeck_bundle;
 pub mod service;
 pub mod slide;
 pub mod snapshot;
 pub mod song;
 pub mod song_import;
+pub mod starter_hymns;
+mod starter_hymns_more;
 pub mod theme;
 pub mod theme_defaults;
 pub mod timer;
@@ -77,6 +81,7 @@ pub use scripture::{
     BibleTranslation, BibleVerse, PaginationBudget, ScriptureRef, paginate_parallel_scripture,
     paginate_scripture, parse_scripture_ref,
 };
+pub use scrollmapper_import::{ScrollmapperJsonBibleImporter, import_scrollmapper_json};
 pub use sdeck_bundle::{
     SdeckBundle, SdeckExportReport, SdeckManifest, export_sdeck_bundle, import_sdeck_bundle,
 };
@@ -87,6 +92,7 @@ pub use snapshot::{
 };
 pub use song::{Arrangement, ReflowMode, SectionKind, Song, SongSection};
 pub use song_import::{detect_and_import_song, import_plain_text_song, import_songselect_usr};
+pub use starter_hymns::starter_songs;
 pub use theme::{
     BackgroundSource, BackgroundSpec, HorizontalAlign, ImageFit, Rgba8, SafeMargins, TextShadow,
     Theme, ThemeTarget, VerticalAlign,

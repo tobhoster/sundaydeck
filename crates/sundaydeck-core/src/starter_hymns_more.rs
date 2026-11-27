@@ -1,0 +1,287 @@
+use crate::song::{SectionKind, Song};
+use crate::starter_hymns::{HymnSeed, build_hymn};
+
+/// Additional verified Public Domain classic, Catholic, and bilingual ES/PT starter hymns.
+pub(crate) fn more_public_domain_hymns() -> Vec<Song> {
+    use SectionKind::{Chorus, Verse};
+    vec![
+        build_hymn(HymnSeed {
+            slug: "to-god-be-the-glory",
+            title: "To God Be the Glory",
+            alt: "Praise the Lord",
+            author: "Fanny J. Crosby (1875)",
+            primary_lang: "en",
+            secondary_lang: None,
+            theme_tag: "warm-amber-glow",
+            hymnals: &[
+                ("BH", "Baptist Hymnal", 4),
+                ("UMH", "United Methodist Hymnal", 98),
+            ],
+            traditions: &["Traditional Hymns", "Baptist", "Methodist"],
+            stanzas: &[
+                (
+                    Verse,
+                    "Verse 1",
+                    "To God be the glory, great things He hath done!\nSo loved He the world that He gave us His Son,\nWho yielded His life an atonement for sin,\nAnd opened the life-gate that all may go in.",
+                    None,
+                ),
+                (
+                    Chorus,
+                    "Chorus",
+                    "Praise the Lord, praise the Lord,\nLet the earth hear His voice!\nPraise the Lord, praise the Lord,\nLet the people rejoice!",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 2",
+                    "O perfect redemption, the purchase of blood,\nTo every believer the promise of God;\nThe vilest offender who truly believes,\nThat moment from Jesus a pardon receives.",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 3",
+                    "Great things He hath taught us, great things He hath done,\nAnd great our rejoicing through Jesus the Son;\nBut purer, and higher, and greater will be\nOur wonder, our transport, when Jesus we see.",
+                    None,
+                ),
+            ],
+            order: &[0, 1, 2, 1, 3, 1],
+        }),
+        build_hymn(HymnSeed {
+            slug: "what-a-friend-we-have-in-jesus",
+            title: "What a Friend We Have in Jesus",
+            alt: "Converse",
+            author: "Joseph M. Scriven (1855)",
+            primary_lang: "en",
+            secondary_lang: None,
+            theme_tag: "sanctuary-dark",
+            hymnals: &[
+                ("UMH", "United Methodist Hymnal", 526),
+                ("BH", "Baptist Hymnal", 182),
+            ],
+            traditions: &["Traditional Hymns", "Baptist", "Methodist"],
+            stanzas: &[
+                (
+                    Verse,
+                    "Verse 1",
+                    "What a Friend we have in Jesus,\nAll our sins and griefs to bear!\nWhat a privilege to carry\nEverything to God in prayer!",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 2",
+                    "Have we trials and temptations?\nIs there trouble anywhere?\nWe should never be discouraged,\nTake it to the Lord in prayer.",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 3",
+                    "Are we weak and heavy laden,\nCumbered with a load of care?\nPrecious Savior, still our refuge—\nTake it to the Lord in prayer.",
+                    None,
+                ),
+            ],
+            order: &[],
+        }),
+        build_hymn(HymnSeed {
+            slug: "praise-to-the-lord-the-almighty",
+            title: "Praise to the Lord, the Almighty",
+            alt: "Lobe den Herren",
+            author: "Joachim Neander (1680) · trans. Catherine Winkworth (1863)",
+            primary_lang: "en",
+            secondary_lang: None,
+            theme_tag: "sanctuary-mountains",
+            hymnals: &[
+                ("UMH", "United Methodist Hymnal", 139),
+                ("BH", "Baptist Hymnal", 14),
+            ],
+            traditions: &["Traditional Hymns", "Mainline"],
+            stanzas: &[
+                (
+                    Verse,
+                    "Verse 1",
+                    "Praise to the Lord, the Almighty, the King of creation!\nO my soul, praise Him, for He is thy health and salvation!\nAll ye who hear, now to His temple draw near;\nJoin me in glad adoration!",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 2",
+                    "Praise to the Lord, who o'er all things so wondrously reigneth,\nShelters thee under His wings, yea, so gently sustaineth!\nHast thou not seen how thy desires e'er have been\nGranted in what He ordaineth?",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 3",
+                    "Praise to the Lord! O let all that is in me adore Him!\nAll that hath life and breath, come now with praises before Him!\nLet the Amen sound from His people again;\nGladly for aye we adore Him.",
+                    None,
+                ),
+            ],
+            order: &[],
+        }),
+        build_hymn(HymnSeed {
+            slug: "rock-of-ages",
+            title: "Rock of Ages, Cleft for Me",
+            alt: "Toplady",
+            author: "Augustus M. Toplady (1776)",
+            primary_lang: "en",
+            secondary_lang: None,
+            theme_tag: "sanctuary-dark",
+            hymnals: &[
+                ("UMH", "United Methodist Hymnal", 361),
+                ("BH", "Baptist Hymnal", 342),
+            ],
+            traditions: &["Traditional Hymns", "Baptist", "Methodist"],
+            stanzas: &[
+                (
+                    Verse,
+                    "Verse 1",
+                    "Rock of Ages, cleft for me,\nLet me hide myself in Thee;\nLet the water and the blood,\nFrom Thy wounded side which flowed,\nBe of sin the double cure,\nSave from wrath and make me pure.",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 2",
+                    "Nothing in my hand I bring,\nSimply to the cross I cling;\nNaked, come to Thee for dress;\nHelpless, look to Thee for grace;\nFoul, I to the fountain fly;\nWash me, Savior, or I die.",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 3",
+                    "While I draw this fleeting breath,\nWhen mine eyes shall close in death,\nWhen I rise to worlds unknown,\nAnd behold Thee on Thy throne,\nRock of Ages, cleft for me,\nLet me hide myself in Thee.",
+                    None,
+                ),
+            ],
+            order: &[],
+        }),
+        build_hymn(HymnSeed {
+            slug: "the-old-rugged-cross",
+            title: "The Old Rugged Cross",
+            alt: "On a Hill Far Away",
+            author: "George Bennard (1913)",
+            primary_lang: "en",
+            secondary_lang: None,
+            theme_tag: "warm-amber-glow",
+            hymnals: &[
+                ("BH", "Baptist Hymnal", 141),
+                ("UMH", "United Methodist Hymnal", 504),
+            ],
+            traditions: &["Traditional Hymns", "Baptist"],
+            stanzas: &[
+                (
+                    Verse,
+                    "Verse 1",
+                    "On a hill far away stood an old rugged cross,\nThe emblem of suffering and shame;\nAnd I love that old cross where the dearest and best\nFor a world of lost sinners was slain.",
+                    None,
+                ),
+                (
+                    Chorus,
+                    "Chorus",
+                    "So I'll cherish the old rugged cross,\nTill my trophies at last I lay down;\nI will cling to the old rugged cross,\nAnd exchange it some day for a crown.",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 2",
+                    "In that old rugged cross, stained with blood so divine,\nA wondrous beauty I see,\nFor 'twas on that old cross Jesus suffered and died,\nTo pardon and sanctify me.",
+                    None,
+                ),
+            ],
+            order: &[0, 1, 2, 1],
+        }),
+        build_hymn(HymnSeed {
+            slug: "doxology-old-hundredth",
+            title: "Doxology (Praise God, from Whom All Blessings Flow)",
+            alt: "Old Hundredth",
+            author: "Thomas Ken (1674)",
+            primary_lang: "en",
+            secondary_lang: None,
+            theme_tag: "golden-light-motion",
+            hymnals: &[
+                ("UMH", "United Methodist Hymnal", 95),
+                ("BH", "Baptist Hymnal", 253),
+            ],
+            traditions: &["Traditional Hymns", "Mainline", "Baptist", "Methodist"],
+            stanzas: &[(
+                Verse,
+                "Doxology",
+                "Praise God, from whom all blessings flow;\nPraise Him, all creatures here below;\nPraise Him above, ye heavenly host;\nPraise Father, Son, and Holy Ghost. Amen.",
+                None,
+            )],
+            order: &[],
+        }),
+        build_hymn(HymnSeed {
+            slug: "holy-god-we-praise-thy-name",
+            title: "Holy God, We Praise Thy Name",
+            alt: "Grosser Gott · Te Deum",
+            author: "Clarence A. Walworth (1853)",
+            primary_lang: "en",
+            secondary_lang: None,
+            theme_tag: "sanctuary-mountains",
+            hymnals: &[("CATH", "Traditional Catholic Hymns", 1)],
+            traditions: &["Catholic", "Traditional Hymns"],
+            stanzas: &[
+                (
+                    Verse,
+                    "Verse 1",
+                    "Holy God, we praise Thy Name;\nLord of all, we bow before Thee!\nAll on earth Thy scepter claim,\nAll in Heaven above adore Thee;\nInfinite Thy vast domain,\nEverlasting is Thy reign.",
+                    None,
+                ),
+                (
+                    Verse,
+                    "Verse 2",
+                    "Hark! the loud celestial hymn\nAngel choirs above are raising,\nCherubim and seraphim,\nIn unceasing chorus praising;\nFill the heavens with sweet accord:\nHoly, holy, holy, Lord.",
+                    None,
+                ),
+            ],
+            order: &[],
+        }),
+        build_hymn(HymnSeed {
+            slug: "sublime-gracia",
+            title: "Sublime Gracia (Amazing Grace)",
+            alt: "Himnario Clásico · Bilingual ES/EN",
+            author: "John Newton (1779) · Public Domain",
+            primary_lang: "es",
+            secondary_lang: Some("en"),
+            theme_tag: "warm-amber-glow",
+            hymnals: &[("HGT", "Himnario Clásico", 42)],
+            traditions: &["Spanish / Alabanza", "Traditional Hymns"],
+            stanzas: &[
+                (
+                    Verse,
+                    "Estrofa 1",
+                    "Sublime gracia del Señor\nQue a un infeliz salvó;\nFui ciego mas hoy miro yo,\nPerdido y Él me halló.",
+                    Some(
+                        "Amazing grace! How sweet the sound\nThat saved a wretch like me!\nI once was lost, but now am found;\nWas blind, but now I see.",
+                    ),
+                ),
+                (
+                    Verse,
+                    "Estrofa 2",
+                    "Su gracia me enseñó a temer,\nMis dudas ahuyentó;\n¡Oh cuán precioso fue a mi ser,\nCuando Él me transformó!",
+                    Some(
+                        "'Twas grace that taught my heart to fear,\nAnd grace my fears relieved;\nHow precious did that grace appear\nThe hour I first believed.",
+                    ),
+                ),
+            ],
+            order: &[],
+        }),
+        build_hymn(HymnSeed {
+            slug: "santo-santo-santo-pt",
+            title: "Santo! Santo! Santo! (Holy, Holy, Holy)",
+            alt: "Cantor Cristão · Bilingual PT/EN",
+            author: "Reginald Heber (1826) · Public Domain",
+            primary_lang: "pt",
+            secondary_lang: Some("en"),
+            theme_tag: "sanctuary-mountains",
+            hymnals: &[("CC", "Cantor Cristão", 1), ("HC", "Hinário Clássico", 15)],
+            traditions: &["Portuguese / Brazil", "Baptist", "Traditional Hymns"],
+            stanzas: &[(
+                Verse,
+                "Estrofe 1",
+                "Santo! Santo! Santo! Deus Onipotente!\nCedo de manhã cantaremos Teu louvor;\nSanto! Santo! Santo! Deus Jeová Triúno,\nÉs um só Deus, excelso Criador.",
+                Some(
+                    "Holy, holy, holy! Lord God Almighty!\nEarly in the morning our song shall rise to Thee;\nHoly, holy, holy! Merciful and mighty!\nGod in three Persons, blessed Trinity!",
+                ),
+            )],
+            order: &[],
+        }),
+    ]
+}

@@ -246,8 +246,11 @@ pub const FONT_DISPLAY: &str = "Plus Jakarta Sans";
 pub const FONT_BODY: &str = "Plus Jakarta Sans";
 pub const FONT_MONO: &str = "JetBrains Mono";
 pub const FONT_LYRIC_BOLD: &str = "Manrope";
+pub const FONT_WORSHIP_SANS: &str = "Montserrat";
 pub const FONT_DISPLAY_PROJ: &str = "Syne";
+pub const FONT_CONDENSED_DISPLAY: &str = "Oswald";
 pub const FONT_SCRIPTURE_SERIF: &str = "Newsreader";
+pub const FONT_EDITORIAL_SERIF: &str = "Cormorant Garamond";
 
 pub fn rgba8_to_gpui(value: Rgba8) -> Rgba {
     rgba(value.as_u32())

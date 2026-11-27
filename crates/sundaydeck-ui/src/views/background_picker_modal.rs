@@ -98,7 +98,10 @@ pub const SANCTUARY_PRESETS: &[SanctuaryPreset] = &[
 
 pub const FONT_CHOICES: &[(&str, &str)] = &[
     ("Manrope", "Manrope Bold"),
+    ("Montserrat", "Montserrat Worship"),
     ("Newsreader", "Newsreader Serif"),
+    ("Cormorant Garamond", "Cormorant Editorial"),
+    ("Oswald", "Oswald Condensed"),
     ("Space Grotesk", "Space Grotesk"),
     ("Syne", "Syne Display"),
 ];
@@ -365,7 +368,7 @@ fn build_local_media_spec(path: &Path, scrim_opacity: f32) -> BackgroundSpec {
 }
 
 fn build_custom_theme(name: String, font_family: String, background: BackgroundSpec) -> Theme {
-    let is_serif = font_family == "Newsreader";
+    let is_serif = matches!(font_family.as_str(), "Newsreader" | "Cormorant Garamond");
     Theme {
         id: ThemeId::new_v7(),
         name,
